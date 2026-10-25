@@ -30,6 +30,8 @@ class Settings:
     temperature: float | None = 0.0
     usda_key: str | None = None
     timezone: str = "America/New_York"
+    health_db: Path | None = None  # None: health.db next to db_path
+    health_tz: str = "America/New_York"
 
     def api_key(self) -> str | None:
         """Read at call time, so a rotated key file needs no restart."""
@@ -54,4 +56,6 @@ def load_settings(env_file: str | None = None) -> Settings:
         model=env.get("STEZU_MODEL", Settings.model),
         temperature=None if temperature in ("", "none") else float(temperature),
         usda_key=env.get("STEZU_USDA_KEY") or None,
+        health_db=Path(env.get("STEZU_HEALTH_DB", "~/.local/share/stezu/health.db")).expanduser(),
+        health_tz=env.get("STEZU_HEALTH_TZ", Settings.health_tz),
     )

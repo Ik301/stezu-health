@@ -2,6 +2,13 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 Server: POST /sync and GET /sync/status (server/sync)
+
+- Added server/stezu_server/health.py: a separate SQLite database (`STEZU_HEALTH_DB`, default `~/.local/share/stezu/health.db`, 0600, WAL) with samples, records and batches tables, and read-only views for Hermes: live_samples, daily_quantity, steps_by_source, daily_steps, sleep_by_source, sleep_nights, body_mass, heart_rate_daily, resting_hr, hrv, spo2, respiratory_rate, temperature, workouts, stezu_records. `POST /sync` and `GET /sync/status` in app.py; contract in server/README.md. Decision D-053.
+- Tests: server/Tests/test_sync.py (10 tests: auth, replay, deletion tombstones, records, rejected items, the 5,000-item limit and speed, gzip, the views, file mode and time zone). `server/run_tests.sh` passes.
+- Unblocks S-028 and S-029, which build against FakeVMTransport.
+- Left undone: the views pick the largest single source per day for steps and sleep; Health's own source priority is not available to the server.
+
 ## 2026-10-25 S-011 Import a workout program file (night agent)
 
 - Workout has an Import program row under the templates. Live it opens the Files picker for a .json file; `-uitest` uses a fixture picker on AppEnvironment that returns a generic two-template program (replaces Day 1, adds Day 6), or a broken one under `-uitest-scenario program-invalid`. The screen shows "Imported N templates" or "Import failed." with the reason. Decision D-052.
