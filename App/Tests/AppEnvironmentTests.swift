@@ -26,7 +26,7 @@ final class AppEnvironmentTests: XCTestCase {
     XCTAssertNil(environment.scenario)
     XCTAssertTrue(environment.healthStore is HealthKitStore)
     XCTAssertTrue(environment.vmTransport is UnconfiguredVMTransport)
-    XCTAssertTrue(environment.photoSource is NoCameraPhotoSource)
+    XCTAssertTrue(environment.photoSource is LiveCameraPhotoSource)
   }
 
   func testPersistKeepsTheStoreInATemporaryFolder() {

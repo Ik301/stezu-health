@@ -40,6 +40,8 @@ struct AppEnvironment: Sendable {
   var photoSource: any PhotoSource
   /// Settings' server address and token: UserDefaults and the Keychain, or memory in `-uitest`.
   var serverSettings: any ServerSettingsStore
+  /// Meal photos saved at the shutter (S-012), stored according to `storage`.
+  var mealCaptures: MealCaptureStore
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -47,8 +49,8 @@ struct AppEnvironment: Sendable {
     let settings = DeviceServerSettingsStore()
     return AppEnvironment(
       isUITest: false, storage: .disk, scenario: nil, healthStore: HealthKitStore(),
-      vmTransport: settings.load().transport(), photoSource: NoCameraPhotoSource(),
-      serverSettings: settings)
+      vmTransport: settings.load().transport(), photoSource: LiveCameraPhotoSource(),
+      serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk))
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.
@@ -56,7 +58,8 @@ struct AppEnvironment: Sendable {
     AppEnvironment(
       isUITest: true, storage: .memory, scenario: scenario, healthStore: FakeHealthStore(),
       vmTransport: FakeVMTransport(routes: UITestFixtures.vmRoutes, offline: offline),
-      photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore())
+      photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore(),
+      mealCaptures: MealCaptureStore(storage: .memory))
   }
 
   /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.
@@ -82,6 +85,7 @@ struct AppEnvironment: Sendable {
         try? FileManager.default.removeItem(at: folder)
       }
       environment.storage = .temporary(folder)
+      environment.mealCaptures = MealCaptureStore(storage: environment.storage)
     }
     return environment
   }

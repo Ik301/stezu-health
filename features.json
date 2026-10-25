@@ -537,7 +537,7 @@
         "s012-captured"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-013",
