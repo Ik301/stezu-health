@@ -384,3 +384,11 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Each nil input gives "--" and a nil confidence; Food shows each half of "intake / target" separately, so a known intake with no target reads "600 / --". The schedule defaults to 5 Data, 11 Food, 16 Workout, 20 Food (hours before the first start wrap to the last entry); these are defaults, not personal numbers. HomeView re-reads the clock in a `TimelineView(.everyMinute)`.
 - Evidence: App/Sources/HomeViewModel.swift, App/Sources/HomeView.swift, App/Tests/HomeViewModelTests.swift; the F-005 commit on wt/F-005.
 - Reverse if: the app gains a store that publishes changes, at which point the inputs come from it, or the default hours do not match when Isaac actually weighs in, eats and trains.
+
+## D-032 v1 is tracking only
+
+- Status: decided by Isaac, 2026-10-25.
+- What: v1 of the app records and shows data. Workout logging (sets, weights, reps, templates and prebuilt workouts), food logging by photo, and a Data area showing what was recorded plus Apple Health data. No targets, suggestions, adjustments or readiness scores in the UI.
+- Why: the app has to be usable before anything adjusts behavior. The first phone test showed three blank cards and no way to log.
+- Consequence: the core rules already built stay in the repo but are not surfaced in v1: WeeklyTarget (F-003), Expenditure (F-002), ProteinFloor (F-004) and DoubleProgression (F-009). L1's weekly adjustment (D-012) waits; its 3-week data window fills in the meantime.
+- Reverse if: the app is in daily use and the adjustment loop is designed on top of it.
