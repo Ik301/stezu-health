@@ -184,3 +184,37 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Nil maps straight to "--", and holding the last value is exactly what an EWMA does when nothing new arrives. The stale-data signal lives in the confidence, not in the number.
 - Evidence: Packages/StezuCore/Sources/StezuCore/TrendWeight.swift (`series`, `estimate`), TrendWeightTests/testMissingDaysAreNotZero, testFirstWeighInSeedsTrend; the F-001 commit on wt/F-001.
 - Reverse if: F-002 or F-003 need to tell "no data yet" apart from "data too stale" with a reason string; then move to (c).
+
+## D-020 How a dining menu reaches core without a network stack
+
+- Status: proposed by night agent, 2026-10-25 (F-010).
+- Problem: core has to fetch and decode dining menus from the VM endpoint, but it must build and test on Linux with no networking import, and the endpoint URL and token are not approved yet.
+- Given: AGENTS.md keeps StezuCore free of platform imports. F-010 step 4 leaves the URL and token handling to Isaac. Tests may not touch the network.
+- Constraints:
+  - Calling URLSession from core breaks the Linux build boundary and puts the URL and token in core.
+  - A transport that takes a full URL request breaks the approval line, because core would then shape the URL and headers.
+  - A synchronous transport breaks the app's real implementation, which is async.
+- Options:
+  - (a) An async `DiningMenuTransport` protocol that receives an abstract `DiningMenuRequest` (hall, date) and returns a status code and body. The app's transport owns URL, path, token and headers. `DiningMenuClient` maps status and decodes.
+  - (b) The transport returns an already decoded `DiningMenu`, and core holds only models.
+  - (c) Core builds a `URLRequest` and the transport only executes it.
+- Decision: (a). Status mapping and decoding stay in core where they are tested; everything that needs approval stays in the app.
+- Evidence: Packages/StezuCore/Sources/StezuCore/DiningMenu.swift (`DiningMenuTransport`, `DiningMenuClient.menu`), DiningMenuTests/testClientUsesInjectedTransport; commit 3455c84 on wt/F-010.
+- Reverse if: the endpoint shape is approved and fixed; then core could own the path and query (c) so the app transport shrinks to a token and a base URL.
+
+## D-021 An unavailable menu is a separate state, never an empty menu
+
+- Status: proposed by night agent, 2026-10-25 (F-010).
+- Problem: a hall may be closed, FoodPro may not have published a day yet, or the scrape may return a menu with no dishes. Callers must not show any of these as "nothing to eat".
+- Given: "absent is not zero" (AGENTS.md rule 5). The endpoint JSON is not fixed yet; this card defines it as an envelope `{"status": "available", "menu": {...}}` or `{"status": "unavailable", "reason": "..."}`.
+- Constraints:
+  - Returning `DiningMenu` with empty meals breaks rule 5: an empty list reads as a real, empty menu.
+  - Returning a bare nil drops the reason, which the Food screen needs to say why "--" is shown.
+  - Throwing for a closed hall breaks call sites for a normal, expected state.
+- Options:
+  - (a) `DiningMenuResult` enum, `.available(DiningMenu)` or `.unavailable(reason:)`. HTTP 404, `"status": "unavailable"` and an available menu with no items all map to `.unavailable`. Other statuses and malformed JSON throw.
+  - (b) `DiningMenu?` with nil for every absent case.
+  - (c) Keep empty menus as `.available` and let the UI decide.
+- Decision: (a). Missing nutrition fields on a dish decode to nil, not 0, for the same reason.
+- Evidence: Packages/StezuCore/Sources/StezuCore/DiningMenu.swift (`DiningMenuResult`, `DiningMenuClient.decode`), DiningMenuTests/testUnavailableMenuIsAbsentNotEmpty; commit 3455c84 on wt/F-010.
+- Reverse if: the endpoint starts sending meals that are legitimately empty while others are open; then empty meals should be dropped per meal, not per menu.
