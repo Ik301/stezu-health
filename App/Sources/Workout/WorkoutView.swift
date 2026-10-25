@@ -16,7 +16,7 @@ struct WorkoutView: View {
   var body: some View {
     AreaScaffold(area: .workout, title: "Workout", goHome: goHome) {
       if let active {
-        WorkoutLoggerView(template: active)
+        WorkoutLoggerView(template: active, history: environment.workoutHistory)
       } else {
         ScrollView { today }
       }

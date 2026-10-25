@@ -589,3 +589,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The view saves through `.onChange(of: logger)`. Undo pops the log order, removes that exercise's last set and puts its numbers (and bodyweight state) back on the card. Bodyweight logs `pounds == nil`. Steppers clamp weight to [one step, 2000] and reps to [1, 100]; the weight step is the exercise's `weightStep`, else 5 lb. The prefilled weight is the exercise's `startPounds` (the seed gives barbell lifts the 45 lb empty bar; seedVersion 2), else "--" with Log off until a weight or BW is chosen. Nothing yet reads the saved file back (resume is later work).
 - Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift, App/Sources/Workout/WorkoutSessionStore.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/Workout/PrebuiltWorkouts.json (wt/S-004).
 - Reverse if: sessions move into a shared store with history (S-005/S-008), or the file grows enough that whole-file writes per set become slow.
+
+## D-046 Sessions carry their template key, and the logger takes its last numbers once at Start
+
+- Status: proposed by night agent, 2026-10-25 (S-005).
+- Problem: last-session numbers must come from the last session of the same template when there is one, and from any template otherwise, but a stored session did not say which template it came from.
+- Given: `WorkoutHistory.lastSession` (D-026) finds the latest earlier session with an exercise. `SetLogger` (D-045) is Codable and saved whole. No store of finished sessions exists yet; S-008 adds Finish.
+- Constraints:
+  - Matching sessions to templates by their exercise names breaks when two templates share an exercise, which is exactly the case to handle.
+  - Looking history up in the view on every render breaks the "view reads only the environment" rule and recomputes per set.
+  - A non-optional key breaks decoding of sessions saved before this card and empty workouts.
+- Options:
+  - (a) `WorkoutSession.templateKey: String?`, set by `SetLogger`; `TemplateHistory.lastSession` filters by key and falls back to all sessions.
+  - (b) A separate index from session start date to template key.
+  - (c) Keep only the latest numbers per (template, exercise) in a small table.
+- Decision: (a). `SetLogger.init(template:startedAt:history:)` computes `last` for every template exercise once and keeps it in the saved value; an exercise is prefilled from its last session's first set (a bodyweight set prefills BW), else from `startPounds` and the low rep, else "--" with Log off. The fallback applies per exercise: when no session of this template had it. The card's "Last 60 x 8, 7d ago" line uses the last session's set at the same position, or its last set. History reaches the view as `AppEnvironment.workoutHistory`: empty in the live app until a session store exists, synthetic under `-uitest-scenario workout-history`.
+- Evidence: Packages/StezuCore/Sources/StezuCore/TemplateHistory.swift, SetLogger.swift, WorkoutSession.swift, App/Sources/AppEnvironment.swift, App/Sources/UITestFixtures.swift (wt/S-005).
+- Reverse if: templates get renamed keys or merged, so the key no longer identifies "the same workout", or history grows large enough that per-Start scans are slow.

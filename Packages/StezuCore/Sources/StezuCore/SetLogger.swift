@@ -20,13 +20,34 @@ public struct SetLogger: Sendable, Equatable, Codable {
   public private(set) var isBodyweight = false
   /// The exercise index of every logged set, oldest first, so undo knows the last one.
   private var logOrder: [Int] = []
+  /// Each exercise's last-session numbers, same template first (TemplateHistory); exercises never
+  /// done before have no key.
+  public let last: [String: LastSessionNumbers]
 
-  public init(template: WorkoutTemplate, startedAt: Date) {
+  /// Prefills each exercise from its last session's first set, else from the template's start.
+  public init(
+    template: WorkoutTemplate, startedAt: Date, history: [WorkoutSession] = [],
+    config: WorkoutHistoryConfig = WorkoutHistoryConfig()
+  ) {
     self.template = template
-    session = WorkoutSession(startedAt: startedAt)
-    let first = template.exercises.first
-    pounds = first?.startPounds
-    reps = first?.repsLow ?? 1
+    session = WorkoutSession(startedAt: startedAt, templateKey: template.key)
+    last = TemplateHistory.lastSessions(
+      for: template, before: startedAt, in: history, config: config)
+    reps = 1
+    if let first = template.exercises.first { prefill(first) }
+  }
+
+  /// The last-session numbers of the exercise on the card; nil the first time it is done.
+  public var lastNumbers: LastSessionNumbers? { exercise.flatMap { last[$0.name] } }
+
+  private mutating func prefill(_ exercise: TemplateExercise) {
+    if let set = last[exercise.name]?.sets.first {
+      (pounds, reps, isBodyweight) = (
+        set.pounds ?? exercise.startPounds, set.reps, set.pounds == nil
+      )
+    } else {
+      (pounds, reps, isBodyweight) = (exercise.startPounds, exercise.repsLow, false)
+    }
   }
 
   public var exercise: TemplateExercise? {
@@ -59,8 +80,7 @@ public struct SetLogger: Sendable, Equatable, Codable {
     let done = session.sets(for: exercise.name)?.count ?? 0
     if done >= exercise.sets, exerciseIndex + 1 < template.exercises.count {
       exerciseIndex += 1
-      let next = template.exercises[exerciseIndex]
-      (pounds, reps, isBodyweight) = (next.startPounds, next.repsLow, false)
+      prefill(template.exercises[exerciseIndex])
     }
     return set
   }

@@ -335,7 +335,7 @@
         "s005-first-ever"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-006",
