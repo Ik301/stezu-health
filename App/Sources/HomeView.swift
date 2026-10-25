@@ -23,12 +23,25 @@ struct HomeView: View {
   var inputs = HomeInputs()
   /// Opens the area behind a tapped card.
   var open: (Area) -> Void = { _ in }
+  /// Opens Settings from the gear.
+  var openSettings: () -> Void = {}
 
   var body: some View {
     // Re-read the clock every minute so the inverted card follows the time of day.
     TimelineView(.everyMinute) { _ in
       let inverted = model.invertedCardID()
       VStack(spacing: 12) {
+        HStack {
+          Spacer()
+          Button(action: openSettings) {
+            Image(systemName: "gearshape")
+              .font(.system(size: 17, weight: .medium))
+              .foregroundStyle(Theme.text)
+              .frame(width: 44, height: 44)
+          }
+          .accessibilityLabel("Settings")
+          .accessibilityIdentifier("home.settings")
+        }
         ForEach(model.cards(inputs)) { card in
           Button {
             if let area = Area(rawValue: card.id) { open(area) }
