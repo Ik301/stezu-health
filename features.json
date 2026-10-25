@@ -365,7 +365,7 @@
         "s006-rest-adjusted"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-007",
