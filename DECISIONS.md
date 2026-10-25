@@ -697,7 +697,7 @@ The research notes cited here are kept private, because they contain personal he
   - (b) Upsert as a seed with a forced version.
   - (c) Keep imported templates in a second library layered over the seed.
 - Decision: (a). `TemplateLibrary.importProgram(_:)` returns the count or a `ProgramImport.Failure` whose message the screen shows after "Import failed."; the app saves the library only on success. The picker is `AppEnvironment.programFilePicker`: the Files picker (`.fileImporter`, security-scoped read) live, a generic fixture in `-uitest` (`program-invalid` scenario for a broken file).
-- Evidence: Packages/StezuCore/Sources/StezuCore/ProgramImport.swift, App/Sources/Workout/ProgramFilePicker.swift, App/Sources/Workout/WorkoutView.swift, App/Sources/AppEnvironment.swift (2b734b1).
+- Evidence: Packages/StezuCore/Sources/StezuCore/ProgramImport.swift, App/Sources/Workout/ProgramFilePicker.swift, App/Sources/Workout/WorkoutView.swift, App/Sources/AppEnvironment.swift (40f9d5e).
 - Reverse if: Isaac wants an import to replace the whole program (remove templates the file lacks), or a seed fix should reach an imported template.
 
 
