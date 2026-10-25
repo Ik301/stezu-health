@@ -81,7 +81,7 @@
       "title": "Home screen three cards from a view model",
       "area": "app",
       "needs_approval": false,
-      "passes": false,
+      "passes": true,
       "steps": [
         "Add a HomeViewModel that produces the Data, Food and Workout cards (label, subtitle, value text) from core values.",
         "Time of day picks the inverted card; inject the clock.",

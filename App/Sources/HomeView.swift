@@ -7,33 +7,34 @@ struct HomeCard: Identifiable, Equatable, Sendable {
   let label: String
   let subtitle: String
   let value: String
+  /// Confidence of the derived value; nil when the value is missing or not derived.
+  var confidence: Confidence? = nil
 }
 
-/// Placeholder content until F-005 adds the view model.
+/// The cards before any data exists: every value is missing.
 enum HomePlaceholder {
-  static let missing = "--"
+  static let missing = HomeViewModel.missing
   static let coreVersion = StezuCore.version
-  static let cards: [HomeCard] = [
-    HomeCard(id: "data", label: "Data", subtitle: "Trend weight, this week", value: missing),
-    HomeCard(id: "food", label: "Food", subtitle: "Today against target", value: missing),
-    HomeCard(id: "workout", label: "Workout", subtitle: "Last session", value: missing),
-  ]
+  static let cards: [HomeCard] = HomeViewModel().cards(HomeInputs())
 }
 
 struct HomeView: View {
-  var cards: [HomeCard] = HomePlaceholder.cards
-  /// The inverted "log this now" card. F-005 picks it by time of day.
-  var invertedCardID: String? = "food"
+  var model = HomeViewModel()
+  var inputs = HomeInputs()
 
   var body: some View {
-    VStack(spacing: 12) {
-      ForEach(cards) { card in
-        HomeCardView(card: card, inverted: card.id == invertedCardID)
+    // Re-read the clock every minute so the inverted card follows the time of day.
+    TimelineView(.everyMinute) { _ in
+      let inverted = model.invertedCardID()
+      VStack(spacing: 12) {
+        ForEach(model.cards(inputs)) { card in
+          HomeCardView(card: card, inverted: card.id == inverted)
+        }
       }
+      .padding(16)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(Theme.background.ignoresSafeArea())
     }
-    .padding(16)
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Theme.background.ignoresSafeArea())
   }
 }
 

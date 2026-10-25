@@ -2,6 +2,14 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 F-005 Home screen three cards from a view model (night agent)
+
+- Added `HomeViewModel` and `HomeInputs` in App/Sources/HomeViewModel.swift. Inputs are the optional core results: `TrendEstimate`, `WeeklyTargetDecision`, today's intake kcal, `ProteinFloor.Outcome` and `LastSessionNumbers`. Cards: Data (trend lb, 1 decimal), Food ("intake / target" kcal, subtitle adds "protein low" when under the floor), Workout (heaviest last-session set as "110 x 3", bodyweight as "N reps", subtitle "exercise, Nd ago"). `HomeCard` gained an optional `confidence`. Decision D-031.
+- The inverted card comes from an injected `now` closure and a start-hour schedule (default 5 Data, 11 Food, 16 Workout, 20 Food). HomeView renders the model's cards with the existing Theme tokens inside a minute `TimelineView`. `HomePlaceholder.cards` now comes from the model with empty inputs.
+- Tests: HomeViewModelTests (3 tests, synthetic values, built through the real core functions). Linux cannot build the SwiftUI app, so the view model and tests were also compiled and run in a scratch Swift 6 package on Linux (3/3 pass); the ios CI job runs them for real. Gates: `FEATURE_ID=F-005 scripts/gate-linux.sh` passed G1 to G4. F-005 flipped with check-features.py --flip.
+- Left undone / noticed: nothing feeds `HomeInputs` yet; the app still shows all "--" until HealthKit import and storage land. The default schedule hours are guesses (D-010 puts the weigh-in at the gym, so a morning Data card may be wrong). Number text uses `String(format:)`, not the device locale, so no thousands separators.
+- Next: F-006 or whichever card wires HealthKit into the inputs.
+
 ## 2026-10-25 F-009 Double-progression rule (night agent)
 
 - Added `DoubleProgression` in Packages/StezuCore/Sources/StezuCore/DoubleProgression.swift: `Config` (rep range, default 8...12, and weight step, default 5 lb; failable init rejects a range below 1 rep or a non-positive step), `Action` (`.addReps` / `.addWeight`), `Suggestion` (pounds, per-set target reps, confidence) and `suggest(after:config:)` over F-008's `LastSessionNumbers`. Decision D-030.
