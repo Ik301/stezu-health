@@ -6,20 +6,31 @@ enum Area: String, CaseIterable, Sendable {
   case data, food, workout
 }
 
-/// Home, or one area at a time. S-001 adds the bottom nav of three circles.
+/// Home, or one area at a time. Every area screen gets the bottom nav of three circles, which
+/// switches areas in one tap; the shell owns the current area, so area views never navigate.
 struct AppShell: View {
   @State private var area: Area?
 
   var body: some View {
-    switch area {
-    case nil:
+    if let area {
+      areaView(area)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+          BottomNav(active: area, open: { self.area = $0 })
+        }
+    } else {
       HomeView(open: { area = $0 })
-    case .data?:
-      DataView(goHome: { area = nil })
-    case .food?:
-      FoodView(goHome: { area = nil })
-    case .workout?:
-      WorkoutView(goHome: { area = nil })
+    }
+  }
+
+  @ViewBuilder
+  private func areaView(_ area: Area) -> some View {
+    switch area {
+    case .data:
+      DataView(goHome: { self.area = nil })
+    case .food:
+      FoodView(goHome: { self.area = nil })
+    case .workout:
+      WorkoutView(goHome: { self.area = nil })
     }
   }
 }

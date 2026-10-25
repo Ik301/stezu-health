@@ -2,6 +2,13 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 S-001 Bottom circles switch areas (night agent)
+
+- Added App/Sources/BottomNav.swift: three 58 pt circles (Data, Food, Workout), the active one black, ids `nav.circle.<area>` with accessibility value active/inactive. AppShell attaches it under every area screen with `safeAreaInset` and owns the area switch (D-041). Area views and AreaScaffold are unchanged; `Area.title` added.
+- Tests: AppUITests.ShellNavigationUITests/testBottomCirclesSwitchAreas walks the story (Home "--" cards, Workout, Food, Data, Home) and saves s001-home, s001-workout, s001-food, s001-data.
+- Gates: `FEATURE_ID=S-001 scripts/gate-linux.sh` passed G1 to G5. Flipped with check-features.py --flip S-001.
+- Left undone: none for the story. The circles show their names as text; DESIGN.md does not say icon or text.
+
 ## 2026-10-25 infra/v1-stories: project infrastructure and the stories ledger (daytime session)
 
 - Why: the first night's 8 cards passed every gate, yet the phone showed three blank cards that could not be tapped. features.json described engineering units, and nothing checked screens.
