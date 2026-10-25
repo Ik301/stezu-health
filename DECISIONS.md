@@ -454,3 +454,53 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a).
 - Evidence: server/stezu_server/scan.py (`spread`, `span`, `widen`, `candidates`), server/Tests/test_scan.py.
 - Reverse if: meals logged against weighed portions show the truth outside the range more than about 1 time in 5, or the ranges come out much wider than the observed error.
+## D-038 Work items are user stories, each proven by a UI test on the simulator
+
+- Status: proposed, 2026-10-25 (infra/v1-stories).
+- Problem: every gate passed on the first night, yet the app on the phone showed three blank cards that could not be tapped. Nothing checked what a person can do on a screen.
+- Given: features.json listed engineering units with unit tests. The ios CI job ran only AppTests and was advisory. Night cards run on a Linux VM with no simulator. D-032 to D-035 define v1 as tracking only across Workout, Food and Data.
+- Constraints:
+  - Unit tests alone break the link between "passes" and "usable": a view model can pass with no screen behind it.
+  - A check that only runs on a Mac breaks for night cards, which have no simulator; it has to run in CI.
+  - A required macOS job adds roughly 10 to 15 minutes to every PR, which slows docs-only merges.
+- Options:
+  - (a) Keep engineering features and add a manual phone check each morning.
+  - (b) User stories whose steps an XCUITest drives on a CI simulator, with named screenshots kept as artifacts, and the ios job required.
+  - (c) Image snapshot tests compared against stored references.
+- Decision: (b). features.json schema 2 keeps F-001 to F-010 unchanged as `kind: engine` and adds S-001 to S-026 as `kind: story` (3 shell, 9 workout, 8 food, 6 data), each sized for one card, ordered shell first so the three areas can then run in parallel. `--flip` needs the story's dependencies to pass and its tests and screenshot names to exist; the ios check runs the UI tests and fails when a passing story's screenshots are missing. `ios` becomes a required check next to `linux-core` once it passes on this PR.
+- Evidence: features.json, scripts/check-features.py, scripts/export-screenshots.py, .github/workflows/ci.yml, App/UITests/SmokeUITests.swift.
+- Reverse if: the ios job is too slow or flaky to gate merges (then run the UI tests nightly on main instead), or a story passes in CI and still fails on the phone, which would mean the fakes hide too much.
+
+## D-039 A -uitest launch argument swaps every outside dependency for a fake, chosen once at launch
+
+- Status: proposed, 2026-10-25 (infra/v1-stories).
+- Problem: UI tests on a CI simulator have no camera, no Health data, no server and no network, and the v1 screens need all four.
+- Given: core already reaches the dining menu through an injected transport (D-020). XCUITest drives the app as a separate process. SwiftUI views can read values from the environment.
+- Constraints:
+  - Fakes that exist only in a test target break, because XCUITest cannot inject objects into the app process.
+  - A separate test build configuration with `#if` breaks the one-project, one-scheme setup cards rely on and doubles build time.
+  - Fixture data resembling Isaac's breaks D-034.
+- Options:
+  - (a) A launch argument that the app reads at start to pick fakes, passed down as one environment value.
+  - (b) A UITest build configuration that compiles fakes in with `#if`.
+  - (c) A mock HTTP server and seeded Health data on the CI simulator.
+- Decision: (a). `AppEnvironment.fromLaunch()` reads `-uitest` and picks an in-memory store, `FakeHealthStore`, `FakeVMTransport` and `FixturePhotoSource`; `-uitest-scenario`, `-uitest-offline`, `-uitest-persist` and `-uitest-reset` cover seeded data, offline queues and resume after relaunch. Views read `\.appEnvironment`. The protocols and core fakes (`HealthStore`, `VMTransport`) live in StezuCore so core tests use them too. The live app uses `HealthKitStore`, and `UnconfiguredVMTransport` until Settings has a server. The fakes ship in the app binary but are reachable only through the launch argument.
+- Evidence: App/Sources/AppEnvironment.swift, App/Sources/PhotoSource.swift, App/Sources/UITestFixtures.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift and VMTransport.swift, App/UITests/UITestSupport.swift.
+- Reverse if: the app ships to anyone but Isaac (then strip the fakes with `#if DEBUG`), or a bug that the fakes hide reaches the phone more than once.
+
+## D-040 Project files change only on infra/* branches
+
+- Status: proposed, 2026-10-25 (infra/v1-stories).
+- Problem: v1 needs an entitlement, Info.plist keys, a widget extension and a UI test target, but G3 forbids cards from touching project files, and that rule is what stops unattended cards from granting themselves capabilities or relaxing their own gates.
+- Given: G3 failed any branch that changed an entitlements file or mentioned entitlements in project.yml, and treated every non-main branch as a card. Cards run unattended; Isaac reviews in the morning. A server agent builds server/ in parallel.
+- Constraints:
+  - Letting cards edit project.yml, scripts/ or CI breaks the gates' independence: a card could loosen the gate that judges it.
+  - Card budgets (300 lines, 12 files) break infra PRs such as this one (about 1,700 non-test lines in 23 files, most of it features.json).
+  - Checking project.yml's whole text for "entitlements" breaks every card once the app legitimately has an entitlement.
+- Options:
+  - (a) Branch kind decides: infra/* may change project files and has no size budget; every other branch is a card that may not.
+  - (b) A per-PR label that unlocks project files.
+  - (c) Isaac makes every project change by hand.
+- Decision: (a). Card branches may not change *.entitlements, project.yml, scripts/, .github/, Package.swift, Info.plist or *.xcodeproj. infra/* may, without a size limit, and G2 lets it restructure features.json. The signing check now looks only for a team, identity or profile. G5 runs server/run_tests.sh when it exists.
+- Evidence: scripts/diff-budget.sh, scripts/check-features.py, scripts/gate-linux.sh, AGENTS.md.
+- Reverse if: a card ever pushes an infra/* branch (then require Isaac's approval on infra PRs), or cards are blocked for a whole night by a project change they needed.

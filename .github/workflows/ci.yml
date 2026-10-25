@@ -22,10 +22,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Install git and python3 if missing
+      - name: Install git, python3 and python3-venv if missing
         run: |
-          if ! command -v git >/dev/null || ! command -v python3 >/dev/null; then
-            apt-get update && apt-get install -y --no-install-recommends git python3
+          if ! command -v git >/dev/null || ! command -v python3 >/dev/null \
+            || ! python3 -c 'import ensurepip' 2>/dev/null; then
+            apt-get update && apt-get install -y --no-install-recommends git python3 python3-venv
           fi
       - uses: actions/checkout@v5
         with:
@@ -40,7 +41,7 @@ jobs:
   ios:
     name: ios
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen
@@ -73,7 +74,11 @@ jobs:
           EOF
           )"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-      - name: Test
+      - name: Boot the simulator
+        run: |
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" || true
+          xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
+      - name: Unit and UI tests (AppTests, AppUITests)
         run: |
           set -o pipefail
           mkdir -p build
@@ -81,15 +86,29 @@ jobs:
             -project StezuHealth.xcodeproj \
             -scheme StezuHealth \
             -destination "id=${{ steps.sim.outputs.udid }}" \
-            -resultBundlePath build/AppTests.xcresult \
+            -resultBundlePath build/ios.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             | tee build/xcodebuild.txt
+      - name: Export UI test screenshots
+        if: always()
+        run: python3 scripts/export-screenshots.py build/ios.xcresult build/screenshots
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-test-results
           path: |
-            build/AppTests.xcresult
+            build/ios.xcresult
             build/xcodebuild.txt
+          if-no-files-found: warn
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-screenshots
+          path: |
+            build/screenshots/*.png
+            build/screenshots/*.jpg
+            build/screenshots/*.jpeg
+            build/screenshots/*.heic
           if-no-files-found: warn

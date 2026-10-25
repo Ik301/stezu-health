@@ -1,8 +1,9 @@
 {
-  "schema": 1,
+  "schema": 2,
   "features": [
     {
       "id": "F-001",
+      "kind": "engine",
       "title": "Trend weight EWMA over irregular gaps",
       "area": "core",
       "needs_approval": false,
@@ -22,6 +23,7 @@
     },
     {
       "id": "F-002",
+      "kind": "engine",
       "title": "Expenditure estimate",
       "area": "core",
       "needs_approval": false,
@@ -40,6 +42,7 @@
     },
     {
       "id": "F-003",
+      "kind": "engine",
       "title": "Weekly calorie target rule",
       "area": "core",
       "needs_approval": false,
@@ -60,6 +63,7 @@
     },
     {
       "id": "F-004",
+      "kind": "engine",
       "title": "Protein floor flag",
       "area": "core",
       "needs_approval": false,
@@ -78,6 +82,7 @@
     },
     {
       "id": "F-005",
+      "kind": "engine",
       "title": "Home screen three cards from a view model",
       "area": "app",
       "needs_approval": false,
@@ -96,6 +101,7 @@
     },
     {
       "id": "F-006",
+      "kind": "engine",
       "title": "HealthKit body-mass read behind the HealthStore protocol",
       "area": "app",
       "needs_approval": true,
@@ -113,6 +119,7 @@
     },
     {
       "id": "F-007",
+      "kind": "engine",
       "title": "One-tap weigh-in write",
       "area": "app",
       "needs_approval": true,
@@ -130,6 +137,7 @@
     },
     {
       "id": "F-008",
+      "kind": "engine",
       "title": "Workout session model with last-session numbers and a rest timer",
       "area": "core",
       "needs_approval": false,
@@ -147,6 +155,7 @@
     },
     {
       "id": "F-009",
+      "kind": "engine",
       "title": "Double-progression rule",
       "area": "core",
       "needs_approval": false,
@@ -164,6 +173,7 @@
     },
     {
       "id": "F-010",
+      "kind": "engine",
       "title": "Dining menu models and client against a VM endpoint",
       "area": "core",
       "needs_approval": true,
@@ -179,6 +189,756 @@
         "StezuCoreTests.DiningMenuTests/testClientUsesInjectedTransport",
         "StezuCoreTests.DiningMenuTests/testUnavailableMenuIsAbsentNotEmpty"
       ]
+    },
+    {
+      "id": "S-001",
+      "kind": "story",
+      "area": "shell",
+      "title": "Tap a Home card to open its area, then move between areas with the three bottom circles",
+      "steps": [
+        "Launch the app. Home shows three tall cards, Data, Food and Workout, each with a label, a subtitle and a number (\"--\" when there is no data).",
+        "Tap the Workout card. The Workout screen opens with the bottom nav: three 58 pt circles (Data, Food, Workout), Workout black, as in DESIGN.md.",
+        "Tap the Food circle. The Food screen opens and the Food circle is black. Tap the Data circle. The Data screen opens and the Data circle is black.",
+        "Tap the Home button at the top left. Home shows again.",
+        "Keep the ids the smoke test uses: home.card.<area>, screen.<area>.title and nav.home. Add nav.circle.<area> for the circles."
+      ],
+      "tap_budget": "1 tap from Home into any area; 1 tap between areas; 1 tap back Home",
+      "depends_on": [],
+      "core_tests": [],
+      "ui_tests": [
+        "AppUITests.ShellNavigationUITests/testBottomCirclesSwitchAreas"
+      ],
+      "screenshots": [
+        "s001-home",
+        "s001-workout",
+        "s001-food",
+        "s001-data"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-002",
+      "kind": "story",
+      "area": "shell",
+      "title": "Set the server address and token once in Settings",
+      "steps": [
+        "On Home, tap the gear. Settings shows Server address and Token, empty on first launch.",
+        "Type an address and a token (the keyboard is fine here) and tap Save. The token goes to the Keychain and shows masked; the address goes to app settings. Neither is ever committed.",
+        "Tap Test connection. The app calls the server through the VM client with the bearer token and shows Connected (in -uitest the fake transport answers GET /health).",
+        "The live app now uses a URLSession transport built from these settings instead of UnconfiguredVMTransport. With no server set, every server feature shows \"Set up the server in Settings\", never a crash or a 0."
+      ],
+      "tap_budget": "1 tap from Home to Settings; typing only on this screen",
+      "depends_on": [
+        "S-001"
+      ],
+      "core_tests": [
+        "AppTests.ServerSettingsTests/testLiveTransportSendsBearerToken",
+        "AppTests.ServerSettingsTests/testNoServerIsNotConfigured"
+      ],
+      "ui_tests": [
+        "AppUITests.ServerSettingsUITests/testSaveServerAndTestConnection"
+      ],
+      "screenshots": [
+        "s002-settings-empty",
+        "s002-settings-connected"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-003",
+      "kind": "story",
+      "area": "workout",
+      "title": "Tap Workout, see the five generic templates, and start Day 1",
+      "steps": [
+        "Tap the Workout card. The black card is the next template in the rotation (Day 1 on first launch) with its exercises; below it, a row for each other template and Empty workout. This week's sessions and working sets show \"--\".",
+        "The templates come from a bundled generic seed, PrebuiltWorkouts.json with a seedVersion: a generic 5-day split, never Isaac's program (D-034). On launch a newer seed is upserted by key; templates the user edited and all history are left alone.",
+        "Tap Start. The logger opens on the first exercise: its name, \"Set 1 of N\" and the template's rep range."
+      ],
+      "tap_budget": "2 taps from Home (Workout card, Start)",
+      "depends_on": [
+        "S-001"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WorkoutTemplateTests/testSeedDecodesFiveTemplates",
+        "StezuCoreTests.WorkoutTemplateTests/testSeedUpsertKeepsEditedTemplates",
+        "StezuCoreTests.WorkoutTemplateTests/testRotationPicksNextTemplate"
+      ],
+      "ui_tests": [
+        "AppUITests.WorkoutStartUITests/testStartDayOneFromTemplates"
+      ],
+      "screenshots": [
+        "s003-workout-today",
+        "s003-logger-first-set"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-004",
+      "kind": "story",
+      "area": "workout",
+      "title": "Log a prefilled set in one tap, adjust it with steppers, and undo it",
+      "steps": [
+        "Start Day 1. The big black Log card shows the current set prefilled with weight and reps.",
+        "Tap Log. The set appears as logged and the card moves to \"Set 2 of N\" with the same numbers. The set is saved to the store at that moment.",
+        "Tap + on weight (the exercise's step, default 5 lb) and - on reps. No keyboard appears. Tap Log: the new numbers are logged.",
+        "Tap the bodyweight toggle: weight shows \"BW\" and is stored as nil, never 0.",
+        "Tap Undo. The last set disappears and the Log card returns to it."
+      ],
+      "tap_budget": "1 tap to log a set; 1 tap to undo; 1 tap per stepper step",
+      "depends_on": [
+        "S-003"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SetLoggerTests/testUndoRemovesOnlyLastSet",
+        "StezuCoreTests.SetLoggerTests/testSteppersStayInRange",
+        "StezuCoreTests.SetLoggerTests/testBodyweightIsNilNotZero"
+      ],
+      "ui_tests": [
+        "AppUITests.SetLoggerUITests/testLogSetInOneTapAdjustAndUndo"
+      ],
+      "screenshots": [
+        "s004-prefilled",
+        "s004-logged",
+        "s004-undone"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-005",
+      "kind": "story",
+      "area": "workout",
+      "title": "See last session's numbers beside each set, from the same template first",
+      "steps": [
+        "Launch with -uitest-scenario workout-history: synthetic past sessions where Day 1 and Day 2 share an exercise.",
+        "Start Day 1. Each set row shows the last numbers and their age (\"Last 60 x 8, 7d ago\" style) from the last Day 1 session, not the newer Day 2 one. With no session of this template, any template's last session is used.",
+        "The Log card is prefilled from those numbers.",
+        "An exercise never done before shows \"--\" and the Log card stays disabled until a weight is set or bodyweight is chosen."
+      ],
+      "tap_budget": "0 taps to see last numbers",
+      "depends_on": [
+        "S-004"
+      ],
+      "core_tests": [
+        "StezuCoreTests.TemplateHistoryTests/testPrefersSameTemplate",
+        "StezuCoreTests.TemplateHistoryTests/testFallsBackToAnyTemplate",
+        "StezuCoreTests.TemplateHistoryTests/testFirstEverExerciseIsAbsent"
+      ],
+      "ui_tests": [
+        "AppUITests.LastSessionUITests/testLastNumbersFromSameTemplate"
+      ],
+      "screenshots": [
+        "s005-last-numbers",
+        "s005-first-ever"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-006",
+      "kind": "story",
+      "area": "workout",
+      "title": "After logging a set, rest counts down by itself, with +15, -15, Skip and a lock-screen Live Activity",
+      "steps": [
+        "Log a set. A rest countdown starts at the template's rest for that exercise, with no tap.",
+        "Tap +15 s, then -15 s: the countdown changes and the start time is kept. Tap Skip: the countdown goes away.",
+        "While it runs, the app starts the RestActivity Live Activity (App/Shared/RestActivityAttributes) and updates and ends it with the countdown, and schedules a local notification for zero. Both sit behind a protocol with a fake in -uitest.",
+        "Check on the phone that the widget extension installs with a free account (D-033); note the result in PROGRESS.md."
+      ],
+      "tap_budget": "0 taps to start a rest; 1 tap to adjust or skip",
+      "depends_on": [
+        "S-004"
+      ],
+      "core_tests": [
+        "StezuCoreTests.RestTimerTests/testAdjustKeepsStartTime",
+        "StezuCoreTests.RestTimerTests/testSkipEndsRest",
+        "AppTests.RestActivityControllerTests/testLoggedSetStartsActivityUntilRestEnds"
+      ],
+      "ui_tests": [
+        "AppUITests.RestTimerUITests/testRestStartsAfterLogAndAdjusts"
+      ],
+      "screenshots": [
+        "s006-rest-running",
+        "s006-rest-adjusted"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-007",
+      "kind": "story",
+      "area": "workout",
+      "title": "Swap an exercise from the library, or add a custom one",
+      "steps": [
+        "In the logger, tap the exercise's menu, then Swap. The Exercises library opens: a search field, a list grouped by muscle, each row with when it was last done (\"--\" if never).",
+        "Type part of a name: the list filters. Tap an exercise: the logger shows it in place of the old one for this session only; the template is unchanged.",
+        "Tap New exercise, enter name, equipment, muscle and rest (the only keyboard in Workout) and Save. It appears marked custom with a stable key and can be picked."
+      ],
+      "tap_budget": "2 taps to swap (menu, pick); about 4 taps plus typing for a custom exercise",
+      "depends_on": [
+        "S-004"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ExerciseLibraryTests/testSearchIgnoresCase",
+        "StezuCoreTests.ExerciseLibraryTests/testCustomExerciseGetsStableKey"
+      ],
+      "ui_tests": [
+        "AppUITests.ExerciseLibraryUITests/testSwapFromLibrary",
+        "AppUITests.ExerciseLibraryUITests/testAddCustomExercise"
+      ],
+      "screenshots": [
+        "s007-library",
+        "s007-swapped",
+        "s007-custom"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-008",
+      "kind": "story",
+      "area": "workout",
+      "title": "Tap Finish to save the workout and write it to Apple Health",
+      "steps": [
+        "Log at least one set and tap Finish (no confirmation). The logger closes; the Workout screen shows this week's sessions and working sets.",
+        "The session is written through HealthStore.saveStrengthWorkout(start:end:externalID:) as a traditional strength training HKWorkout built with HKWorkoutBuilder, with no energy samples. The external id makes a retry safe. The session row shows \"In Health\" (the fake HealthStore records the write in -uitest).",
+        "If the write is denied or fails, the session still saves and shows \"Not in Health\".",
+        "Finishing with no sets discards the session instead of writing an empty workout."
+      ],
+      "tap_budget": "1 tap (Finish)",
+      "depends_on": [
+        "S-004"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WorkoutFinishTests/testFinishWritesOneWorkoutWithExternalID",
+        "StezuCoreTests.WorkoutFinishTests/testEmptySessionIsDiscarded",
+        "StezuCoreTests.WorkoutFinishTests/testFailedWriteKeepsSession"
+      ],
+      "ui_tests": [
+        "AppUITests.WorkoutFinishUITests/testFinishSavesAndWritesToHealth"
+      ],
+      "screenshots": [
+        "s008-finished",
+        "s008-in-health"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-009",
+      "kind": "story",
+      "area": "workout",
+      "title": "Close the app mid-workout and pick up where you left off",
+      "steps": [
+        "Launch with -uitest-persist -uitest-reset, start Day 1 and log two sets.",
+        "Terminate and relaunch with -uitest-persist. The Workout screen shows Resume in place of the black card.",
+        "Tap Resume. The logger opens on the same exercise with both sets logged.",
+        "A session idle for more than 3 hours (a configurable default) closes itself at launch, ending at its last set."
+      ],
+      "tap_budget": "1 tap (Resume)",
+      "depends_on": [
+        "S-004"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SessionResumeTests/testUnfinishedSessionIsResumed",
+        "StezuCoreTests.SessionResumeTests/testIdleSessionClosesAtLastSet"
+      ],
+      "ui_tests": [
+        "AppUITests.SessionResumeUITests/testUnfinishedSessionResumesAfterRelaunch"
+      ],
+      "screenshots": [
+        "s009-resume-card",
+        "s009-resumed"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-010",
+      "kind": "story",
+      "area": "workout",
+      "title": "See this week's workouts, Monday to Sunday, and open a past session",
+      "steps": [
+        "Launch with -uitest-scenario workout-history. On Workout, tap History.",
+        "Weeks run Monday to Sunday, newest first, each with its sessions and working-set count. Weeks without sessions show no 0 rows.",
+        "Tap a session: its exercises and sets as weight x reps. Tap an exercise: its past sessions, newest first."
+      ],
+      "tap_budget": "1 tap to History; 1 tap per drill-down",
+      "depends_on": [
+        "S-008"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WeeklyHistoryTests/testWeekRunsMondayToSunday",
+        "StezuCoreTests.WeeklyHistoryTests/testWorkingSetsPerWeek"
+      ],
+      "ui_tests": [
+        "AppUITests.WorkoutHistoryUITests/testWeeklyHistoryAndSessionDetail"
+      ],
+      "screenshots": [
+        "s010-history",
+        "s010-session"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-011",
+      "kind": "story",
+      "area": "workout",
+      "title": "Import a workout program from a JSON file in the Files app",
+      "steps": [
+        "On Workout, tap Import program. The Files picker opens for a .json file; in -uitest a fixture picker returns a synthetic program.",
+        "The file uses the bundled seed's format. A valid file adds its templates (replacing earlier imports with the same key), leaves history alone, and shows how many templates were imported.",
+        "An invalid file shows what is wrong and changes nothing.",
+        "This is how Isaac's own program reaches the phone. It never enters the repo; the fixture is generic (D-034)."
+      ],
+      "tap_budget": "2 taps plus picking the file",
+      "depends_on": [
+        "S-003"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ProgramImportTests/testImportUpsertsTemplatesByKey",
+        "StezuCoreTests.ProgramImportTests/testInvalidFileChangesNothing"
+      ],
+      "ui_tests": [
+        "AppUITests.ProgramImportUITests/testImportProgramFromFile"
+      ],
+      "screenshots": [
+        "s011-imported"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-012",
+      "kind": "story",
+      "area": "food",
+      "title": "Tap Food and land straight in the camera, with Home at the top left and a Photo/Barcode switch",
+      "steps": [
+        "Tap the Food card. The camera opens at once, full screen (in -uitest the fixture photo source shows a synthetic plate). Home button at the top left, a Photo/Barcode pill switch, the shutter and a History button.",
+        "The first time, iOS asks for the camera (NSCameraUsageDescription). If denied, the screen says how to turn it on in Settings.",
+        "Tap the shutter. The photo is saved to local storage as a captured meal before any network call, and a sheet shows \"Matching...\"."
+      ],
+      "tap_budget": "1 tap from Home to the camera; 1 tap for the shutter",
+      "depends_on": [
+        "S-001"
+      ],
+      "core_tests": [
+        "AppTests.MealCaptureTests/testShutterSavesPhotoBeforeAnyNetworkCall"
+      ],
+      "ui_tests": [
+        "AppUITests.FoodCameraUITests/testFoodOpensCameraAndShutterSavesPhoto"
+      ],
+      "screenshots": [
+        "s012-camera",
+        "s012-captured"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-013",
+      "kind": "story",
+      "area": "food",
+      "title": "Take a photo and see its items matched against every dining hall's menu for that meal",
+      "steps": [
+        "Tap the shutter. The app sends the downscaled photo, its hash, a client meal id and the meal period to the VM server (POST /scan, server/README.md), which matches it against the menus of all dining halls open for that meal (D-035).",
+        "A sheet lists the matched items, each with its hall, servings, and kcal and protein as low-high ranges, plus meal totals as ranges. Never a single number.",
+        "An item not on any menu comes back as a rough estimate with a wider range and a \"rough\" badge.",
+        "In -uitest the fake transport answers with a synthetic fixture."
+      ],
+      "tap_budget": "1 tap (shutter)",
+      "depends_on": [
+        "S-012"
+      ],
+      "core_tests": [
+        "StezuCoreTests.PhotoMatchClientTests/testDecodesItemsAcrossHalls",
+        "StezuCoreTests.PhotoMatchClientTests/testUnlistedItemIsRoughWithWiderRange",
+        "StezuCoreTests.FoodRangeTests/testMealTotalSumsLowsAndHighs"
+      ],
+      "ui_tests": [
+        "AppUITests.PhotoMatchUITests/testPhotoShowsMatchedItemsWithRanges"
+      ],
+      "screenshots": [
+        "s013-matched"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-014",
+      "kind": "story",
+      "area": "food",
+      "title": "Search dining items, restaurants and packaged food from the camera screen",
+      "steps": [
+        "On the camera screen, tap the search bar and type. Results from the VM (GET /search) come grouped: dining hall items (with the hall), restaurants, packaged food.",
+        "Tap a result. The item list opens with that item at 1 serving and its ranges.",
+        "With no good match, tap \"Estimate from text\". The VM (GET /search with estimate=true) returns a rough estimate, shown with the \"rough\" badge and a wider range.",
+        "In -uitest the fake transport answers search and text estimate with synthetic fixtures."
+      ],
+      "tap_budget": "1 tap into search, typing, 1 tap to pick",
+      "depends_on": [
+        "S-012"
+      ],
+      "core_tests": [
+        "StezuCoreTests.FoodSearchClientTests/testDecodesGroupedResults",
+        "StezuCoreTests.FoodSearchClientTests/testTextEstimateIsRough"
+      ],
+      "ui_tests": [
+        "AppUITests.FoodSearchUITests/testSearchPicksItemAndTextFallback"
+      ],
+      "screenshots": [
+        "s014-results",
+        "s014-text-estimate"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-015",
+      "kind": "story",
+      "area": "food",
+      "title": "Fix the item list (replace, remove, half servings, add) and log the meal with one Log tap",
+      "steps": [
+        "After a photo (fixture match), tap an item's name. Search opens; pick a replacement. The item and the totals update.",
+        "Tap - or + on an item: servings change in half steps, never below 0.5, and the ranges recompute.",
+        "Remove an item: it leaves the list and the totals.",
+        "Tap + Add item, search and pick: it joins the list at 1 serving.",
+        "Tap Log, the single Log button. The meal is saved as confirmed, the sheet closes to the camera, and an undo toast shows."
+      ],
+      "tap_budget": "1 tap (Log) when nothing needs fixing; 1-2 taps per fix",
+      "depends_on": [
+        "S-013",
+        "S-014"
+      ],
+      "core_tests": [
+        "StezuCoreTests.MealEditTests/testHalfServingStepsRecomputeRanges",
+        "StezuCoreTests.MealEditTests/testServingsNeverBelowHalf",
+        "StezuCoreTests.MealEditTests/testRemoveAndAddItem"
+      ],
+      "ui_tests": [
+        "AppUITests.MealEditUITests/testFixItemsAndLog"
+      ],
+      "screenshots": [
+        "s015-edited",
+        "s015-logged"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-016",
+      "kind": "story",
+      "area": "food",
+      "title": "Switch to Barcode, scan a package, and get it from Open Food Facts",
+      "steps": [
+        "On the camera, switch the pill to Barcode. VisionKit's DataScanner reads the code; in -uitest a fixture barcode source returns a synthetic code.",
+        "The code goes to the VM (GET /barcode/{gtin}), which looks it up in Open Food Facts. The item list opens with the product, its serving label and ranges, ready to Log.",
+        "An unknown code shows \"Not found\" and offers search instead."
+      ],
+      "tap_budget": "1 tap (switch), then point the camera",
+      "depends_on": [
+        "S-015"
+      ],
+      "core_tests": [
+        "StezuCoreTests.BarcodeClientTests/testDecodesProduct",
+        "StezuCoreTests.BarcodeClientTests/testUnknownCodeIsNotFoundNotEmpty"
+      ],
+      "ui_tests": [
+        "AppUITests.BarcodeUITests/testBarcodeFindsProduct"
+      ],
+      "screenshots": [
+        "s016-barcode-mode",
+        "s016-product"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-017",
+      "kind": "story",
+      "area": "food",
+      "title": "Photograph a meal offline; it waits in a queue and gets matched once the server is back",
+      "steps": [
+        "Launch with -uitest-offline -uitest-persist -uitest-reset and tap the shutter. The meal is saved and shows \"Pending, will match when online\"; today shows \"+1 pending\", never 0 kcal.",
+        "Relaunch online with -uitest-persist. The queue retries in order, the meal gets its items and ranges, and it is ready to Log.",
+        "Nothing pending is ever deleted automatically."
+      ],
+      "tap_budget": "0 extra taps (Log later)",
+      "depends_on": [
+        "S-013"
+      ],
+      "core_tests": [
+        "StezuCoreTests.MealQueueTests/testOfflineMealStaysPending",
+        "StezuCoreTests.MealQueueTests/testQueueRetriesInOrder",
+        "StezuCoreTests.MealQueueTests/testPendingNeverCountsAsZero"
+      ],
+      "ui_tests": [
+        "AppUITests.OfflineQueueUITests/testOfflineMealQueuesAndMatchesLater"
+      ],
+      "screenshots": [
+        "s017-pending",
+        "s017-matched-later"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-018",
+      "kind": "story",
+      "area": "food",
+      "title": "A logged meal is written to Apple Health as one food entry",
+      "steps": [
+        "Log a meal (fixture match). It is saved locally first, then written through HealthStore as one HKCorrelation of type food holding dietary energy and protein: the midpoints, with low and high in metadata, and the meal id as the sync identifier.",
+        "The meal shows \"In Health\". If the write is denied (the fake can deny), it shows \"Not in Health\" and the meal is kept."
+      ],
+      "tap_budget": "0 extra taps (part of Log)",
+      "depends_on": [
+        "S-015"
+      ],
+      "core_tests": [
+        "StezuCoreTests.MealHealthTests/testWritesMidpointsWithRangeMetadata",
+        "StezuCoreTests.MealHealthTests/testDeniedWriteKeepsMeal"
+      ],
+      "ui_tests": [
+        "AppUITests.MealHealthUITests/testLoggedMealIsInHealth"
+      ],
+      "screenshots": [
+        "s018-in-health"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-019",
+      "kind": "story",
+      "area": "food",
+      "title": "See today's food as ranges with no target, and fix or delete a past meal in history",
+      "steps": [
+        "Launch with -uitest-scenario food-history. The camera's top strip shows today's kcal and protein as summed low-high ranges and the meal count. No target, ring or \"remaining\". Nothing logged shows \"--\".",
+        "Tap History. Days newest first with day totals as ranges; each meal with a thumbnail, items, ranges and source; pending meals pinned at the top of their day.",
+        "Tap a meal. The same item editor opens; change a serving and Save. The meal and the totals update, and its Health entry is replaced.",
+        "Tap Delete. The meal leaves the list and the totals, and its Health entry is deleted."
+      ],
+      "tap_budget": "0 taps for today's totals; 1 tap to History; 1 tap per edit",
+      "depends_on": [
+        "S-018"
+      ],
+      "core_tests": [
+        "StezuCoreTests.FoodDayTests/testTodayTotalsSumRanges",
+        "StezuCoreTests.FoodDayTests/testNoMealsIsAbsentNotZero",
+        "StezuCoreTests.FoodDayTests/testDeletedMealLeavesTotals"
+      ],
+      "ui_tests": [
+        "AppUITests.MealHistoryUITests/testTodayTotalsAndEditDeleteMeal"
+      ],
+      "screenshots": [
+        "s019-today",
+        "s019-history",
+        "s019-edited"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-020",
+      "kind": "story",
+      "area": "data",
+      "title": "Open Data for the first time and connect Apple Health with one sheet, then check sources and permissions",
+      "steps": [
+        "Tap the Data card the first time. An empty state says what Stezu reads and writes and why, with one Connect Apple Health button. Nothing is asked at app launch.",
+        "Tap Connect. HealthStore.requestAuthorization shows one system sheet for every v1 type (the fake records it in -uitest). Afterwards Data opens straight to the overview, and the empty state does not return.",
+        "From the overview, tap Sources. One row per Health type: present or \"--\", last sample date, source apps and sample count over the last 7 days, the hint for denied reads (Health app, profile, Apps, Stezu), and a \"Not in Health\" list of failed writes."
+      ],
+      "tap_budget": "1 tap to connect, once; 1 tap to Sources",
+      "depends_on": [
+        "S-001"
+      ],
+      "core_tests": [
+        "AppTests.HealthConnectTests/testAsksOnlyOnce",
+        "StezuCoreTests.HealthSourcesTests/testTypeWithoutSamplesIsAbsent"
+      ],
+      "ui_tests": [
+        "AppUITests.HealthConnectUITests/testFirstOpenConnectsOnceAndShowsSources"
+      ],
+      "screenshots": [
+        "s020-connect",
+        "s020-overview-empty",
+        "s020-sources"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-021",
+      "kind": "story",
+      "area": "data",
+      "title": "See this week's weight trend and weigh in with one tap",
+      "steps": [
+        "Launch with -uitest-scenario data-week (synthetic samples in the fake HealthStore). Data shows this week, Monday to Sunday. The Weight row: trend weight, the trend's change this week, weigh-ins as coverage (\"5 of 7\") and the confidence reason.",
+        "Tap Weigh in. A stepper prefilled with the last weigh-in, in 0.1 lb steps, with no keyboard. Tap Save: one body-mass sample is written through HealthStore and the row updates.",
+        "A week with no weigh-ins shows \"--\"."
+      ],
+      "tap_budget": "0 taps to see the week; 1 tap plus Save to weigh in",
+      "depends_on": [
+        "S-020"
+      ],
+      "core_tests": [
+        "StezuCoreTests.HealthStoreTests/testFakeStoreReturnsBodyMassSamples",
+        "StezuCoreTests.HealthStoreTests/testDeniedAccessIsAbsentNotZero",
+        "StezuCoreTests.WeighInTests/testOneTapWritesOneSample",
+        "StezuCoreTests.WeighInTests/testPrefillUsesLastWeighIn"
+      ],
+      "ui_tests": [
+        "AppUITests.WeightUITests/testWeightTrendAndOneTapWeighIn"
+      ],
+      "screenshots": [
+        "s021-weight",
+        "s021-weigh-in"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-022",
+      "kind": "story",
+      "area": "data",
+      "title": "See this week's steps, sleep, HRV and resting heart rate, each with its coverage",
+      "steps": [
+        "Launch with -uitest-scenario data-week. Rows: Steps (mean per day, \"6 of 7\"), Sleep (mean time asleep, nights \"5 of 7\", labelled \"context\"), HRV (median ms and sample count, labelled \"context\"), Resting HR (mean, days with a value).",
+        "Steps come from a statistics query so Health merges sources; sleep nights are built from sleepAnalysis samples.",
+        "Any metric without data this week shows \"--\" with its coverage, never 0."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-020"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WeeklyStatTests/testCoverageCountsDaysWithData",
+        "StezuCoreTests.WeeklyStatTests/testNoDataIsAbsentNotZero",
+        "StezuCoreTests.SleepNightTests/testNightSumsAsleepStages"
+      ],
+      "ui_tests": [
+        "AppUITests.WeeklyHealthUITests/testHealthRowsShowCoverage"
+      ],
+      "screenshots": [
+        "s022-health-rows"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-023",
+      "kind": "story",
+      "area": "data",
+      "title": "See this week's food intake ranges and workouts on Data",
+      "steps": [
+        "Launch with a scenario holding synthetic meals and sessions. The Food row shows the weekly mean kcal and protein over logged days as ranges, and \"logged 5 of 7 days\".",
+        "The Workouts row shows this week's sessions, merging Stezu sessions with Health workouts, each marked by source.",
+        "No meals or no workouts this week show \"--\"."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-020",
+        "S-008",
+        "S-015"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WeeklyStatTests/testRangeMeanOverLoggedDays",
+        "StezuCoreTests.WeeklyStatTests/testWorkoutsMergeSourcesWithoutDuplicates"
+      ],
+      "ui_tests": [
+        "AppUITests.WeeklyFoodWorkoutUITests/testFoodAndWorkoutRows"
+      ],
+      "screenshots": [
+        "s023-food-workouts"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-024",
+      "kind": "story",
+      "area": "data",
+      "title": "Tap a metric to see its last 8 weeks, then tap a week to see its days",
+      "steps": [
+        "On the overview, tap any row. One detail template for every metric: 8 weekly values with their coverage, and the source and evidence note at the bottom. Weight also shows weigh-in dots and the trend line.",
+        "Tap a week: its days, Monday to Sunday; days without data show \"--\"."
+      ],
+      "tap_budget": "1 tap into a metric; 1 tap into a week",
+      "depends_on": [
+        "S-022"
+      ],
+      "core_tests": [
+        "StezuCoreTests.MetricHistoryTests/testEightWeeksWithCoverage"
+      ],
+      "ui_tests": [
+        "AppUITests.MetricDetailUITests/testMetricWeeksAndDays"
+      ],
+      "screenshots": [
+        "s024-metric",
+        "s024-week-days"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-025",
+      "kind": "story",
+      "area": "data",
+      "title": "Open a day and see everything recorded on it",
+      "steps": [
+        "From a week in metric detail, tap a day. The Day view lists everything on that date: weigh-in, meals with ranges, workouts with sets, the sleep night, HRV, steps. Each record shows its source.",
+        "Stezu's own records can be edited or deleted from here; Health records are read-only."
+      ],
+      "tap_budget": "1 tap from a week",
+      "depends_on": [
+        "S-024",
+        "S-023"
+      ],
+      "core_tests": [
+        "StezuCoreTests.DayRecordsTests/testDayGathersRecordsWithSources"
+      ],
+      "ui_tests": [
+        "AppUITests.DayViewUITests/testDayListsRecordsWithSources"
+      ],
+      "screenshots": [
+        "s025-day"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-026",
+      "kind": "story",
+      "area": "shell",
+      "title": "See today's food, this week's workouts and the trend weight on the Home cards with 0 taps",
+      "steps": [
+        "Launch with a scenario holding synthetic meals, sessions and weigh-ins.",
+        "Home cards: Data shows the trend weight and weigh-ins this week (\"5 of 7\"); Food shows today's kcal and protein ranges and the meal count; Workout shows sessions this week and the next template. No target anywhere (D-032).",
+        "Without data each card shows \"--\", never 0."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-019",
+        "S-021",
+        "S-010"
+      ],
+      "core_tests": [
+        "AppTests.HomeViewModelTests/testCardsShowTrackingNumbersWithoutTarget"
+      ],
+      "ui_tests": [
+        "AppUITests.HomeCardsUITests/testHomeCardsShowTodayAndThisWeek"
+      ],
+      "screenshots": [
+        "s026-home-filled",
+        "s026-home-empty"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }

@@ -1,0 +1,90 @@
+import Foundation
+import StezuCore
+import SwiftUI
+
+/// Where the app's records live.
+enum StorageMode: Sendable, Equatable {
+  /// The normal on-device store.
+  case disk
+  /// Memory only, so every launch starts empty. The `-uitest` default.
+  case memory
+  /// A store in this temporary folder that survives a relaunch (`-uitest-persist`), for resume
+  /// and offline-queue tests. `-uitest-reset` empties the folder at launch.
+  case temporary(URL)
+}
+
+/// The outside world, chosen once at launch and passed down as `\.appEnvironment`.
+/// Live: the disk store, HealthKit, the VM server and the camera. `-uitest`: an in-memory store,
+/// FakeHealthStore, FakeVMTransport and a fixture photo, so the simulator needs no camera, Health
+/// data or network.
+struct AppEnvironment: Sendable {
+  /// Launch arguments the app understands. UI tests pass them through `UITestApp.launch`.
+  enum Argument {
+    static let uiTest = "-uitest"
+    /// Followed by a name: seeds the synthetic fixture data a story defines.
+    static let scenario = "-uitest-scenario"
+    /// The fake VM transport starts offline.
+    static let offline = "-uitest-offline"
+    /// Keep the store in a temporary folder across relaunches.
+    static let persist = "-uitest-persist"
+    /// Empty that folder first.
+    static let reset = "-uitest-reset"
+  }
+
+  var isUITest: Bool
+  var storage: StorageMode
+  /// The `-uitest-scenario` name; nil in the live app.
+  var scenario: String?
+  var healthStore: any HealthStore
+  var vmTransport: any VMTransport
+  var photoSource: any PhotoSource
+
+  /// The services the phone uses. The VM transport stays unconfigured until Settings has a
+  /// server address and token.
+  static func live() -> AppEnvironment {
+    AppEnvironment(
+      isUITest: false, storage: .disk, scenario: nil, healthStore: HealthKitStore(),
+      vmTransport: UnconfiguredVMTransport(), photoSource: NoCameraPhotoSource())
+  }
+
+  /// Fakes only, for `-uitest` launches and SwiftUI previews.
+  static func fakes(scenario: String? = nil, offline: Bool = false) -> AppEnvironment {
+    AppEnvironment(
+      isUITest: true, storage: .memory, scenario: scenario, healthStore: FakeHealthStore(),
+      vmTransport: FakeVMTransport(routes: UITestFixtures.vmRoutes, offline: offline),
+      photoSource: FixturePhotoSource())
+  }
+
+  /// Live services unless the launch arguments contain `-uitest`.
+  static func fromLaunch(arguments: [String] = ProcessInfo.processInfo.arguments)
+    -> AppEnvironment
+  {
+    guard arguments.contains(Argument.uiTest) else { return live() }
+    var scenario: String?
+    if let index = arguments.firstIndex(of: Argument.scenario), index + 1 < arguments.count {
+      scenario = arguments[index + 1]
+    }
+    var environment = fakes(scenario: scenario, offline: arguments.contains(Argument.offline))
+    if arguments.contains(Argument.persist) {
+      let folder = FileManager.default.temporaryDirectory
+        .appendingPathComponent("stezu-uitest-store", isDirectory: true)
+      if arguments.contains(Argument.reset) {
+        try? FileManager.default.removeItem(at: folder)
+      }
+      environment.storage = .temporary(folder)
+    }
+    return environment
+  }
+}
+
+private struct AppEnvironmentKey: EnvironmentKey {
+  static let defaultValue = AppEnvironment.fakes()
+}
+
+extension EnvironmentValues {
+  /// The services chosen at launch. Previews get the fakes.
+  var appEnvironment: AppEnvironment {
+    get { self[AppEnvironmentKey.self] }
+    set { self[AppEnvironmentKey.self] = newValue }
+  }
+}
