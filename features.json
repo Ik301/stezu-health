@@ -966,6 +966,63 @@
       ],
       "needs_server": false,
       "passes": false
+    },
+    {
+      "id": "S-028",
+      "kind": "story",
+      "area": "data",
+      "title": "Your Apple Health data and logged workouts copy themselves to Hermes on the VM, and Settings shows when the last sync ran",
+      "steps": [
+        "After Apple Health is connected (S-020), the app sends every type it reads, plus Stezu's own logged workouts and sets, to POST /sync on the VM server through VMTransport. The contract is in server/README.md.",
+        "The first sync backfills the last 90 days. After that it sends only what is new, using HKAnchoredObjectQuery anchors persisted on the device, and sends deletions too. Requests are batched (about 2,000 samples each) and idempotent: every sample carries its HealthKit UUID, every Stezu record its own id.",
+        "Sync runs when the app opens or comes to the foreground, and after a workout is finished. It never blocks the UI. With no server or no network, it waits and retries later; nothing is lost.",
+        "Settings shows a Hermes sync row: last sync time and sample count, or \"--\" before the first sync, plus a Sync now button (1 tap).",
+        "Launch with -uitest-scenario sync. FakeVMTransport records the batches. The UI test opens Settings, taps Sync now, and sees the row update with the fake's counts."
+      ],
+      "tap_budget": "0 taps (automatic); 1 tap for Sync now",
+      "depends_on": [
+        "S-020"
+      ],
+      "core_tests": [
+        "StezuCoreTests.HealthSyncTests/testBatchesAreIdempotentByID",
+        "StezuCoreTests.HealthSyncTests/testDeletionsAreSent",
+        "StezuCoreTests.HealthSyncTests/testFailedBatchIsRetriedNotDropped"
+      ],
+      "ui_tests": [
+        "AppUITests.HermesSyncUITests/testSyncNowUpdatesStatusRow"
+      ],
+      "screenshots": [
+        "s028-sync-row"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-029",
+      "kind": "story",
+      "area": "food",
+      "title": "Logged meals copy themselves to Hermes too, with their items, ranges and sources",
+      "steps": [
+        "Every confirmed or edited meal goes to POST /sync as a meal record: the id, eaten-at time, day key, items with ranges and source, and the confirm state. Deleted meals are sent as tombstones. Photos are not sent again; the server already has the photos it scanned.",
+        "Uses the same queue and retry as S-028. Settings' sync count includes meals.",
+        "Launch with -uitest-scenario sync-meals. Log a meal; the UI test sees the fake transport receive one meal record and the Settings row count go up."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-028",
+        "S-019"
+      ],
+      "core_tests": [
+        "StezuCoreTests.HealthSyncTests/testMealRecordCarriesRangesAndSource"
+      ],
+      "ui_tests": [
+        "AppUITests.HermesSyncUITests/testLoggedMealIsSynced"
+      ],
+      "screenshots": [
+        "s029-meal-synced"
+      ],
+      "needs_server": true,
+      "passes": false
     }
   ]
 }

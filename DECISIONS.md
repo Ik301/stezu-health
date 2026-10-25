@@ -616,3 +616,18 @@ The research notes cited here are kept private, because they contain personal he
   - The weight trend counts only weigh-ins written by Stezu, because Zepp also writes weight (probably a static profile value). Other body-mass sources appear on Sources.
   - S-027 adds blood oxygen, respiratory rate and temperature as context rows.
   - The Data screen and Sources expect HRV to be missing.
+
+## D-048 Export to Hermes: the phone sends its data to the VM server's own database
+
+- Status: decided by Isaac ("add the feature to export the data to hermes"), 2026-10-25. The mechanism is proposed.
+- Problem: Apple Health data can only be read on the phone, but Hermes runs on the VM and needs the data to answer questions about it later.
+- Choice:
+  - The app sends raw samples (with HealthKit UUIDs), its own workouts and sets, and its meals to POST /sync on the Stezu server over Tailscale with the device token.
+  - The server stores them in a SQLite database on the VM, outside the repo.
+  - Hermes reads that database read-only.
+  - No model provider sees this data; /sync never calls Claude.
+- Rejected:
+  - Reviving Karina's Postgres store: frozen by D-012. An adapter can copy into it later if a loop needs it.
+  - Health Auto Export: paid, and a second path for the same data.
+  - iCloud: not available on a free account.
+- Reverse if: the VM database becomes the bottleneck for an analysis loop.
