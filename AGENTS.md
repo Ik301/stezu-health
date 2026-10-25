@@ -58,3 +58,7 @@ CI runs the same script in the `linux-core` job (required for merge). The `ios` 
 ## Test names
 
 features.json lists tests as `Target.Class/testMethod`, for example `StezuCoreTests.TrendWeightTests/testFirstWeighInSeedsTrend`. Core tests live in Packages/StezuCore/Tests/StezuCoreTests and app tests in App/Tests. Write the listed tests with exactly those names.
+
+## Public repo: no personal data, ever (D-034)
+
+This repo is public. Never commit personal data of any kind: training programs, body stats, intake, health samples, hall preferences, IPs, hostnames, tokens or server URLs. Seeds and fixtures are generic and synthetic. Isaac's own program and settings are imported on the device from a private file.

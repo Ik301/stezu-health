@@ -392,3 +392,29 @@ The research notes cited here are kept private, because they contain personal he
 - Why: the app has to be usable before anything adjusts behavior. The first phone test showed three blank cards and no way to log.
 - Consequence: the core rules already built stay in the repo but are not surfaced in v1: WeeklyTarget (F-003), Expenditure (F-002), ProteinFloor (F-004) and DoubleProgression (F-009). L1's weekly adjustment (D-012) waits; its 3-week data window fills in the meantime.
 - Reverse if: the app is in daily use and the adjustment loop is designed on top of it.
+
+## D-033 v1 scope decisions from the 2026-10-25 walkthrough
+
+- Status: decided by Isaac, 2026-10-25.
+- Build all three areas (Workout, Food, Data) at once.
+- Apple Health read and write approved: HealthKit entitlement, body mass read and write, workouts, dietary energy and protein writes, and the reads in the Data area.
+- Rest timer on the lock screen as a Live Activity in v1. It is untested whether a free account can build the widget extension; check on the device.
+- Food opens straight into the camera.
+- "This week" means Monday to Sunday.
+
+## D-034 The public repo never holds personal data, including seeds
+
+- Status: decided by Isaac, 2026-10-25 ("generic seed for public repo, always, all data").
+- What: no personal data of any kind is committed, ever. That covers his training program, body stats, intake, health samples, hall preferences, IPs, tokens and server addresses. Prebuilt workouts in the repo are generic. His own program is imported on the device from a private file and never committed.
+- Why: the repo is public (D-007).
+
+## D-035 Food: identify across all dining halls; editable item list; text search and barcode in v1
+
+- Status: decided by Isaac, 2026-10-25. Amends D-002 (photo or scan only).
+- What:
+  - A photo is matched against the menus of every dining hall open for that meal, not one chosen hall. The matched hall shows per item.
+  - After a photo, the identified items appear as an editable list: replace an item (through search), remove it, change servings in half steps, or add an item.
+  - A search bar on the camera screen finds dining-hall items, restaurant dishes and packaged foods by text, with a rough text estimate as the fallback.
+  - Barcode scanning is in v1.
+  - The recent-meal shortcuts are removed.
+- Why: he doesn't always eat at the same hall, and a wrong guess needs a simple fix he controls.
