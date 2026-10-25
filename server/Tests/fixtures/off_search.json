@@ -1,0 +1,58 @@
+{
+ "hits": [
+  {
+   "code": "0894700010137",
+   "brands": [
+    "Chobani"
+   ],
+   "nutriments": {
+    "carbohydrates_100g": 3.53,
+    "energy-kcal_100g": 52.9,
+    "fat_100g": 0,
+    "proteins_100g": 9.41
+   },
+   "product_name": "Nonfat Greek Yogurt"
+  },
+  {
+   "code": "9310653102893",
+   "brands": [
+    "Chobani"
+   ],
+   "nutriments": {
+    "carbohydrates_100g": 18.1,
+    "energy-kcal_100g": 193,
+    "fat_100g": 0.18,
+    "proteins_100g": 13.7
+   },
+   "product_name": "Raspberry Greek Yogurt"
+  },
+  {
+   "code": "9310653103609",
+   "brands": [
+    "Chobani"
+   ],
+   "nutriments": {
+    "carbohydrates_100g": 3.88,
+    "energy-kcal_100g": 86,
+    "fat_100g": 4,
+    "proteins_100g": 8.56
+   },
+   "product_name": "Chobani Greek Yogurt"
+  },
+  {
+   "code": "0894700010120",
+   "brands": [
+    "Chobani"
+   ],
+   "nutriments": {
+    "carbohydrates_100g": 10,
+    "energy-kcal_100g": 73.3,
+    "fat_100g": 0,
+    "proteins_100g": 8
+   },
+   "product_name": "Raspberry Greek Yogurt"
+  }
+ ],
+ "count": 10000,
+ "page_size": 4
+}
