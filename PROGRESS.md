@@ -2,6 +2,15 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 F-004 Protein floor flag (night agent)
+
+- Added `ProteinFloor` in Packages/StezuCore/Sources/StezuCore/ProteinFloor.swift: `Meal` (protein low/high grams), `Config` (floor with no default, calendar, 3-day window, meals-per-day bar for high confidence), and `check(asOf:meals:config:)` returning `.evaluated(Check)` or `.insufficientData(Insufficient)`.
+- The flag compares the mean of daily low-end sums over the read day and the 2 days before it with the floor; a mean exactly on the floor is not flagged. Any day in the window without a valid meal gives insufficient data. Decisions D-022, D-023.
+- Tests: ProteinFloorTests (3 tests, synthetic grams and floor). Gates: `FEATURE_ID=F-004 scripts/gate-linux.sh` passed G1 to G4 locally. F-004 flipped with check-features.py --flip.
+- Naming: all types nest under `ProteinFloor` (`Outcome`, not `Result`, to avoid shadowing Swift.Result) so they cannot collide with meal types other cards add tonight. No library added.
+- Left undone / noticed: there is no shared meal type yet; when meal logging lands, map it onto `ProteinFloor.Meal` or merge the two. The floor value itself must come from device settings, which do not exist yet.
+- Next: F-005 maps the result onto the Food card.
+
 ## 2026-10-25 F-010 Dining menu models and client (night agent)
 
 - Added Packages/StezuCore/Sources/StezuCore/DiningMenu.swift: Codable `DiningMenu`, `DiningMeal`, `DiningMenuItem` (nutrition per serving, all optional), `DiningMenuResult` (`.available` / `.unavailable(reason:)`), and `DiningMenuClient` over an async `DiningMenuTransport` protocol. Decisions D-020 and D-021.

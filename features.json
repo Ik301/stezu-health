@@ -63,7 +63,7 @@
       "title": "Protein floor flag",
       "area": "core",
       "needs_approval": false,
-      "passes": false,
+      "passes": true,
       "steps": [
         "Add a protein floor check over a 3-day rolling mean of daily protein.",
         "Use the low end of each meal's estimate range.",

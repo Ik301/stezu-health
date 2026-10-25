@@ -218,3 +218,35 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Missing nutrition fields on a dish decode to nil, not 0, for the same reason.
 - Evidence: Packages/StezuCore/Sources/StezuCore/DiningMenu.swift (`DiningMenuResult`, `DiningMenuClient.decode`), DiningMenuTests/testUnavailableMenuIsAbsentNotEmpty; commit 3455c84 on wt/F-010.
 - Reverse if: the endpoint starts sending meals that are legitimately empty while others are open; then empty meals should be dropped per meal, not per menu.
+
+## D-022 A protein window with any unlogged day returns insufficient data
+
+- Status: proposed by night agent, 2026-10-25 (F-004).
+- Problem: the 3-day mean of daily protein needs a value for each day, but food logging is optional. A day with no logged meal has to be handled without inventing an intake.
+- Given: SPEC.md says fewer than 3 days of logged food gives "insufficient data", not a flag. AGENTS.md rule 5: absent is not zero. Meal estimates arrive as low/high ranges in grams.
+- Constraints:
+  - Counting an unlogged day as 0 g breaks rule 5 and raises a false flag after any skipped day.
+  - Averaging over only the logged days in the window breaks the "fewer than 3 days" rule (2 days would still yield a mean).
+  - Reaching back past the window for older days breaks "rolling 3-day": a flag could rest on last week's food.
+- Options:
+  - (a) Fixed window of the read day and the 2 calendar days before it; every day must have at least one valid meal, otherwise `.insufficientData` with days logged and days required.
+  - (b) The last 3 logged days, however far back.
+  - (c) Logged days in the window only, with lower confidence when fewer than 3.
+- Decision: (a). Days are calendar-day buckets in a configurable Calendar (as D-018). A meal with a negative or non-finite end is dropped and does not make its day logged; a 0 g estimate is a real value. A reversed range is reordered, and the flag reads only the low end; the high-end mean is returned as context.
+- Evidence: Packages/StezuCore/Sources/StezuCore/ProteinFloor.swift (`check`, `validRange`), ProteinFloorTests/testFewerThanThreeDaysIsInsufficient; the F-004 commit on wt/F-004.
+- Reverse if: real use shows whole-day gaps are common enough that the flag is almost never evaluated; then consider (b) with a staleness limit.
+
+## D-023 Protein check confidence from the fewest meals on one day
+
+- Status: proposed by night agent, 2026-10-25 (F-004).
+- Problem: a day can count as logged with only a snack on it, which makes its total look low. The check needs to say how much its mean can be trusted.
+- Given: every derived value carries a level and a reason (SPEC.md). The floor uses low ends, so it already errs toward flagging.
+- Constraints:
+  - A level from the estimate width breaks once ranges come from one model with a fixed spread; it would say nothing about missed meals.
+  - A level without a reason breaks the Food screen's one-line explanation.
+- Options:
+  - (a) High when every day in the window has at least `highMinMealsPerDay` meals (default 2), otherwise low; the reason names the fewest meals on one day.
+  - (b) Always medium, since all inputs are estimates.
+- Decision: (a). A one-meal day is the likeliest sign of incomplete logging, and a low-confidence flag tells the UI to soften it.
+- Evidence: Packages/StezuCore/Sources/StezuCore/ProteinFloor.swift (`check`); the F-004 commit on wt/F-004.
+- Reverse if: meal counts vary so much by habit (one large meal a day) that most checks read low.
