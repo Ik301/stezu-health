@@ -45,6 +45,9 @@ struct AppEnvironment: Sendable {
   /// Finished workouts, for last-session numbers (S-005). Nothing stores them yet, so the live
   /// app has none; `-uitest-scenario workout-history` seeds synthetic ones.
   var workoutHistory: [WorkoutSession] = []
+  /// The rest's Live Activity and zero notification (S-006): live on the phone, a recorder in
+  /// `-uitest` and previews.
+  var restAlerts: any RestAlerts = FakeRestAlerts()
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -53,7 +56,8 @@ struct AppEnvironment: Sendable {
     return AppEnvironment(
       isUITest: false, storage: .disk, scenario: nil, healthStore: HealthKitStore(),
       vmTransport: settings.load().transport(), photoSource: LiveCameraPhotoSource(),
-      serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk))
+      serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk),
+      restAlerts: LiveRestAlerts())
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.

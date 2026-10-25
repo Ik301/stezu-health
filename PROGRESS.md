@@ -2,6 +2,14 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 S-006 Rest countdown after each set, with a Live Activity (night agent)
+
+- `RestTimer` gained `adjust(by:)`, `skip()` and `endsAt`; adjusting keeps the start time. App/Sources/Workout/RestActivityController.swift holds the rest for the logger plus the `RestAlerts` protocol and `FakeRestAlerts`; LiveRestAlerts.swift drives the RestActivity Live Activity and one local notification at zero. `AppEnvironment.restAlerts` is live on the phone and the fake in `-uitest`. Decision D-051.
+- Logger screen: Log starts a rest card at the logged exercise's template rest (no tap), with the countdown (`workout.rest.countdown`, value = start time), `workout.rest.minus`, `workout.rest.plus` and `workout.rest.skip`. At zero or on Skip the card goes away and the activity ends.
+- Tests: RestTimerTests/testAdjustKeepsStartTime, testSkipEndsRest (core), AppTests.RestActivityControllerTests, AppUITests.RestTimerUITests (screenshots s006-rest-running, s006-rest-adjusted). Gates: `FEATURE_ID=S-006 scripts/gate-linux.sh` G1 to G5 PASS. Flipped with check-features.py --flip S-006.
+- Step 4: answered by Isaac's device check (D-047): the RestActivity extension signed with his free personal team and installed on his iPhone. Whether this card's Live Activity actually appears on his lock screen is still to see in the walkthrough. Neither the Live Activity nor the notification can be seen in the simulator UI test; only the fake's calls are tested.
+- Left undone: the rest lives in the logger view, so leaving Workout or relaunching drops the in-app countdown (the Live Activity and notification stay until they end). Undo does not cancel a running rest. The notification permission is asked at the first logged set.
+
 ## 2026-10-25 S-005 Last session's numbers, same template first (night agent)
 
 - Added `TemplateHistory.lastSession(of:template:before:in:)` and `lastSessions(for:before:in:)` in Packages/StezuCore/Sources/StezuCore/TemplateHistory.swift, plus `LastSessionNumbers.summary(setAt:)` ("Last 60 x 8, 7d ago", "Last BW x 12, today"). `WorkoutSession` gained an optional `templateKey`; `Confidence` and `LastSessionNumbers` are Codable. `SetLogger` takes `history`, keeps `last` per exercise and prefills each exercise from its last session's first set. Decision D-046.

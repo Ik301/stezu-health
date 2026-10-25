@@ -665,3 +665,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Deterministic, and a held call is what a slow server looks like.
 - Evidence: Packages/StezuCore/Sources/StezuCore/VMTransport.swift, App/Sources/UITestFixtures.swift, App/Sources/AppEnvironment.swift (commit on wt/S-013).
 - Reverse if: a later story needs the held state and the answer in one launch; then add a fake call that releases held routes.
+
+## D-051 The rest lives in the logger view, and its Live Activity and notification sit behind one stateless protocol
+
+- Status: proposed by night agent, 2026-10-25 (S-006).
+- Problem: after a set is logged, a rest must count down at that exercise's template rest, take +15/-15/Skip, and keep a lock-screen Live Activity and a zero notification in step, while tests run without ActivityKit or notification prompts.
+- Given: `RestTimer` (D-027) stores a start time and reads an injected clock. `SetLogger` (D-045) is saved whole after every change. RestActivityAttributes in App/Shared carries `startedAt`, `endsAt` and a set label; the widget counts down between them by itself.
+- Constraints:
+  - Putting the rest in `SetLogger` breaks its Codable save (the timer holds a clock closure) and would resume a stale rest after a relaunch.
+  - Keeping the current `Activity` object in the app breaks Sendable `AppEnvironment` and loses it if the view goes away.
+  - Pushing a Live Activity update every second breaks the system's update budget; the widget's own countdown needs only start and end.
+- Options:
+  - (a) A `RestActivityController` value in the logger view's state wraps `RestTimer` and calls `RestAlerts` (start, update, end) on log, adjust, skip and zero; `LiveRestAlerts` finds its activities through `Activity.activities` and its notification by id.
+  - (b) An observable rest object on `AppEnvironment` shared by every screen.
+  - (c) Rest fields added to `SetLogger` and saved with it.
+- Decision: (a). `RestTimer` gained `adjust(by:)` (moves only the end, never below 0, which ends the rest), `skip()` and `endsAt`. Each Log starts a new rest at the logged exercise's `restSeconds` (0 starts none). The controller calls `start` once, `update` on each adjust with the same start and the new end, and `end` on Skip or when a `.task` keyed on the end time wakes at zero. `LiveRestAlerts.start` ends older activities, requests one when activities are enabled, and replaces the single pending notification (id "rest.end"); failures are ignored, so the in-app countdown always works. `-uitest` and previews use `FakeRestAlerts`, which records the calls.
+- Evidence: Packages/StezuCore/Sources/StezuCore/RestTimer.swift, App/Sources/Workout/RestActivityController.swift, App/Sources/Workout/LiveRestAlerts.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/AppEnvironment.swift (wt/S-006).
+- Reverse if: the rest must survive leaving the logger or a relaunch, or a screen other than the logger must show it; then move it to (b) and save its start and end.
+
