@@ -6,6 +6,13 @@ import UIKit
 protocol PhotoSource: Sendable {
   /// Takes one photo and returns JPEG data. Callers save it locally before any network call.
   func capturePhoto() async throws -> Data
+  /// Asks for camera access when iOS has not asked yet; false when it is denied or restricted.
+  func authorize() async -> Bool
+}
+
+extension PhotoSource {
+  /// Sources without a camera need no permission.
+  func authorize() async -> Bool { true }
 }
 
 enum PhotoSourceError: Error, Equatable {

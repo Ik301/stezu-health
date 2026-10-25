@@ -555,3 +555,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). `ServerSettings.transport()` returns URLSessionVMTransport (path after the base URL's path, `Authorization: Bearer`, network errors as `unreachable`) only when the address is an http(s) URL with a host and the token is non-empty, else UnconfiguredVMTransport. `ServerConnection` maps a call's outcome to display text; not configured reads "Set up the server in Settings". Test connection uses the saved settings, not unsaved typing.
 - Evidence: App/Sources/Settings/ServerSettings.swift, App/Sources/Settings/SettingsView.swift, App/Sources/AppEnvironment.swift, App/Tests/ServerSettingsTests.swift, App/UITests/ServerSettingsUITests.swift (wt/S-002).
 - Reverse if: a background task or extension needs the server without the app running, in which case the token moves to a shared Keychain access group (an infra change).
+
+## D-044 The shutter writes the photo to a local file before anything touches the network
+
+- Status: proposed by night agent, 2026-10-25 (S-012).
+- Problem: a meal photo must survive a failed or slow upload, a dead connection and an app relaunch, and the stories that send it to the server (S-013 on) are built in parallel.
+- Given: AppEnvironment already picks a `StorageMode` (disk, memory, temporary folder) at launch. No app store exists yet. The server's POST /scan is idempotent on meal id plus photo hash (server/README.md).
+- Constraints:
+  - Holding the photo only in view state breaks the offline story: a relaunch or a failed call loses the meal.
+  - A database or a new package breaks the no-new-dependencies rule on a card branch.
+  - Starting the upload inside the shutter call breaks the ordering S-012 asks for and makes the save depend on the network.
+- Options:
+  - (a) An actor `MealCaptureStore` in AppEnvironment that writes `<id>.jpg` and `<id>.json` into one folder per storage mode; `MealCapture.shutter()` captures and saves only, and matching starts later from the saved meal.
+  - (b) Core Data or SwiftData.
+  - (c) Keep the photo in memory and save it after the server answers.
+- Decision: (a). Disk mode uses Application Support/meals, `-uitest-persist` uses the temporary store folder's meals/, and memory mode a fresh temporary folder per launch, so there is one code path. The live camera (`LiveCameraPhotoSource`) asks for access when Food opens; if denied, the screen explains how to turn it on in Settings.
+- Evidence: App/Sources/Food/MealCapture.swift, App/Sources/Food/FoodView.swift, App/Sources/AppEnvironment.swift, App/Tests/MealCaptureTests.swift (wt/S-012).
+- Reverse if: meals need queries the files cannot answer cheaply (history by day, sync state), at which point a real store replaces the folder behind the same actor.

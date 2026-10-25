@@ -2,6 +2,15 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 S-012 Food opens the camera; the shutter saves the photo first (night agent)
+
+- FoodView is now the camera: the image fills the screen (the fixture plate in `-uitest`, `CameraPreview` over `LiveCameraPhotoSource` on the phone), Home at the top left, a Photo/Barcode pill switch (`food.mode.photo` / `food.mode.barcode`, value on/off), the shutter (`food.shutter`) and History (`food.history`). The bottom circles from S-001 stay.
+- Camera access is asked when Food opens (`PhotoSource.authorize()`, true for sources without a camera). If denied, the screen says to turn it on in Settings and offers an Open Settings button.
+- The shutter saves the photo through `MealCapture.shutter()` into `MealCaptureStore` (files per meal, D-044) and opens a sheet with "Matching..." and "Photo saved on this phone." No network call is made.
+- `AppEnvironment.live()` now uses `LiveCameraPhotoSource`, so AppEnvironmentTests/testNoArgumentSelectsLiveServices asserts that type instead of `NoCameraPhotoSource` (same check, new live type).
+- Tests: AppTests.MealCaptureTests (2: the listed test, plus a disk store found again by a new instance) and AppUITests.FoodCameraUITests/testFoodOpensCameraAndShutterSavesPhoto (screenshots s012-camera, s012-captured). Gates: `FEATURE_ID=S-012 scripts/gate-linux.sh` passed G1 to G5 (diff 295 of 300 lines). Flipped with check-features.py --flip S-012.
+- Left undone: History does nothing yet (no history story built); Barcode mode only hides the shutter until the barcode story; "Matching..." never finishes until S-013 sends the saved meal to POST /scan. The denied state is not covered by a UI test (the simulator cannot be made to deny in-process). `NoCameraPhotoSource` is no longer used by the app.
+
 ## 2026-10-25 S-002 Server address and token in Settings (night agent)
 
 - Added App/Sources/Settings/: `ServerSettings` (address, token, `baseURL`, `isConfigured`, masked token, `transport()`), `DeviceServerSettingsStore` (address in UserDefaults, token in the Keychain, this device only), `MemoryServerSettingsStore` (`-uitest`), `ServerConnection` (GET /health outcome and its display text) and `URLSessionVMTransport` (bearer token on every call). SettingsView opens as a sheet from a gear on Home (`home.settings`); Save stores both and calls `AppEnvironment.useServer`, which swaps the live transport (D-043). `UITestFixtures.vmRoutes` answers GET /health.
