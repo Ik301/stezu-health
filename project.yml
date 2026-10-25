@@ -19,21 +19,46 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - App/Sources
+      - App/Shared
     dependencies:
       - package: StezuCore
         product: StezuCore
+      - target: RestActivity
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth
+        CODE_SIGN_ENTITLEMENTS: App/StezuHealth.entitlements
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Stezu Health
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "Stezu reads weight, steps, sleep, heart rate variability, resting heart rate and workouts from Apple Health to show your week."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Stezu saves your weigh-ins, logged meals and strength workouts to Apple Health."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Stezu uses the camera to photograph meals and scan food barcodes."
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
         TARGETED_DEVICE_FAMILY: "1"
     scheme:
       testTargets:
         - AppTests
+        - AppUITests
+  RestActivity:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: App/RestActivity
+        excludes:
+          - Info.plist
+      - App/Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth.RestActivity
+        INFOPLIST_FILE: App/RestActivity/Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Stezu Rest
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1"
   AppTests:
     type: bundle.unit-test
     platform: iOS
@@ -46,3 +71,16 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth.tests
         GENERATE_INFOPLIST_FILE: YES
+  AppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - App/UITests
+    dependencies:
+      - target: StezuHealth
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: StezuHealth

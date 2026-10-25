@@ -21,6 +21,8 @@ enum HomePlaceholder {
 struct HomeView: View {
   var model = HomeViewModel()
   var inputs = HomeInputs()
+  /// Opens the area behind a tapped card.
+  var open: (Area) -> Void = { _ in }
 
   var body: some View {
     // Re-read the clock every minute so the inverted card follows the time of day.
@@ -28,7 +30,13 @@ struct HomeView: View {
       let inverted = model.invertedCardID()
       VStack(spacing: 12) {
         ForEach(model.cards(inputs)) { card in
-          HomeCardView(card: card, inverted: card.id == inverted)
+          Button {
+            if let area = Area(rawValue: card.id) { open(area) }
+          } label: {
+            HomeCardView(card: card, inverted: card.id == inverted)
+          }
+          .buttonStyle(.plain)
+          .accessibilityIdentifier("home.card.\(card.id)")
         }
       }
       .padding(16)
