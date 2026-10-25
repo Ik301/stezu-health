@@ -2,6 +2,15 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 F-003 Weekly calorie target rule (night agent)
+
+- Added `WeeklyTarget.evaluate(asOf:currentTarget:weighIns:lastChange:config:)` with `WeeklyTargetConfig` and `WeeklyTargetDecision` (action raise / lower / hold / alreadyChangedThisWeek / insufficientData, previous and new target, optional trend rate, reason, confidence) in Packages/StezuCore/Sources/StezuCore/WeeklyTarget.swift. It reuses `TrendWeight.estimate` for the trend today and 21 days ago.
+- Rate = trend change over 21 days / 3. Raise by the configured step (default 100, band 100 to 150) when more than 0.15 lb/week under the 0.35 target; lower by 100 when more than 0.25 over. Under 21 days of data or under 4 weigh-ins in the last 7 days gives insufficient data and no change. Decisions D-028, D-029.
+- Tests: WeeklyTargetTests (5 tests, synthetic weights and targets). Gates: `FEATURE_ID=F-003 scripts/gate-linux.sh` passed G1 to G4 locally. F-003 flipped with check-features.py --flip.
+- Naming: `WeeklyTarget.evaluate`, `WeeklyTargetDecision.Action`; no library added (Foundation only).
+- Left undone / noticed: the app has to store the target and the last change day (D-028); nothing does yet. The rule does not use F-002 expenditure; SPEC's rule is trend-only. With the default alpha 0.1 the trend lags about 9 days, so the 3-week rate reacts slowly; worth checking on real data. Reasons are English strings built in core.
+- Next: the next open feature in features.json.
+
 ## 2026-10-25 F-008 Workout session model and rest timer (night agent)
 
 - Added `WorkoutSession` (exercises and sets in log order) with a one-call `logSet(_:pounds:reps:at:)`, plus `WorkoutSet`, `ExerciseLog`, `LastSessionNumbers`, `WorkoutHistoryConfig` and `WorkoutHistory.lastSession(of:before:in:)` / `lastSessions(before:in:)` in WorkoutSession.swift. `RestTimer` in RestTimer.swift reads time from an injected `now` closure. Decisions D-026, D-027.
