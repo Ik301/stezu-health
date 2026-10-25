@@ -6,7 +6,7 @@
       "title": "Trend weight EWMA over irregular gaps",
       "area": "core",
       "needs_approval": false,
-      "passes": false,
+      "passes": true,
       "steps": [
         "Add a trend-weight calculation to StezuCore. Input: dated weigh-ins on irregular days. Output: the trend on each weigh-in day.",
         "The first weigh-in seeds the trend. For a gap of d days the new weigh-in gets weight 1 - (1 - alpha)^d, with alpha configurable (default 0.1 per day).",
