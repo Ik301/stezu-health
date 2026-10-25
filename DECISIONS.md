@@ -351,3 +351,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Days of data is checked first, then the week count; either failure returns `.insufficientData` with the target unchanged, a nil `trendRate`, low confidence and the counts in the reason. "More than" is strict, so a gap exactly on 0.15 or 0.25 holds. Confidence of a computed decision is the weaker of the two trend confidences. All thresholds, both bands (0.25 to 0.5 lb/week, 100 to 150 kcal) and the steps live in `WeeklyTargetConfig`; a rate or step outside its band traps with `precondition`, like the trend alpha (D-017).
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyTarget.swift (`WeeklyTargetConfig`, `evaluate`), WeeklyTargetTests (all five tests); the F-003 commit on wt/F-003.
 - Reverse if: the EWMA lag makes the 3-week trend rate too slow to react, or Isaac wants the decision on a fixed weekday.
+
+## D-030 Which sets the double-progression rule reads
+
+- Status: proposed by night agent, 2026-10-25 (F-009).
+- Problem: the suggestion for next time is derived from last session's sets, but a session can mix warm-up sets at lighter weights with working sets, and some exercises carry no load.
+- Given: `WorkoutHistory.lastSession` (D-026) returns every set of the exercise in log order, with `pounds == nil` for bodyweight and a confidence that fades with age.
+- Constraints:
+  - Reading every set breaks the rule: a warm-up set of 10 reps at a light weight would count toward "all sets at the top".
+  - Reading only the last set breaks on a dropped final set and ignores the rest.
+  - Treating bodyweight as 0 lb breaks "absent is not zero" and would show "0 lb" on screen.
+- Options:
+  - (a) Working sets = the sets at the heaviest weight of the session; bodyweight-only sessions use all sets.
+  - (b) Every set counts.
+  - (c) The app tags sets as warm-up or working.
+- Decision: (a). `DoubleProgression.suggest(after:config:)` takes the last session's numbers and returns nil with no last session. If every working set reached the top of the range it adds one weight step and resets each set to the bottom of the range; otherwise each working set below the top gets one more rep. Bodyweight below the top keeps `pounds == nil`; bodyweight at the top gets a first added load of one step. The suggestion inherits the last session's confidence level, and the reason names how many working sets are under the top.
+- Evidence: Packages/StezuCore/Sources/StezuCore/DoubleProgression.swift, DoubleProgressionTests; the F-009 commit on wt/F-009.
+- Reverse if: the app starts tagging warm-up sets (option c), or Isaac's programs use back-off sets at a lighter weight that should progress too.
