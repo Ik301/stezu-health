@@ -520,3 +520,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The area state stays in one place; area views never navigate and are unchanged. Circles are "nav.circle.<area>" with accessibility value "active" or "inactive".
 - Evidence: App/Sources/AppShell.swift, App/Sources/BottomNav.swift, App/UITests/ShellNavigationUITests.swift (wt/S-001).
 - Reverse if: an area needs a screen without the bottom nav (a full-screen logger or camera), in which case the area view should report that to the shell.
+
+## D-042 Templates live in one library file; a newer bundled seed is upserted by key, skipping edited templates
+
+- Status: proposed by night agent, 2026-10-25 (S-003).
+- Problem: the app ships a generic program that later versions may improve, while the user edits templates and will import his own (S-011); a seed update must not undo either, and must not touch workout history.
+- Given: D-034 (the repo holds only a generic seed). project.yml bundles every non-Swift file under App/Sources as a resource, and there is no App/Resources source path; card branches cannot change project.yml (D-040). No session store exists yet. Core tests run on Linux without the app bundle.
+- Constraints:
+  - Replacing all templates whenever the seed changes breaks edits and imports.
+  - Applying the seed only on first launch breaks seed improvements for existing installs.
+  - Putting the seed in App/Resources breaks bundling (not a source path) until an infra PR adds it.
+  - Keeping history inside the template library couples a seed update to history.
+- Options:
+  - (a) A `TemplateLibrary` (seedVersion, templates in rotation order, editedKeys) saved as one JSON file; at launch a seed with a higher seedVersion replaces or appends templates by key unless the key is in editedKeys. Templates not in the seed stay.
+  - (b) A per-template seed version compared one by one.
+  - (c) Reseed from scratch and replay a log of user edits.
+- Decision: (a). The seed is App/Sources/Workout/PrebuiltWorkouts.json; core tests read the same file from the repo. `-uitest` memory storage keeps no file, so each launch starts from the seed. The rotation is `next(after: lastTemplateKey)`, the first template when nothing was done; until sessions are stored the app passes nil.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift, App/Sources/Workout/WorkoutTemplateStore.swift, App/Sources/Workout/PrebuiltWorkouts.json, Packages/StezuCore/Tests/StezuCoreTests/WorkoutTemplateTests.swift (wt/S-003).
+- Reverse if: the user wants a seed fix applied to a template he edited (then offer a per-template "reset to seed"), or templates move into a shared store with sessions.

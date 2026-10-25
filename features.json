@@ -273,7 +273,7 @@
         "s003-logger-first-set"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-004",
