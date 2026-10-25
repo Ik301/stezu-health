@@ -504,3 +504,19 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Card branches may not change *.entitlements, project.yml, scripts/, .github/, Package.swift, Info.plist or *.xcodeproj. infra/* may, without a size limit, and G2 lets it restructure features.json. The signing check now looks only for a team, identity or profile. G5 runs server/run_tests.sh when it exists.
 - Evidence: scripts/diff-budget.sh, scripts/check-features.py, scripts/gate-linux.sh, AGENTS.md.
 - Reverse if: a card ever pushes an infra/* branch (then require Isaac's approval on infra PRs), or cards are blocked for a whole night by a project change they needed.
+
+## D-041 The shell owns the current area and adds the bottom nav around every area screen
+
+- Status: proposed by night agent, 2026-10-25 (S-001).
+- Problem: every area screen needs the same three bottom circles that switch areas in one tap, and the area views are being rebuilt in parallel by other cards.
+- Given: AppShell already holds the current area as an optional `Area` (nil is Home). Area views take only a `goHome` closure. SwiftUI can attach a bottom bar to any view with `safeAreaInset`.
+- Constraints:
+  - Putting the nav inside each area view or inside AreaScaffold breaks parallel cards: every area card would need a new parameter and would conflict on rebase.
+  - A TabView breaks the design (system tab bar, no Home screen above it) and adds its own navigation state next to the shell's.
+- Options:
+  - (a) AppShell wraps the active area view with `safeAreaInset(edge: .bottom)` holding `BottomNav`, which sets the shell's area.
+  - (b) AreaScaffold draws the nav and reads an "open area" closure from the environment.
+  - (c) A TabView with custom-styled items.
+- Decision: (a). The area state stays in one place; area views never navigate and are unchanged. Circles are "nav.circle.<area>" with accessibility value "active" or "inactive".
+- Evidence: App/Sources/AppShell.swift, App/Sources/BottomNav.swift, App/UITests/ShellNavigationUITests.swift (wt/S-001).
+- Reverse if: an area needs a screen without the bottom nav (a full-screen logger or camera), in which case the area view should report that to the shell.

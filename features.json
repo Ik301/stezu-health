@@ -215,7 +215,7 @@
         "s001-data"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-002",
