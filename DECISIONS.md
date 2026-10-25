@@ -318,3 +318,36 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). State is idle, resting(remaining) or done(overBy); remaining is nil when idle and never negative. Starting again restarts from the clock. The app passes `{ Date() }`; tests pass a closure over a local variable.
 - Evidence: Packages/StezuCore/Sources/StezuCore/RestTimer.swift, RestTimerTests/testRestTimerUsesInjectedClock; the F-008 commit on wt/F-008.
 - Reverse if: the timer must fire a notification when rest ends while the app is backgrounded; that needs a scheduled local notification in the app, fed from `startedAt + duration`.
+
+## D-028 The weekly target rule is stateless; the caller passes the last change date
+
+- Status: proposed by night agent, 2026-10-25 (F-003).
+- Problem: SPEC.md allows at most one target change per week, so the rule has to know when the target last moved, and something has to remember that across app launches.
+- Given: StezuCore has no storage and no platform imports. The trend, expenditure and protein rules are pure functions of their inputs.
+- Constraints:
+  - Storing the change history inside StezuCore breaks the no-platform, pure-package rule and makes tests depend on state.
+  - Inferring the last change from the target history breaks when Isaac edits the target by hand.
+  - Calendar weeks (locale first weekday) break reproducibility, as in D-024.
+- Options:
+  - (a) `WeeklyTarget.evaluate(asOf:currentTarget:weighIns:lastChange:config:)` takes the last change day (nil if never); the app stores it and the new target.
+  - (b) A stateful `WeeklyTargetEngine` object that keeps its own history.
+  - (c) Run the rule only on a fixed weekday.
+- Decision: (a). A due raise or lower is held, with action `.alreadyChangedThisWeek`, when the last change was fewer than 7 calendar days before the read day (`minDaysBetweenChanges`). The result always carries the previous and new target, so the app writes back `newTarget` and, on raise or lower, today as the last change.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyTarget.swift (`evaluate`), WeeklyTargetTests/testAtMostOneChangePerWeek; the F-003 commit on wt/F-003.
+- Reverse if: the app needs a history of decisions for the Data screen, in which case the stored log can supply `lastChange`.
+
+## D-029 Data sufficiency and trend rate are counted in calendar days back from the read day
+
+- Status: proposed by night agent, 2026-10-25 (F-003).
+- Problem: SPEC.md asks for 4 weigh-ins "in the current week", 21 days of data and a trend rate over "the last 3 weeks", without fixing where those spans start.
+- Given: `TrendWeight.estimate(asOf:)` returns nil before the first weigh-in and carries its own confidence. Every decision needs a reason and a confidence.
+- Constraints:
+  - Counting the week from a locale first weekday breaks early in the week, when 4 weigh-ins are impossible.
+  - A 21-day span that does not reach the day the rate window starts breaks the rate, because the start trend would be nil.
+  - Returning a rate of 0 when data is thin breaks rule 5 and would trigger a raise.
+- Options:
+  - (a) Rolling spans: weigh-in days in the 7 days ending on the read day; days of data = days from the first weigh-in to the read day; rate = (trend today - trend 21 days ago) / 3.
+  - (b) Calendar weeks and a rate from a linear fit over the weigh-ins.
+- Decision: (a). Days of data is checked first, then the week count; either failure returns `.insufficientData` with the target unchanged, a nil `trendRate`, low confidence and the counts in the reason. "More than" is strict, so a gap exactly on 0.15 or 0.25 holds. Confidence of a computed decision is the weaker of the two trend confidences. All thresholds, both bands (0.25 to 0.5 lb/week, 100 to 150 kcal) and the steps live in `WeeklyTargetConfig`; a rate or step outside its band traps with `precondition`, like the trend alpha (D-017).
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyTarget.swift (`WeeklyTargetConfig`, `evaluate`), WeeklyTargetTests (all five tests); the F-003 commit on wt/F-003.
+- Reverse if: the EWMA lag makes the 3-week trend rate too slow to react, or Isaac wants the decision on a fixed weekday.

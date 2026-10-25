@@ -43,7 +43,7 @@
       "title": "Weekly calorie target rule",
       "area": "core",
       "needs_approval": false,
-      "passes": false,
+      "passes": true,
       "steps": [
         "Add the weekly target rule from SPEC.md with all thresholds configurable.",
         "Return insufficient data and no change with fewer than 4 weigh-ins in the week or fewer than 21 days of data.",
