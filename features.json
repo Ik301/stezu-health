@@ -1,0 +1,184 @@
+{
+  "schema": 1,
+  "features": [
+    {
+      "id": "F-001",
+      "title": "Trend weight EWMA over irregular gaps",
+      "area": "core",
+      "needs_approval": false,
+      "passes": false,
+      "steps": [
+        "Add a trend-weight calculation to StezuCore. Input: dated weigh-ins on irregular days. Output: the trend on each weigh-in day.",
+        "The first weigh-in seeds the trend. For a gap of d days the new weigh-in gets weight 1 - (1 - alpha)^d, with alpha configurable (default 0.1 per day).",
+        "Days without a weigh-in are absent, not zero, and do not update the trend.",
+        "Return a confidence with the trend, based on how many weigh-ins it rests on and how recent they are."
+      ],
+      "tests": [
+        "StezuCoreTests.TrendWeightTests/testFirstWeighInSeedsTrend",
+        "StezuCoreTests.TrendWeightTests/testGapUsesCompoundedAlpha",
+        "StezuCoreTests.TrendWeightTests/testMissingDaysAreNotZero",
+        "StezuCoreTests.TrendWeightTests/testTrendCarriesConfidence"
+      ]
+    },
+    {
+      "id": "F-002",
+      "title": "Expenditure estimate",
+      "area": "core",
+      "needs_approval": false,
+      "passes": false,
+      "steps": [
+        "Add an expenditure estimate: mean logged intake over the last 21 days minus (trend change over those days x 3500 kcal/lb) / 21.",
+        "Exclude partial days: logged intake under 50% of that week's typical (median) intake.",
+        "Return insufficient data, never 0, when the window lacks intake or trend data.",
+        "Return a confidence with the estimate."
+      ],
+      "tests": [
+        "StezuCoreTests.ExpenditureTests/testExpenditureFromIntakeAndTrendChange",
+        "StezuCoreTests.ExpenditureTests/testPartialDaysAreExcluded",
+        "StezuCoreTests.ExpenditureTests/testInsufficientDataIsNotZero"
+      ]
+    },
+    {
+      "id": "F-003",
+      "title": "Weekly calorie target rule",
+      "area": "core",
+      "needs_approval": false,
+      "passes": false,
+      "steps": [
+        "Add the weekly target rule from SPEC.md with all thresholds configurable.",
+        "Return insufficient data and no change with fewer than 4 weigh-ins in the week or fewer than 21 days of data.",
+        "Raise the target by the configured step (100 to 150 kcal) when the 3-week trend rate is more than 0.15 lb/week under the target rate; lower it by 100 kcal when it is more than 0.25 lb/week over.",
+        "Allow at most one change per week, and return the reason and a confidence with every result."
+      ],
+      "tests": [
+        "StezuCoreTests.WeeklyTargetTests/testFewerThanFourWeighInsMakesNoChange",
+        "StezuCoreTests.WeeklyTargetTests/testFewerThan21DaysMakesNoChange",
+        "StezuCoreTests.WeeklyTargetTests/testRaisesTargetWhenTrendIsUnderRate",
+        "StezuCoreTests.WeeklyTargetTests/testLowersTargetWhenTrendIsOverRate",
+        "StezuCoreTests.WeeklyTargetTests/testAtMostOneChangePerWeek"
+      ]
+    },
+    {
+      "id": "F-004",
+      "title": "Protein floor flag",
+      "area": "core",
+      "needs_approval": false,
+      "passes": false,
+      "steps": [
+        "Add a protein floor check over a 3-day rolling mean of daily protein.",
+        "Use the low end of each meal's estimate range.",
+        "The floor is a configurable parameter; tests use synthetic values.",
+        "With fewer than 3 days of logged food return insufficient data, not a flag."
+      ],
+      "tests": [
+        "StezuCoreTests.ProteinFloorTests/testFlagsWhenThreeDayMeanIsUnderFloor",
+        "StezuCoreTests.ProteinFloorTests/testUsesLowEndOfEstimateRange",
+        "StezuCoreTests.ProteinFloorTests/testFewerThanThreeDaysIsInsufficient"
+      ]
+    },
+    {
+      "id": "F-005",
+      "title": "Home screen three cards from a view model",
+      "area": "app",
+      "needs_approval": false,
+      "passes": false,
+      "steps": [
+        "Add a HomeViewModel that produces the Data, Food and Workout cards (label, subtitle, value text) from core values.",
+        "Time of day picks the inverted card; inject the clock.",
+        "Missing values render as --, never 0.",
+        "HomeView renders the view model's cards with the DESIGN.md tokens."
+      ],
+      "tests": [
+        "AppTests.HomeViewModelTests/testThreeCardsInOrder",
+        "AppTests.HomeViewModelTests/testMissingValuesShowDashes",
+        "AppTests.HomeViewModelTests/testTimeOfDayPicksInvertedCard"
+      ]
+    },
+    {
+      "id": "F-006",
+      "title": "HealthKit body-mass read behind the HealthStore protocol",
+      "area": "app",
+      "needs_approval": true,
+      "passes": false,
+      "steps": [
+        "Define a HealthStore protocol in StezuCore with an async read of body-mass samples, plus a FakeHealthStore for tests.",
+        "Implement the protocol in the app with HealthKit, read-only body mass. Needs approval: HealthKit entitlement and capability.",
+        "Denied authorization or no samples is absent data, not zero."
+      ],
+      "tests": [
+        "StezuCoreTests.HealthStoreTests/testFakeStoreReturnsBodyMassSamples",
+        "StezuCoreTests.HealthStoreTests/testDeniedAccessIsAbsentNotZero",
+        "AppTests.HealthKitStoreTests/testRequestsBodyMassReadOnly"
+      ]
+    },
+    {
+      "id": "F-007",
+      "title": "One-tap weigh-in write",
+      "area": "app",
+      "needs_approval": true,
+      "passes": false,
+      "steps": [
+        "Add a body-mass write to the HealthStore protocol; the fake records writes.",
+        "The weigh-in control is prefilled from the last weigh-in and adjusted without a keyboard; one tap writes the sample.",
+        "Needs approval: HealthKit write access."
+      ],
+      "tests": [
+        "StezuCoreTests.WeighInTests/testOneTapWritesOneSample",
+        "StezuCoreTests.WeighInTests/testPrefillUsesLastWeighIn",
+        "AppTests.WeighInViewModelTests/testLogWritesThroughHealthStore"
+      ]
+    },
+    {
+      "id": "F-008",
+      "title": "Workout session model with last-session numbers and a rest timer",
+      "area": "core",
+      "needs_approval": false,
+      "passes": false,
+      "steps": [
+        "Add a workout session model: exercises, sets (weight and reps) and a one-call log-set operation.",
+        "Expose the last session's numbers for each exercise; absent when there is no previous session.",
+        "Add a rest timer driven by an injected clock."
+      ],
+      "tests": [
+        "StezuCoreTests.WorkoutSessionTests/testLogSetIsOneCall",
+        "StezuCoreTests.WorkoutSessionTests/testLastSessionNumbersPerExercise",
+        "StezuCoreTests.RestTimerTests/testRestTimerUsesInjectedClock"
+      ]
+    },
+    {
+      "id": "F-009",
+      "title": "Double-progression rule",
+      "area": "core",
+      "needs_approval": false,
+      "passes": false,
+      "steps": [
+        "Add a double-progression suggestion: add reps within the rep range, then add weight once every set reaches the top of the range.",
+        "Rep range and weight step are configurable.",
+        "No suggestion without a last session (absent, not zero)."
+      ],
+      "tests": [
+        "StezuCoreTests.DoubleProgressionTests/testAddRepsBelowTopOfRange",
+        "StezuCoreTests.DoubleProgressionTests/testAddWeightWhenAllSetsHitTop",
+        "StezuCoreTests.DoubleProgressionTests/testNoSuggestionWithoutLastSession"
+      ]
+    },
+    {
+      "id": "F-010",
+      "title": "Dining menu models and client against a VM endpoint",
+      "area": "core",
+      "needs_approval": true,
+      "passes": false,
+      "steps": [
+        "Add Codable models for dining menus (FoodPro) as served by a VM endpoint.",
+        "Add a client that takes an injected transport protocol, so core needs no networking import and tests need no network.",
+        "Use a synthetic fixture. An unavailable menu is absent, not an empty menu.",
+        "Needs approval: the endpoint URL and token handling."
+      ],
+      "tests": [
+        "StezuCoreTests.DiningMenuTests/testDecodesMenuFixture",
+        "StezuCoreTests.DiningMenuTests/testClientUsesInjectedTransport",
+        "StezuCoreTests.DiningMenuTests/testUnavailableMenuIsAbsentNotEmpty"
+      ]
+    }
+  ]
+}

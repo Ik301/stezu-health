@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux-core:
+    name: linux-core
+    runs-on: ubuntu-latest
+    container: swift:6.4.1
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install git and python3 if missing
+        run: |
+          if ! command -v git >/dev/null || ! command -v python3 >/dev/null; then
+            apt-get update && apt-get install -y --no-install-recommends git python3
+          fi
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Trust the workspace for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Toolchain
+        run: swift --version
+      - name: Gates G1 to G4
+        run: scripts/gate-linux.sh
+
+  ios:
+    name: ios
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        run: xcodegen generate
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          xcrun simctl list devices available --json > simulators.json
+          UDID="$(python3 - <<'EOF'
+          import json, re, sys
+          devices = json.load(open("simulators.json"))["devices"]
+          best = None
+          for runtime, items in devices.items():
+              m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not m or (int(m.group(1)), int(m.group(2))) < (17, 0):
+                  continue
+              version = (int(m.group(1)), int(m.group(2)))
+              for d in items:
+                  if d.get("isAvailable") and d["name"].startswith("iPhone"):
+                      if best is None or version > best[0]:
+                          best = (version, d["udid"], d["name"])
+          if best is None:
+              sys.exit("no available iPhone simulator with iOS 17 or newer")
+          print(f"Using {best[2]} on iOS {best[0][0]}.{best[0][1]}", file=sys.stderr)
+          print(best[1])
+          EOF
+          )"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+      - name: Test
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild test \
+            -project StezuHealth.xcodeproj \
+            -scheme StezuHealth \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath build/AppTests.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build/xcodebuild.txt
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: |
+            build/AppTests.xcresult
+            build/xcodebuild.txt
+          if-no-files-found: warn

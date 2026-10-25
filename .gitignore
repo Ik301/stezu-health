@@ -1,0 +1,36 @@
+# Swift and Xcode
+.build/
+.swiftpm/
+DerivedData/
+build/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.xcresult
+
+# Signing material and secrets
+*.p8
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
+.env
+*.env
+!*.env.example
+
+# Health data exports never belong in this repo
+export.xml
+export_cda.xml
+apple_health_export/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Card worktrees created by kanban
+.worktrees/
+
+# Misc
+.DS_Store
+*.log
+.claude/

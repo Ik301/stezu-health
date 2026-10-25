@@ -1,0 +1,48 @@
+name: StezuHealth
+options:
+  bundleIdPrefix: com.ik301
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  StezuCore:
+    path: Packages/StezuCore
+targets:
+  StezuHealth:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - App/Sources
+    dependencies:
+      - package: StezuCore
+        product: StezuCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Stezu Health
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        TARGETED_DEVICE_FAMILY: "1"
+    scheme:
+      testTargets:
+        - AppTests
+  AppTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - App/Tests
+    dependencies:
+      - target: StezuHealth
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth.tests
+        GENERATE_INFOPLIST_FILE: YES
