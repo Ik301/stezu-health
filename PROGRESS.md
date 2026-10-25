@@ -2,6 +2,17 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 infra/v1-stories: project infrastructure and the stories ledger (daytime session)
+
+- Why: the first night's 8 cards passed every gate, yet the phone showed three blank cards that could not be tapped. features.json described engineering units, and nothing checked screens.
+- Project (project.yml): App/StezuHealth.entitlements (HealthKit) through CODE_SIGN_ENTITLEMENTS; Info.plist keys NSHealthShareUsageDescription, NSHealthUpdateUsageDescription, NSCameraUsageDescription and NSSupportsLiveActivities; a RestActivity widget extension (com.ik301.stezuhealth.RestActivity) with a minimal ActivityKit Live Activity and RestActivityAttributes in App/Shared; an AppUITests target. The scheme runs AppTests and AppUITests.
+- App: `-uitest` switches AppEnvironment to an in-memory store, FakeHealthStore, FakeVMTransport and a fixture photo (D-039). Home cards are buttons that open placeholder Data, Food and Workout screens with a Home button; the bottom circles are S-001. Core gained `HealthStore`/`FakeHealthStore` and `VMTransport`/`FakeVMTransport`/`UnconfiguredVMTransport`; the app gained `HealthKitStore` with the v1 read and write types.
+- Tests: a smoke UI test (three cards, open each area, keepAlways screenshots), AppEnvironmentTests (4), VMTransportTests (3), FakeHealthStoreTests (1).
+- Ledger: features.json schema 2. F-001 to F-010 unchanged as engine entries; S-001 to S-026 stories (D-038). `check-features.py --ready` lists what can start.
+- Gates: G2 understands stories and lets infra/* restructure the ledger; G3 keeps project files off card branches and allows them on infra/* (D-040); G5 runs server/run_tests.sh when it exists. CI's ios job runs unit and UI tests and uploads the xcresult and exported screenshots; ios is now required next to linux-core.
+- Decision numbers: D-038 to D-040, because D-036 and D-037 are the server's on main.
+- Next: S-001 (bottom nav), then S-002, S-003, S-012 and S-020 in parallel. S-021 reuses F-006 and F-007's test names, so those engine entries can be flipped (with --approved, D-033) once S-021 passes.
+
 ## 2026-10-25 Food server on the VM (server agent)
 
 - Added server/: a FastAPI service with a SQLite cache, run as a systemd user service bound to the tailnet address only. Endpoints: `/health`, `/menu` (FoodPro, all 13 halls, cached per date, closed halls listed as unavailable), `/scan` (Claude vision against every hall's items for the meal, ranges, idempotent on meal_id plus photo hash), `/search` (dining fuzzy match, Open Food Facts, USDA FDC, text estimate) and `/barcode/{gtin}` (Open Food Facts). Contract in server/README.md. Decisions D-036 and D-037.

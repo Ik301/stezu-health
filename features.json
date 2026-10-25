@@ -545,7 +545,7 @@
       "area": "food",
       "title": "Take a photo and see its items matched against every dining hall's menu for that meal",
       "steps": [
-        "Tap the shutter. The app sends the downscaled photo, its hash, a client meal id and the meal period to the VM server, which matches it against the menus of all dining halls open for that meal (D-035).",
+        "Tap the shutter. The app sends the downscaled photo, its hash, a client meal id and the meal period to the VM server (POST /scan, server/README.md), which matches it against the menus of all dining halls open for that meal (D-035).",
         "A sheet lists the matched items, each with its hall, servings, and kcal and protein as low-high ranges, plus meal totals as ranges. Never a single number.",
         "An item not on any menu comes back as a rough estimate with a wider range and a \"rough\" badge.",
         "In -uitest the fake transport answers with a synthetic fixture."
@@ -574,9 +574,9 @@
       "area": "food",
       "title": "Search dining items, restaurants and packaged food from the camera screen",
       "steps": [
-        "On the camera screen, tap the search bar and type. Results from the VM come grouped: dining hall items (with the hall), restaurants, packaged food.",
+        "On the camera screen, tap the search bar and type. Results from the VM (GET /search) come grouped: dining hall items (with the hall), restaurants, packaged food.",
         "Tap a result. The item list opens with that item at 1 serving and its ranges.",
-        "With no good match, tap \"Estimate from text\". The VM returns a rough estimate, shown with the \"rough\" badge and a wider range.",
+        "With no good match, tap \"Estimate from text\". The VM (GET /search with estimate=true) returns a rough estimate, shown with the \"rough\" badge and a wider range.",
         "In -uitest the fake transport answers search and text estimate with synthetic fixtures."
       ],
       "tap_budget": "1 tap into search, typing, 1 tap to pick",
@@ -636,7 +636,7 @@
       "title": "Switch to Barcode, scan a package, and get it from Open Food Facts",
       "steps": [
         "On the camera, switch the pill to Barcode. VisionKit's DataScanner reads the code; in -uitest a fixture barcode source returns a synthetic code.",
-        "The code goes to the VM, which looks it up in Open Food Facts. The item list opens with the product, its serving label and ranges, ready to Log.",
+        "The code goes to the VM (GET /barcode/{gtin}), which looks it up in Open Food Facts. The item list opens with the product, its serving label and ranges, ready to Log.",
         "An unknown code shows \"Not found\" and offers search instead."
       ],
       "tap_budget": "1 tap (switch), then point the camera",

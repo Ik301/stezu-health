@@ -1,5 +1,7 @@
 # Spec
 
+v1 scope: D-032 to D-035 in DECISIONS.md override this file where they differ (tracking only, no targets; Food has text search, barcode and an editable item list). The v1 work list is the stories in features.json.
+
 ## Goal
 
 One iPhone app for the health data that has to be entered by hand: meals, gym sets and weigh-ins. Everything else is read from Apple Health. Logging must cost fewer taps than skipping it, and the app shows only numbers that are worth acting on each week.
