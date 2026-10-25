@@ -38,13 +38,17 @@ struct AppEnvironment: Sendable {
   var healthStore: any HealthStore
   var vmTransport: any VMTransport
   var photoSource: any PhotoSource
+  /// Settings' server address and token: UserDefaults and the Keychain, or memory in `-uitest`.
+  var serverSettings: any ServerSettingsStore
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
-  /// server address and token.
+  /// server address and token, then sends to that server with the token.
   static func live() -> AppEnvironment {
-    AppEnvironment(
+    let settings = DeviceServerSettingsStore()
+    return AppEnvironment(
       isUITest: false, storage: .disk, scenario: nil, healthStore: HealthKitStore(),
-      vmTransport: UnconfiguredVMTransport(), photoSource: NoCameraPhotoSource())
+      vmTransport: settings.load().transport(), photoSource: NoCameraPhotoSource(),
+      serverSettings: settings)
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.
@@ -52,7 +56,13 @@ struct AppEnvironment: Sendable {
     AppEnvironment(
       isUITest: true, storage: .memory, scenario: scenario, healthStore: FakeHealthStore(),
       vmTransport: FakeVMTransport(routes: UITestFixtures.vmRoutes, offline: offline),
-      photoSource: FixturePhotoSource())
+      photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore())
+  }
+
+  /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.
+  mutating func useServer(_ settings: ServerSettings) {
+    guard !isUITest else { return }
+    vmTransport = settings.transport()
   }
 
   /// Live services unless the launch arguments contain `-uitest`.

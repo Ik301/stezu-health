@@ -538,3 +538,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The seed is App/Sources/Workout/PrebuiltWorkouts.json; core tests read the same file from the repo. `-uitest` memory storage keeps no file, so each launch starts from the seed. The rotation is `next(after: lastTemplateKey)`, the first template when nothing was done; until sessions are stored the app passes nil.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift, App/Sources/Workout/WorkoutTemplateStore.swift, App/Sources/Workout/PrebuiltWorkouts.json, Packages/StezuCore/Tests/StezuCoreTests/WorkoutTemplateTests.swift (wt/S-003).
 - Reverse if: the user wants a seed fix applied to a template he edited (then offer a per-template "reset to seed"), or templates move into a shared store with sessions.
+
+## D-043 Server settings live in a store on AppEnvironment, and Save rebuilds the app's VM transport
+
+- Status: proposed by night agent, 2026-10-25 (S-002).
+- Problem: the app needs one server address and token, typed once on the device, and every server call after a save must go to that server with that token, while `-uitest` launches and the repo never hold a real address or token.
+- Given: AppEnvironment is chosen once at launch and passed down as `\.appEnvironment`; `live()` used UnconfiguredVMTransport. The Keychain needs no entitlement for the app's own items. AppTests assert that a fresh live launch has UnconfiguredVMTransport.
+- Constraints:
+  - Writing the token to UserDefaults breaks the story (token in the Keychain) and leaks it into device backups in clear.
+  - Reading the settings inside each server client breaks the fakes: tests and `-uitest` would need a Keychain, and every client would repeat the lookup.
+  - A transport that reads the store on every call breaks `is UnconfiguredVMTransport` checks and hides "not configured" behind a configured-looking type.
+- Options:
+  - (a) A `ServerSettingsStore` on AppEnvironment (UserDefaults plus Keychain live, memory in `-uitest`); `live()` builds the transport from the saved settings, and Save calls `AppEnvironment.useServer`, which replaces `vmTransport` in the app's `@State` environment (a no-op under `-uitest`, which keeps FakeVMTransport).
+  - (b) A wrapping transport that reads the store on each send.
+  - (c) Settings in `@AppStorage` read directly by the views.
+- Decision: (a). `ServerSettings.transport()` returns URLSessionVMTransport (path after the base URL's path, `Authorization: Bearer`, network errors as `unreachable`) only when the address is an http(s) URL with a host and the token is non-empty, else UnconfiguredVMTransport. `ServerConnection` maps a call's outcome to display text; not configured reads "Set up the server in Settings". Test connection uses the saved settings, not unsaved typing.
+- Evidence: App/Sources/Settings/ServerSettings.swift, App/Sources/Settings/SettingsView.swift, App/Sources/AppEnvironment.swift, App/Tests/ServerSettingsTests.swift, App/UITests/ServerSettingsUITests.swift (wt/S-002).
+- Reverse if: a background task or extension needs the server without the app running, in which case the token moves to a shared Keychain access group (an infra change).

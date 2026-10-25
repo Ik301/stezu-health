@@ -2,6 +2,14 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 S-002 Server address and token in Settings (night agent)
+
+- Added App/Sources/Settings/: `ServerSettings` (address, token, `baseURL`, `isConfigured`, masked token, `transport()`), `DeviceServerSettingsStore` (address in UserDefaults, token in the Keychain, this device only), `MemoryServerSettingsStore` (`-uitest`), `ServerConnection` (GET /health outcome and its display text) and `URLSessionVMTransport` (bearer token on every call). SettingsView opens as a sheet from a gear on Home (`home.settings`); Save stores both and calls `AppEnvironment.useServer`, which swaps the live transport (D-043). `UITestFixtures.vmRoutes` answers GET /health.
+- Tests: AppTests.ServerSettingsTests (live transport through a stub URLProtocol, unconfigured cases), AppUITests.ServerSettingsUITests/testSaveServerAndTestConnection (screenshots s002-settings-empty, s002-settings-connected). Synthetic address and token only.
+- Gates: `FEATURE_ID=S-002 scripts/gate-linux.sh` G1 to G5 PASS locally, 294 non-test lines in 7 files. Flipped with check-features.py --flip.
+- Naming: ids `settings.address`, `settings.token`, `settings.token.saved`, `settings.save`, `settings.test`, `settings.status`, `screen.settings.title`. No library added (Foundation, Security).
+- Left undone / noticed: no server feature exists yet, so "Set up the server in Settings" shows only in Settings; later Food cards should map `VMTransportError.notConfigured` through `ServerConnection.notConfigured.text`. An address typed without a scheme gets https; a plain-http tailnet address may need an ATS exception (Info.plist, infra only). Settings has no close button (swipe down); the token cannot be cleared from the UI once saved.
+
 ## 2026-10-25 S-003 Workout templates and Start (night agent)
 
 - Added `TemplateExercise`, `WorkoutTemplate`, `WorkoutSeed` and `TemplateLibrary` (upsert by key, edit, rotation `next(after:)`) in Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift. The generic 5-day seed (Push, Pull, Legs, Upper, Lower; seedVersion 1) is App/Sources/Workout/PrebuiltWorkouts.json. `WorkoutTemplateStore` loads the library file and applies a newer seed at launch. Decision D-042.

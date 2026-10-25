@@ -244,7 +244,7 @@
         "s002-settings-connected"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-003",
