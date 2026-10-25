@@ -133,3 +133,54 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a) for week 1, because Isaac still pushes small fixes directly. Night agents always work on wt/F-xxx branches.
 - Evidence: scripts/gate-linux.sh, scripts/check-features.py, scripts/diff-budget.sh, .github/workflows/ci.yml; the scaffold commit on main.
 - Reverse if: any night card lands on main without a pull request. Then switch to (c).
+
+## D-017 Trend confidence from weigh-in count and age
+
+- Status: proposed by night agent, 2026-10-25 (F-001).
+- Problem: a trend value alone does not say how much it can be trusted. A trend built from one reading, or one last updated a week ago, looks the same as one built from two weeks of steady gym weigh-ins.
+- Given: SPEC.md requires every derived value to carry a level and a reason. Weigh-ins come about 5 a week. With alpha 0.1 per day, a reading's weight halves in about 6.6 days, so the last 14 days carry about 77% of the trend.
+- Constraints:
+  - Must be explainable in one line on screen: an opaque statistic (a variance or an effective sample size) breaks the "reason" the UI shows.
+  - Must drop when data stops: a count over all history keeps saying "high" after weeks without a weigh-in.
+  - Must be configurable: hard-coded bars break the no-personal-numbers rule once L1 needs its own floor.
+- Options:
+  - (a) Count weigh-in days in a 14-day window ending on the day read, plus days since the last one. High: 8 or more and at most 3 days old. Medium: 4 or more and at most 7 days old. Otherwise low.
+  - (b) Sum the EWMA weights (effective number of readings) and map it to levels.
+  - (c) Total weigh-ins since the first one.
+- Decision: (a). It matches L1's floor of 4 a week, reads as a plain sentence ("10 weigh-ins in the last 14 days; last one 0 days ago"), and decays with staleness. All five numbers live in TrendWeightConfig.
+- Evidence: Packages/StezuCore/Sources/StezuCore/TrendWeight.swift (`confidenceFor`), Confidence.swift, TrendWeightTests/testTrendCarriesConfidence; the F-001 commit on wt/F-001.
+- Reverse if: the levels disagree with how the trend actually behaves after 3 weeks of real use, or F-003 needs a weekly rather than rolling count.
+
+## D-018 Weigh-ins are bucketed into calendar days before smoothing
+
+- Status: proposed by night agent, 2026-10-25 (F-001).
+- Problem: the gap d in 1 - (1 - alpha)^d has to be a whole number of days, but weigh-ins are timestamps. Two readings can fall on the same day, a reading near midnight can land on either side, and clock changes make some days 23 or 25 hours long.
+- Given: weigh-ins are at the gym, at most once a day in practice. HealthKit samples are absolute timestamps.
+- Constraints:
+  - Elapsed seconds / 86,400 breaks on daylight-saving days (fractional or off-by-one gaps).
+  - Treating same-day readings as separate points breaks the formula: d = 0 gives the second reading weight 0, so it is silently thrown away.
+  - A fixed UTC day breaks the user's notion of "today" for an evening weigh-in in US time zones.
+- Options:
+  - (a) Start of day in a configurable Calendar (default Calendar.current); gap = calendar day difference; same-day readings averaged into one reading.
+  - (b) Fractional days from elapsed time, alpha applied continuously.
+  - (c) Same-day duplicates: keep the last reading instead of the mean.
+- Decision: (a). Day differences come from `Calendar.dateComponents(.day)` between day starts, which handles DST. Mean over keep-last because neither reading is known to be wrong. Readings that are 0, negative or not finite are dropped as not-a-reading.
+- Evidence: Packages/StezuCore/Sources/StezuCore/TrendWeight.swift (`dailyReadings`, `dayIndex`), TrendWeightTests/testMissingDaysAreNotZero; the F-001 commit on wt/F-001.
+- Reverse if: weigh-ins start happening before and after a workout on the same day; then the mean mixes two biases and keep-first is better (see D-010).
+
+## D-019 What the trend API returns with no data, and between weigh-ins
+
+- Status: proposed by night agent, 2026-10-25 (F-001).
+- Problem: callers ask for the trend on arbitrary days: before any weigh-in, with an empty history, and on days between weigh-ins. Each case needs an answer that cannot be mistaken for a weight.
+- Given: "absent is not zero" (AGENTS.md rule 5). The Data screen shows "--" for missing values. F-002 and F-003 read the trend at window edges that may not be weigh-in days.
+- Constraints:
+  - Returning 0 breaks every downstream mean and difference.
+  - Interpolating or filling missing days breaks step 3 of F-001 (missing days do not update the trend).
+  - Throwing an error breaks simple call sites for a normal, expected state.
+- Options:
+  - (a) `series` returns one point per weigh-in day (empty array for no data). `estimate(asOf:)` returns nil when no weigh-in exists on or before that day; otherwise the last trend value held flat, with days-since-last and a confidence that drops as it ages.
+  - (b) A dense daily series with a nil trend on days without a weigh-in.
+  - (c) An enum result with an explicit `.insufficientData(reason)` case.
+- Decision: (a). Nil maps straight to "--", and holding the last value is exactly what an EWMA does when nothing new arrives. The stale-data signal lives in the confidence, not in the number.
+- Evidence: Packages/StezuCore/Sources/StezuCore/TrendWeight.swift (`series`, `estimate`), TrendWeightTests/testMissingDaysAreNotZero, testFirstWeighInSeedsTrend; the F-001 commit on wt/F-001.
+- Reverse if: F-002 or F-003 need to tell "no data yet" apart from "data too stale" with a reason string; then move to (c).
