@@ -1,0 +1,26 @@
+import Foundation
+
+/// A nutrient amount as a low-high range. Food amounts from a photo are never one number.
+public struct FoodRange: Sendable, Equatable, Decodable {
+  public let low: Double
+  public let high: Double
+
+  public init(low: Double, high: Double) {
+    self.low = min(low, high)
+    self.high = max(low, high)
+  }
+
+  /// The meal total: lows summed and highs summed. Nil when the list is empty or any item has no
+  /// range, because an unknown item makes the whole total unknown (absent is not zero).
+  public static func total(_ ranges: [FoodRange?]) -> FoodRange? {
+    guard !ranges.isEmpty else { return nil }
+    var low = 0.0
+    var high = 0.0
+    for range in ranges {
+      guard let range else { return nil }
+      low += range.low
+      high += range.high
+    }
+    return FoodRange(low: low, high: high)
+  }
+}

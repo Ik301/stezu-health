@@ -60,7 +60,9 @@ struct AppEnvironment: Sendable {
   static func fakes(scenario: String? = nil, offline: Bool = false) -> AppEnvironment {
     AppEnvironment(
       isUITest: true, storage: .memory, scenario: scenario, healthStore: FakeHealthStore(),
-      vmTransport: FakeVMTransport(routes: UITestFixtures.vmRoutes, offline: offline),
+      vmTransport: FakeVMTransport(
+        routes: UITestFixtures.vmRoutes, offline: offline,
+        held: UITestFixtures.heldRoutes(scenario: scenario)),
       photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore(),
       mealCaptures: MealCaptureStore(storage: .memory),
       workoutHistory: UITestFixtures.workoutHistory(scenario: scenario))

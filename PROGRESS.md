@@ -144,3 +144,11 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Gates G1 to G4 live in scripts/gate-linux.sh. CI runs linux-core (required) and ios (advisory).
 - Verified: scripts/gate-linux.sh passes on main and from a wt/F-xxx worktree, and rejects a hand flip, a flip of another card's feature, a non-passes field edit, a removed test, an over-budget diff, signing keys and entitlements files. The first CI run on main was green in both jobs (ios used Xcode 26.6 and an iPhone 17 Pro simulator on iOS 26.5). Branch protection on main requires linux-core.
 - Next: F-001, trend weight EWMA over irregular gaps.
+
+## 2026-10-25 S-013 Photo matched against every hall's menu (night agent)
+
+- After the shutter saves the photo (S-012), `MealMatcher` downscales it to at most 1000 px, hashes it (SHA-256, CryptoKit), and `PhotoMatchClient` (core) sends POST /scan with the meal id, the service day, the meal period from the capture time (`MealPeriod.at`: breakfast before 10:30, lunch before 16:00, dinner after) and mode `dining`. The sheet goes from "Matching..." to the item list: name, hall (or "Not on a menu"), servings, kcal and protein ranges, a "rough" badge for unlisted or rough items, and meal totals as ranges. Any failure shows "Could not match" with the photo still saved.
+- Core: FoodRange.swift (range, `total`), PhotoMatch.swift (`MealPeriod`, `MatchedItem`, `PhotoMatch`, `PhotoMatchClient`). FakeVMTransport gained held routes. Decisions D-049, D-050.
+- Tests: PhotoMatchClientTests (4), FoodRangeTests (2), AppTests PhotoMatchSheetTests (2), AppUITests PhotoMatchUITests (screenshot s013-matched). `FEATURE_ID=S-013 scripts/gate-linux.sh` passed G1 to G5 locally (295 non-test lines before the flip). S-013 flipped with check-features.py --flip.
+- Naming: core fields mirror the server's keys via convertFromSnakeCase (`itemId`, `proteinG`); no library added.
+- Left undone: no retry queue for failed or offline scans (the photo stays saved, nothing resends it); no depth regions are sent; item confidence is decoded but not shown; alternates are ignored; the meal-period cutoffs are guesses and use the device time zone, not New York; a failed scan has no UI test.

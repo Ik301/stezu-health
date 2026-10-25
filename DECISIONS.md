@@ -631,3 +631,37 @@ The research notes cited here are kept private, because they contain personal he
   - Health Auto Export: paid, and a second path for the same data.
   - iCloud: not available on a free account.
 - Reverse if: the VM database becomes the bottleneck for an analysis loop.
+
+## D-049 Meal totals are summed on the phone from the item ranges, and an unknown range makes the total unknown
+
+- Status: proposed by night agent, 2026-10-25 (S-013).
+- Problem: the match sheet needs meal totals as ranges, and S-015 will change servings, remove and add items, so the totals must follow the list; some items can come back with a null kcal or protein end.
+- Given: POST /scan returns per-item `kcal` and `protein_g` as `{low, high}` (either end may be null) plus server `totals`. Rule 5: absent is not zero.
+- Constraints:
+  - Showing the server's `totals` breaks S-015: after any edit they are stale, and recomputing only after edits gives two sources for one number.
+  - Treating a null end as 0 breaks rule 5 and understates the meal.
+  - Failing the whole decode on one null end breaks the photo: one bad item would hide every match.
+- Options:
+  - (a) `FoodRange.total` sums lows and highs of the items on the phone; an item without a range makes the total nil ("--"). Ranges decode leniently, so a range with a null end is nil for that item only.
+  - (b) Show the server totals and recompute only after edits.
+  - (c) Sum the known items and ignore unknown ones.
+- Decision: (a). The server `totals` field is decoded by nobody.
+- Evidence: Packages/StezuCore/Sources/StezuCore/FoodRange.swift, Packages/StezuCore/Sources/StezuCore/PhotoMatch.swift, FoodRangeTests, PhotoMatchClientTests (commit on wt/S-013).
+- Reverse if: items often lack one range, so totals are "--" too often; then show a partial total marked as partial.
+
+## D-050 In -uitest the scan route is held unless the photo-match scenario is on
+
+- Status: proposed by night agent, 2026-10-25 (S-013).
+- Problem: S-012's UI test asserts the "Matching..." sheet after the shutter, and S-013's asserts the matched items; with an instant fake reply the first state is gone before the test can see it.
+- Given: FakeVMTransport answers from a route table at once. UI tests pick fixtures through `-uitest-scenario`.
+- Constraints:
+  - Answering /scan in every -uitest launch breaks S-012's test (a race it would lose).
+  - Leaving /scan unrouted (404) breaks it too: the sheet turns to "Could not match".
+  - Editing S-012's test to pass a flag changes another story's test.
+- Options:
+  - (a) FakeVMTransport takes a set of held routes that never answer until the task is cancelled; -uitest holds POST /scan unless the scenario is "photo-match".
+  - (b) A fixed fake delay on /scan.
+  - (c) Change S-012's UI test to launch offline.
+- Decision: (a). Deterministic, and a held call is what a slow server looks like.
+- Evidence: Packages/StezuCore/Sources/StezuCore/VMTransport.swift, App/Sources/UITestFixtures.swift, App/Sources/AppEnvironment.swift (commit on wt/S-013).
+- Reverse if: a later story needs the held state and the answer in one launch; then add a fake call that releases held routes.
