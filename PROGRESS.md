@@ -2,6 +2,14 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 S-003 Workout templates and Start (night agent)
+
+- Added `TemplateExercise`, `WorkoutTemplate`, `WorkoutSeed` and `TemplateLibrary` (upsert by key, edit, rotation `next(after:)`) in Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift. The generic 5-day seed (Push, Pull, Legs, Upper, Lower; seedVersion 1) is App/Sources/Workout/PrebuiltWorkouts.json. `WorkoutTemplateStore` loads the library file and applies a newer seed at launch. Decision D-042.
+- Workout screen: the next template as the black card with its exercises and Start, "Sessions this week" and "Working sets" as "--", and a row for each other template and Empty workout. Start (or a row) opens `WorkoutLoggerView` on the first exercise: name, "Set 1 of N", rep range.
+- Tests: WorkoutTemplateTests (3, core), WorkoutTemplateStoreTests (2, AppTests: the seed ships in the bundle, edits survive a newer seed), WorkoutStartUITests (screenshots s003-workout-today, s003-logger-first-set). Gates: `FEATURE_ID=S-003 scripts/gate-linux.sh` passed G1 to G5 (296 non-test lines before the flip). S-003 flipped with check-features.py --flip.
+- Naming: ids `workout.today.{name,start,exercise.N}`, `workout.template.<key>`, `workout.week.{sessions,sets}`, `workout.logger.{exercise,set,reps}`. No library added.
+- Left undone (diff budget): the seed sits in App/Sources/Workout, not App/Resources, because App/Resources is not a source path in project.yml (infra PR if it should move). No sessions are stored, so the rotation always starts at Day 1 and the week numbers are always "--"; S-004/S-008 add sessions. The logger has no way back to the template list except the bottom nav; logging, steppers and Finish come with S-004 and S-008. No weight step per exercise in the seed yet (S-004 says default 5 lb).
+
 ## 2026-10-25 S-001 Bottom circles switch areas (night agent)
 
 - Added App/Sources/BottomNav.swift: three 58 pt circles (Data, Food, Workout), the active one black, ids `nav.circle.<area>` with accessibility value active/inactive. AppShell attaches it under every area screen with `safeAreaInset` and owns the area switch (D-041). Area views and AreaScaffold are unchanged; `Area.title` added.
@@ -104,11 +112,3 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Gates G1 to G4 live in scripts/gate-linux.sh. CI runs linux-core (required) and ios (advisory).
 - Verified: scripts/gate-linux.sh passes on main and from a wt/F-xxx worktree, and rejects a hand flip, a flip of another card's feature, a non-passes field edit, a removed test, an over-budget diff, signing keys and entitlements files. The first CI run on main was green in both jobs (ios used Xcode 26.6 and an iPhone 17 Pro simulator on iOS 26.5). Branch protection on main requires linux-core.
 - Next: F-001, trend weight EWMA over irregular gaps.
-
-## 2026-10-25 S-003 Workout templates and Start (night agent)
-
-- Added `TemplateExercise`, `WorkoutTemplate`, `WorkoutSeed` and `TemplateLibrary` (upsert by key, edit, rotation `next(after:)`) in Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift. The generic 5-day seed (Push, Pull, Legs, Upper, Lower; seedVersion 1) is App/Sources/Workout/PrebuiltWorkouts.json. `WorkoutTemplateStore` loads the library file and applies a newer seed at launch. Decision D-042.
-- Workout screen: the next template as the black card with its exercises and Start, "Sessions this week" and "Working sets" as "--", and a row for each other template and Empty workout. Start (or a row) opens `WorkoutLoggerView` on the first exercise: name, "Set 1 of N", rep range.
-- Tests: WorkoutTemplateTests (3, core), WorkoutTemplateStoreTests (2, AppTests: the seed ships in the bundle, edits survive a newer seed), WorkoutStartUITests (screenshots s003-workout-today, s003-logger-first-set). Gates: `FEATURE_ID=S-003 scripts/gate-linux.sh` passed G1 to G5 (296 non-test lines before the flip). S-003 flipped with check-features.py --flip.
-- Naming: ids `workout.today.{name,start,exercise.N}`, `workout.template.<key>`, `workout.week.{sessions,sets}`, `workout.logger.{exercise,set,reps}`. No library added.
-- Left undone (diff budget): the seed sits in App/Sources/Workout, not App/Resources, because App/Resources is not a source path in project.yml (infra PR if it should move). No sessions are stored, so the rotation always starts at Day 1 and the week numbers are always "--"; S-004/S-008 add sessions. The logger has no way back to the template list except the bottom nav; logging, steppers and Finish come with S-004 and S-008. No weight step per exercise in the seed yet (S-004 says default 5 lb).
