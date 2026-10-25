@@ -2,6 +2,14 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 F-008 Workout session model and rest timer (night agent)
+
+- Added `WorkoutSession` (exercises and sets in log order) with a one-call `logSet(_:pounds:reps:at:)`, plus `WorkoutSet`, `ExerciseLog`, `LastSessionNumbers`, `WorkoutHistoryConfig` and `WorkoutHistory.lastSession(of:before:in:)` / `lastSessions(before:in:)` in WorkoutSession.swift. `RestTimer` in RestTimer.swift reads time from an injected `now` closure. Decisions D-026, D-027.
+- Absent, not zero: a bodyweight set has `pounds == nil`; logSet rejects reps below 1 and weights that are 0, negative or not finite (returns nil, changes nothing); no earlier session gives nil; an idle timer has nil remaining.
+- Tests: WorkoutSessionTests (2), RestTimerTests (1), synthetic numbers. Gates: `FEATURE_ID=F-008 scripts/gate-linux.sh` passed G1 to G4 locally. F-008 flipped with check-features.py --flip.
+- Naming: exercises are identified by their exact name string; no library added (Foundation only).
+- Left undone / noticed: no persistence for sessions yet (no store feature exists). Weight is pounds only, matching F-001. Rest-end notifications in the background would need the app layer (D-027).
+
 ## 2026-10-25 F-002 Expenditure estimate (night agent)
 
 - Added `Expenditure.estimate(asOf:intake:weighIns:config:)` with `IntakeEntry`, `ExpenditureConfig`, `ExpenditureEstimate` and `ExpenditureResult` in Packages/StezuCore/Sources/StezuCore/Expenditure.swift. It reuses `TrendWeight.estimate` for the trend at both window edges.

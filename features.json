@@ -133,7 +133,7 @@
       "title": "Workout session model with last-session numbers and a rest timer",
       "area": "core",
       "needs_approval": false,
-      "passes": false,
+      "passes": true,
       "steps": [
         "Add a workout session model: exercises, sets (weight and reps) and a one-call log-set operation.",
         "Expose the last session's numbers for each exercise; absent when there is no previous session.",
