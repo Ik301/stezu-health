@@ -368,3 +368,19 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). `DoubleProgression.suggest(after:config:)` takes the last session's numbers and returns nil with no last session. If every working set reached the top of the range it adds one weight step and resets each set to the bottom of the range; otherwise each working set below the top gets one more rep. Bodyweight below the top keeps `pounds == nil`; bodyweight at the top gets a first added load of one step. The suggestion inherits the last session's confidence level, and the reason names how many working sets are under the top.
 - Evidence: Packages/StezuCore/Sources/StezuCore/DoubleProgression.swift, DoubleProgressionTests; the F-009 commit on wt/F-009.
 - Reverse if: the app starts tagging warm-up sets (option c), or Isaac's programs use back-off sets at a lighter weight that should progress too.
+
+## D-031 Home cards are computed from optional core results and an injected clock
+
+- Status: proposed by night agent, 2026-10-25 (F-005).
+- Problem: the home screen must show three cards whose values come from four core rules that may not have run yet, and one card must turn black depending on the time of day.
+- Given: the core rules return optional or insufficient-data results with a confidence (D-017 to D-029). There is no app storage or HealthKit import yet. AppTests run only on the macOS simulator.
+- Constraints:
+  - Calling the core rules from the view model breaks the thin-app rule and makes the view model own data loading it does not have.
+  - Reading `Date()` inside the view breaks testing of the inverted card.
+  - Formatting a missing value through a number formatter breaks rule 5, because nil would become 0.
+- Options:
+  - (a) A value-type `HomeViewModel` maps a `HomeInputs` struct of optional core results to `[HomeCard]`, and reads an injected `now` closure plus a configurable start-hour schedule for the inverted card.
+  - (b) An observable view model that loads the data itself and runs a timer.
+- Decision: (a). Each nil input gives "--" and a nil confidence; Food shows each half of "intake / target" separately, so a known intake with no target reads "600 / --". The schedule defaults to 5 Data, 11 Food, 16 Workout, 20 Food (hours before the first start wrap to the last entry); these are defaults, not personal numbers. HomeView re-reads the clock in a `TimelineView(.everyMinute)`.
+- Evidence: App/Sources/HomeViewModel.swift, App/Sources/HomeView.swift, App/Tests/HomeViewModelTests.swift; the F-005 commit on wt/F-005.
+- Reverse if: the app gains a store that publishes changes, at which point the inputs come from it, or the default hours do not match when Isaac actually weighs in, eats and trains.
