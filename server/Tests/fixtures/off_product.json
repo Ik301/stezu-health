@@ -1,0 +1,26 @@
+{
+ "code": "0049000028911",
+ "product": {
+  "brands": "Coke",
+  "code": "0049000028911",
+  "nutriments": {
+   "carbohydrates_100g": 0,
+   "energy-kcal_100g": 0,
+   "energy-kcal_serving": 0,
+   "fat_100g": 0,
+   "proteins_100g": 0,
+   "proteins_serving": 0
+  },
+  "nutrition_data": "on",
+  "nutrition_data_per": "100ml",
+  "nutrition_data_prepared_per": "100g",
+  "product_name": "Diet Coke Soft Drink",
+  "product_quantity": 4258.584,
+  "product_quantity_unit": "ml",
+  "quantity": "144 fl oz",
+  "serving_quantity": 354.9,
+  "serving_size": "1 can (354.9 mL)"
+ },
+ "status": 1,
+ "status_verbose": "product found"
+}

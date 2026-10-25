@@ -418,3 +418,21 @@ The research notes cited here are kept private, because they contain personal he
   - Barcode scanning is in v1.
   - The recent-meal shortcuts are removed.
 - Why: he doesn't always eat at the same hall, and a wrong guess needs a simple fix he controls.
+
+## D-036 The food server: where model access and device tokens live
+
+- Status: proposed by the server agent, 2026-10-25.
+- Problem: the phone needs menus, photo identification, search and barcode lookups from somewhere that can call a model, but the phone must not hold a model key, the service must not be reachable from the internet, and nothing about its address or credentials may reach the public repo.
+- Given: report 09 section 7 (the phone talks only to the VM over Tailscale with a per-device bearer token); D-034 (no tokens, IPs or server URLs in the repo); a local Claude proxy already runs on the VM; the VM has about 4 GB of free memory.
+- Constraints:
+  - Tokens, keys or the bind address in the repo break D-034.
+  - Binding to all interfaces makes the tailnet-only rule depend on the firewall alone.
+  - Hard-wiring the local proxy breaks the later move to a paid API key.
+  - A heavier stack (a database server, task workers) breaks the memory budget and adds operations work.
+- Options:
+  - (a) One FastAPI process with a SQLite cache, run as a systemd user service bound to the tailnet address. Tokens, bind address, model base URL, key file and model id live in an env file outside the repo (~/.config/stezu/server.env, mode 0600). The key is read from its file at call time and never copied.
+  - (b) The same with the stdlib HTTP server: no dependencies, but hand-written routing, multipart parsing and validation.
+  - (c) Call the model from the phone with a key in the keychain.
+- Decision: (a). The env file on the VM points at the local proxy with claude-sonnet-4-6 at temperature 0; the code defaults to the public API so a paid key replaces the proxy by editing two lines. The server work lands as a short series of PRs so each stays inside the G3 diff budget; tests live in server/Tests so the budget's test rule applies.
+- Evidence: server/stezu_server/config.py, server/stezu_server/app.py, server/README.md, server/Tests/test_core.py.
+- Reverse if: the phone must reach the server off the tailnet (then Tailscale Funnel or a public HTTPS endpoint with the same tokens), or the proxy goes away (set STEZU_ANTHROPIC_API_KEY and the base URL).
