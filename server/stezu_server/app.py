@@ -10,19 +10,23 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 
-from . import __version__, barcode, foodpro
+from . import __version__, barcode, foodpro, scan
 from .config import Settings, load_settings
+from .model import AnthropicClient, ModelError
 from .net import Http
 from .store import Store
 
 log = logging.getLogger("stezu")
+MAX_BODY = 9 * 1024 * 1024
 
 
 def create_app(settings: Settings | None = None, http: Any = None, model: Any = None) -> FastAPI:
     settings = settings or load_settings()
     app = FastAPI(title="Stezu food server", version=__version__, docs_url=None, redoc_url=None, openapi_url=None)
     store, http = Store(settings.db_path), http or Http()
+    model = model or AnthropicClient(settings, http)
     if not settings.tokens:
         log.warning("no device tokens configured: every authenticated request will get 401")
 
@@ -55,6 +59,41 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
     @api.get("/menu")
     def menu(date: str | None = None, refresh: bool = False) -> dict[str, Any]:
         return menu_for(day(date), refresh)
+
+    @api.post("/scan")
+    async def scan_photo(request: Request) -> dict[str, Any]:
+        if int(request.headers.get("content-length") or 0) > MAX_BODY:
+            raise HTTPException(413, "request too large")
+        image = None
+        if request.headers.get("content-type", "").startswith("multipart/form-data"):
+            form = await request.form()
+            fields: Any = {k: v for k, v in form.items() if isinstance(v, str)}
+            upload = form.get("photo")
+            if upload is None or isinstance(upload, str):
+                raise HTTPException(400, "a multipart scan needs a photo file field")
+            image = await upload.read()
+        else:
+            try:
+                fields = await request.json()
+            except ValueError:
+                raise HTTPException(400, "body must be JSON or multipart/form-data") from None
+            if not isinstance(fields, dict):
+                raise HTTPException(400, "body must be a JSON object")
+        try:
+            req = scan.parse_request(fields) | {"date": day(fields.get("date"))}
+            image, sha = scan.decode_image(image, fields.get("image_base64"), fields.get("photo_sha256"))
+        except scan.ScanError as exc:
+            raise HTTPException(400, str(exc)) from None
+        return await run_in_threadpool(scan_sync, req, image, sha)
+
+    def scan_sync(req: dict[str, Any], image: bytes, sha: str) -> dict[str, Any]:
+        items = foodpro.meal_items(menu_for(req["date"]), req["meal"]) if req["mode"] == "dining" else []
+        if not items:
+            req = req | {"mode": "open_world"}  # no hall serves this meal: estimate open-world
+        try:
+            return scan.run_scan(store, model, items, req, image, sha)
+        except ModelError as exc:
+            raise HTTPException(502, str(exc)) from None
 
     @api.get("/barcode/{gtin}")
     def lookup_barcode(gtin: str) -> dict[str, Any]:
