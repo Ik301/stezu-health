@@ -25,7 +25,7 @@
       "title": "Expenditure estimate",
       "area": "core",
       "needs_approval": false,
-      "passes": false,
+      "passes": true,
       "steps": [
         "Add an expenditure estimate: mean logged intake over the last 21 days minus (trend change over those days x 3500 kcal/lb) / 21.",
         "Exclude partial days: logged intake under 50% of that week's typical (median) intake.",

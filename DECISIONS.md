@@ -250,3 +250,37 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A one-meal day is the likeliest sign of incomplete logging, and a low-confidence flag tells the UI to soften it.
 - Evidence: Packages/StezuCore/Sources/StezuCore/ProteinFloor.swift (`check`); the F-004 commit on wt/F-004.
 - Reverse if: meal counts vary so much by habit (one large meal a day) that most checks read low.
+
+## D-024 Partial-day detection uses 7-day blocks from the window start
+
+- Status: proposed by night agent, 2026-10-25 (F-002).
+- Problem: SPEC.md says a day is partial when its intake is under 50% of "that week's" median, but does not say where a week starts, and a window of 21 days does not line up with calendar weeks.
+- Given: the window is 21 days ending on the day read. Days with no log at all are absent. Intake comes as individual entries with timestamps.
+- Constraints:
+  - Calendar weeks (locale first weekday) break reproducibility: the same data gives different results with a different locale, and the first and last weeks of the window are cut short.
+  - A rolling 7-day median around each day breaks the one-line explanation and needs data outside the window at the edges.
+  - Counting absent days as 0 in the median breaks rule 5 and pushes real low days into "partial".
+- Options:
+  - (a) Three fixed 7-day blocks counted from the window start; median over the block's logged days only.
+  - (b) Calendar weeks from `Calendar.firstWeekday`.
+  - (c) A centred rolling 7-day median per day.
+- Decision: (a). Entries are summed per calendar day (the trend config's calendar), entries of 0, negative or not-finite kcal are dropped as not-intake, and each logged day is compared with 50% of its block's median. Partial days are excluded from the mean and counted in the result.
+- Evidence: Packages/StezuCore/Sources/StezuCore/Expenditure.swift (`estimate`, `median`), ExpenditureTests/testPartialDaysAreExcluded; the F-002 commit on wt/F-002.
+- Reverse if: the window length stops being a multiple of 7, or partial days cluster at block edges in real use.
+
+## D-025 Expenditure returns an explicit insufficient-data result, and its confidence is the weakest input
+
+- Status: proposed by night agent, 2026-10-25 (F-002).
+- Problem: the estimate depends on two inputs that fail independently (intake logging and the trend at both window edges), and the caller has to show "--" with a reason, never a number, when either is missing.
+- Given: D-019 left the trend API as an optional and said to move to an enum when a caller needs a reason string. `TrendWeight.estimate(asOf:)` returns nil before the first weigh-in and carries its own confidence.
+- Constraints:
+  - Returning nil alone breaks the reason the Data screen should show ("9 full intake days; needs 14").
+  - Returning 0 kcal breaks rule 5 and F-003, which would read it as a real expenditure.
+  - A confidence from intake alone breaks when the trend at the window start is a week stale.
+- Options:
+  - (a) `ExpenditureResult` enum: `.estimate(ExpenditureEstimate)` or `.insufficientData(reason:)`, with an `estimate` accessor that is nil for the second case. Confidence = min(intake level, start trend level, end trend level).
+  - (b) An optional estimate plus a separate status call.
+  - (c) Always return an estimate, with low confidence when data is thin.
+- Decision: (a). Insufficient when fewer than 14 full intake days are in the window, or no weigh-in exists on or before the day before the window starts. Trend change = trend at the end day minus trend on the day before the window, so it spans exactly 21 days. Intake is high with 18 or more full days, otherwise medium; the trend can pull it lower. All thresholds live in ExpenditureConfig.
+- Evidence: Packages/StezuCore/Sources/StezuCore/Expenditure.swift (`ExpenditureResult`, `estimate`), ExpenditureTests/testInsufficientDataIsNotZero, testExpenditureFromIntakeAndTrendChange; the F-002 commit on wt/F-002.
+- Reverse if: F-003 needs to act on a low-confidence estimate differently from insufficient data, or 14 days proves too strict for real logging habits.
