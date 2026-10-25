@@ -60,14 +60,17 @@ public struct UnconfiguredVMTransport: VMTransport {
 
 /// Canned responses keyed by route ("POST /scan"). Unknown routes answer 404. It records every
 /// request, and while offline it throws `unreachable`, as a phone without a connection would.
+/// Held routes never answer, like a server still working: the call waits until its task ends.
 public actor FakeVMTransport: VMTransport {
   private var routes: [String: VMResponse]
+  private let held: Set<String>
   public private(set) var sent: [VMRequest] = []
   public private(set) var isOffline: Bool
 
-  public init(routes: [String: VMResponse] = [:], offline: Bool = false) {
+  public init(routes: [String: VMResponse] = [:], offline: Bool = false, held: Set<String> = []) {
     self.routes = routes
     self.isOffline = offline
+    self.held = held
   }
 
   public func setResponse(_ response: VMResponse, for route: String) {
@@ -82,6 +85,9 @@ public actor FakeVMTransport: VMTransport {
     sent.append(request)
     if isOffline {
       throw VMTransportError.unreachable("the fake transport is offline")
+    }
+    while held.contains(request.route) {
+      try await Task.sleep(nanoseconds: 1_000_000_000)
     }
     return routes[request.route] ?? VMResponse(status: 404)
   }

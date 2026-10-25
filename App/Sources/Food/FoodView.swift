@@ -10,6 +10,7 @@ struct FoodView: View {
   @State private var mode = "Photo"
   @State private var cameraAllowed: Bool?
   @State private var captured: CapturedMeal?
+  @State private var match = MatchState.matching
   @State private var captureFailed = false
 
   var body: some View {
@@ -29,7 +30,7 @@ struct FoodView: View {
     .background(Color.black.overlay { cameraImage }.clipped().ignoresSafeArea(edges: .top))
     .task { await startCamera() }
     .onDisappear { (environment.photoSource as? LiveCameraPhotoSource)?.stop() }
-    .sheet(item: $captured) { _ in matchingSheet }
+    .sheet(item: $captured) { _ in PhotoMatchSheet(state: match) }
   }
 
   @ViewBuilder private var cameraImage: some View {
@@ -104,16 +105,6 @@ struct FoodView: View {
     .padding(16).background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(.black))
   }
 
-  private var matchingSheet: some View {
-    VStack(spacing: 12) {
-      Text("Matching...").font(.system(size: Theme.subtitleSize, weight: .semibold))
-        .foregroundStyle(Theme.text).accessibilityIdentifier("food.matching")
-      Text("Photo saved on this phone.").font(.system(size: Theme.labelSize))
-        .foregroundStyle(Theme.label).accessibilityIdentifier("food.captured.saved")
-    }
-    .presentationDetents([.fraction(0.3)])
-  }
-
   private func startCamera() async {
     let allowed = await environment.photoSource.authorize()
     cameraAllowed = allowed
@@ -123,7 +114,10 @@ struct FoodView: View {
   private func shutter() async {
     do {
       captureFailed = false
-      captured = try await MealCapture(environment: environment).shutter()
+      let meal = try await MealCapture(environment: environment).shutter()
+      match = .matching
+      captured = meal
+      match = await MealMatcher(environment: environment).match(meal)
     } catch {
       captureFailed = true
     }
