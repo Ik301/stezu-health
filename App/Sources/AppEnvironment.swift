@@ -50,6 +50,8 @@ struct AppEnvironment: Sendable {
   var restAlerts: any RestAlerts = FakeRestAlerts()
   /// Import program's file source: the Files picker, or a synthetic program in `-uitest`.
   var programFilePicker: ProgramFilePicker
+  /// Whether Data has shown the Health sheet (S-020). Memory unless the live app passes defaults.
+  var healthConnection = HealthConnection(defaults: nil)
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -59,7 +61,8 @@ struct AppEnvironment: Sendable {
       isUITest: false, storage: .disk, scenario: nil, healthStore: HealthKitStore(),
       vmTransport: settings.load().transport(), photoSource: LiveCameraPhotoSource(),
       serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk),
-      restAlerts: LiveRestAlerts(), programFilePicker: .files)
+      restAlerts: LiveRestAlerts(), programFilePicker: .files,
+      healthConnection: HealthConnection(defaults: .standard))
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.
