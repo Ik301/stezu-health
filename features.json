@@ -150,7 +150,7 @@
       "title": "Double-progression rule",
       "area": "core",
       "needs_approval": false,
-      "passes": false,
+      "passes": true,
       "steps": [
         "Add a double-progression suggestion: add reps within the rep range, then add weight once every set reaches the top of the range.",
         "Rep range and weight step are configurable.",

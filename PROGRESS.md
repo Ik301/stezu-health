@@ -2,6 +2,14 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 F-009 Double-progression rule (night agent)
+
+- Added `DoubleProgression` in Packages/StezuCore/Sources/StezuCore/DoubleProgression.swift: `Config` (rep range, default 8...12, and weight step, default 5 lb; failable init rejects a range below 1 rep or a non-positive step), `Action` (`.addReps` / `.addWeight`), `Suggestion` (pounds, per-set target reps, confidence) and `suggest(after:config:)` over F-008's `LastSessionNumbers`. Decision D-030.
+- Working sets are the sets at last session's heaviest weight. All at or above the top: add one step, reset reps to the bottom. Otherwise one more rep per set below the top. No last session gives nil. Bodyweight stays nil pounds, never 0.
+- Tests: DoubleProgressionTests (3 tests, synthetic numbers). Gates: `FEATURE_ID=F-009 scripts/gate-linux.sh` passed G1 to G4 locally. F-009 flipped with check-features.py --flip.
+- Naming: `DoubleProgression.suggest(after:config:)`; no library added (Foundation only).
+- Left undone / noticed: rep range and step are per call, not per exercise; per-exercise settings need a settings store. A bodyweight exercise at the top suggests adding one step of load, which may not suit every movement. A session where reps dropped sharply (a bad day) still only gets "add reps"; there is no deload rule.
+
 ## 2026-10-25 F-003 Weekly calorie target rule (night agent)
 
 - Added `WeeklyTarget.evaluate(asOf:currentTarget:weighIns:lastChange:config:)` with `WeeklyTargetConfig` and `WeeklyTargetDecision` (action raise / lower / hold / alreadyChangedThisWeek / insufficientData, previous and new target, optional trend rate, reason, confidence) in Packages/StezuCore/Sources/StezuCore/WeeklyTarget.swift. It reuses `TrendWeight.estimate` for the trend today and 21 days ago.
