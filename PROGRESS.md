@@ -2,6 +2,13 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 Food server on the VM (server agent)
+
+- Added server/: a FastAPI service with a SQLite cache, run as a systemd user service bound to the tailnet address only. Endpoints: `/health`, `/menu` (FoodPro, all 13 halls, cached per date, closed halls listed as unavailable), `/scan` (Claude vision against every hall's items for the meal, ranges, idempotent on meal_id plus photo hash), `/search` (dining fuzzy match, Open Food Facts, USDA FDC, text estimate) and `/barcode/{gtin}` (Open Food Facts). Contract in server/README.md. Decisions D-036 and D-037.
+- Tests: server/run_tests.sh runs pytest offline with sockets blocked, on a saved FoodPro page, saved OFF and USDA responses and a fake model.
+- Landed as four PRs to stay inside the G3 budget.
+- Left undone / noticed: F-010's `DiningMenuClient` decodes a per-hall envelope with camelCase item keys; `/menu` returns all halls in one response with snake_case keys, so the app transport or the core decoder needs a small mapping. `/log` and `/sync` from report 09 section 7 are not built.
+
 ## 2026-10-25 F-005 Home screen three cards from a view model (night agent)
 
 - Added `HomeViewModel` and `HomeInputs` in App/Sources/HomeViewModel.swift. Inputs are the optional core results: `TrendEstimate`, `WeeklyTargetDecision`, today's intake kcal, `ProteinFloor.Outcome` and `LastSessionNumbers`. Cards: Data (trend lb, 1 decimal), Food ("intake / target" kcal, subtitle adds "protein low" when under the floor), Workout (heaviest last-session set as "110 x 3", bodyweight as "N reps", subtitle "exercise, Nd ago"). `HomeCard` gained an optional `confidence`. Decision D-031.

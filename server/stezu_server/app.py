@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 
-from . import __version__, barcode, foodpro, scan
+from . import __version__, barcode, foodpro, scan, search
 from .config import Settings, load_settings
 from .model import AnthropicClient, ModelError
 from .net import Http
@@ -94,6 +94,17 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
             return scan.run_scan(store, model, items, req, image, sha)
         except ModelError as exc:
             raise HTTPException(502, str(exc)) from None
+
+    @api.get("/search")
+    def search_food(q: str, date: str | None = None, meal: str | None = None,
+                    estimate: bool = False) -> dict[str, Any]:
+        q = q.strip()
+        if not 0 < len(q) <= 120:
+            raise HTTPException(400, "q must be 1 to 120 characters")
+        d = day(date)
+        items = foodpro.meal_items(menu_for(d), meal)
+        groups = search.run_search(store, http, model, settings.usda_key, q, items, estimate)
+        return {"q": q, "date": d, "meal": meal, "groups": groups}
 
     @api.get("/barcode/{gtin}")
     def lookup_barcode(gtin: str) -> dict[str, Any]:

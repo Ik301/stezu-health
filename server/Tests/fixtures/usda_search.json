@@ -1,0 +1,110 @@
+{
+ "totalHits": 21661,
+ "foods": [
+  {
+   "fdcId": 2187885,
+   "description": "CHICKEN BREAST",
+   "dataType": "Branded",
+   "brandOwner": "Giant Eagle, Inc.",
+   "servingSize": 284.0,
+   "servingSizeUnit": "g",
+   "householdServingFullText": "1 CHICKEN BREAST",
+   "foodNutrients": [
+    {
+     "nutrientNumber": "203",
+     "nutrientName": "Protein",
+     "unitName": "G",
+     "value": 20.4
+    },
+    {
+     "nutrientNumber": "204",
+     "nutrientName": "Total lipid (fat)",
+     "unitName": "G",
+     "value": 8.1
+    },
+    {
+     "nutrientNumber": "205",
+     "nutrientName": "Carbohydrate, by difference",
+     "unitName": "G",
+     "value": 1.06
+    },
+    {
+     "nutrientNumber": "208",
+     "nutrientName": "Energy",
+     "unitName": "KCAL",
+     "value": 165
+    }
+   ]
+  },
+  {
+   "fdcId": 2092152,
+   "description": "CHICKEN BREAST",
+   "dataType": "Branded",
+   "brandOwner": "Tyson Foods, Inc.",
+   "servingSize": 28.0,
+   "servingSizeUnit": "g",
+   "householdServingFullText": "1 SLICE",
+   "foodNutrients": [
+    {
+     "nutrientNumber": "203",
+     "nutrientName": "Protein",
+     "unitName": "G",
+     "value": 14.3
+    },
+    {
+     "nutrientNumber": "204",
+     "nutrientName": "Total lipid (fat)",
+     "unitName": "G",
+     "value": 8.93
+    },
+    {
+     "nutrientNumber": "205",
+     "nutrientName": "Carbohydrate, by difference",
+     "unitName": "G",
+     "value": 3.57
+    },
+    {
+     "nutrientNumber": "208",
+     "nutrientName": "Energy",
+     "unitName": "KCAL",
+     "value": 143
+    }
+   ]
+  },
+  {
+   "fdcId": 2125872,
+   "description": "CHICKEN BREAST",
+   "dataType": "Branded",
+   "brandOwner": "Jennie-O Turkey Store, Inc.",
+   "servingSize": 56.0,
+   "servingSizeUnit": "g",
+   "householdServingFullText": "2 ONZ",
+   "foodNutrients": [
+    {
+     "nutrientNumber": "203",
+     "nutrientName": "Protein",
+     "unitName": "G",
+     "value": 19.6
+    },
+    {
+     "nutrientNumber": "204",
+     "nutrientName": "Total lipid (fat)",
+     "unitName": "G",
+     "value": 1.79
+    },
+    {
+     "nutrientNumber": "205",
+     "nutrientName": "Carbohydrate, by difference",
+     "unitName": "G",
+     "value": 1.79
+    },
+    {
+     "nutrientNumber": "208",
+     "nutrientName": "Energy",
+     "unitName": "KCAL",
+     "value": 107
+    }
+   ]
+  }
+ ]
+}
