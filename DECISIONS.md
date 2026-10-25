@@ -436,3 +436,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The env file on the VM points at the local proxy with claude-sonnet-4-6 at temperature 0; the code defaults to the public API so a paid key replaces the proxy by editing two lines. The server work lands as a short series of PRs so each stays inside the G3 diff budget; tests live in server/Tests so the budget's test rule applies.
 - Evidence: server/stezu_server/config.py, server/stezu_server/app.py, server/README.md, server/Tests/test_core.py.
 - Reverse if: the phone must reach the server off the tailnet (then Tailscale Funnel or a public HTTPS endpoint with the same tokens), or the proxy goes away (set STEZU_ANTHROPIC_API_KEY and the base URL).
+
+## D-037 A photo estimate is a range built from the menu values and the model's confidence
+
+- Status: proposed by the server agent, 2026-10-25.
+- Problem: for each food on the plate the model returns one servings number and a confidence. A single calorie number would hide how unsure the estimate is, and D-035 asks for ranges.
+- Given: report 03 section 6 expects about 15-25% per-meal error on campus with a good depth scan, 20-35% when depth is poor, and 35-50% (biased low) open-world. FoodPro gives kcal and protein per listed serving. The same recipe is often served at several halls.
+- Constraints:
+  - Letting the model invent ranges for menu items throws away the FoodPro numbers and gives different widths for the same item and portion.
+  - One fixed width ignores both depth quality and identification confidence.
+  - A narrow open-world range overstates accuracy, and the expenditure estimator needs to know which meals are rough.
+  - Listing the same dish once per hall splits the model's choice between identical candidates.
+- Options:
+  - (a) Range = FoodPro value times servings (snapped to 0.5 steps), half-width 15% with a depth region of confidence 0.6 or more, else 25%, plus 15% times (1 - confidence), at most 50%. Unlisted items take the model's own range widened to at least plus or minus 40% and carry rough: true. Identical dishes across halls become one candidate that lists every hall.
+  - (b) Ask the model for a range for every item.
+  - (c) A fixed plus or minus 25% for everything.
+- Decision: (a).
+- Evidence: server/stezu_server/scan.py (`spread`, `span`, `widen`, `candidates`), server/Tests/test_scan.py.
+- Reverse if: meals logged against weighed portions show the truth outside the range more than about 1 time in 5, or the ranges come out much wider than the observed error.
