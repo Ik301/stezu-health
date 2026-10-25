@@ -305,7 +305,7 @@
         "s004-undone"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-005",

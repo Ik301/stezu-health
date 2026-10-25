@@ -2,6 +2,14 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 S-004 Log a set, steppers, bodyweight, undo (night agent)
+
+- Added `SetLogger` in Packages/StezuCore/Sources/StezuCore/SetLogger.swift: the prepared set (weight, reps, bodyweight flag), `log(at:)`, `undo()`, `stepWeight(up:)`, `stepReps(up:)`, `toggleBodyweight()`; after an exercise's last set the card moves to the next exercise. `WorkoutSession` and its sets are now Codable and gained `removeLastSet(of:)`. `TemplateExercise` gained optional `weightStep` and `startPounds`; the seed (seedVersion 2) gives barbell lifts a 45 lb empty-bar start. Decision D-045.
+- Logger screen: the black Log card with exercise, "Set k of N", rep range, weight and reps between - and + buttons (no keyboard), a BW toggle and Log; logged sets of the exercise below with Undo. `WorkoutSessionStore` writes active-workout.json after every change.
+- Tests: SetLoggerTests (3, core), WorkoutSessionStoreTests (1, AppTests), SetLoggerUITests (screenshots s004-prefilled, s004-logged, s004-undone). Gates: `FEATURE_ID=S-004 scripts/gate-linux.sh` passed G1 to G5 (285 non-test lines before the flip). S-004 flipped with check-features.py --flip.
+- Naming: ids `workout.logger.{weight,repCount,log,undo,bodyweight}`, `workout.logger.{weight,repCount}.{plus,minus}`, `workout.logger.logged.N`. `workout.logger.reps` stays the rep range (S-003's test reads it).
+- Left undone: the saved workout is never loaded back, so a relaunch starts fresh (resume belongs with S-008 or later). No exercise in the seed sets its own `weightStep` yet, so every step is 5 lb. Logged rows show only the current exercise's sets. No way to jump between exercises other than finishing their sets.
+
 ## 2026-10-25 S-012 Food opens the camera; the shutter saves the photo first (night agent)
 
 - FoodView is now the camera: the image fills the screen (the fixture plate in `-uitest`, `CameraPreview` over `LiveCameraPhotoSource` on the phone), Home at the top left, a Photo/Barcode pill switch (`food.mode.photo` / `food.mode.barcode`, value on/off), the shutter (`food.shutter`) and History (`food.history`). The bottom circles from S-001 stay.

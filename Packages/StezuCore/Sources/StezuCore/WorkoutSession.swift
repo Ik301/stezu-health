@@ -1,7 +1,7 @@
 import Foundation
 
 /// One logged set. Weight is in pounds; nil means no external load (a bodyweight set), not zero.
-public struct WorkoutSet: Sendable, Equatable {
+public struct WorkoutSet: Sendable, Equatable, Codable {
   public let pounds: Double?
   public let reps: Int
   public let loggedAt: Date
@@ -14,7 +14,7 @@ public struct WorkoutSet: Sendable, Equatable {
 }
 
 /// The sets done for one exercise in one session, in the order they were logged.
-public struct ExerciseLog: Sendable, Equatable {
+public struct ExerciseLog: Sendable, Equatable, Codable {
   public let exercise: String
   public internal(set) var sets: [WorkoutSet]
 
@@ -25,7 +25,7 @@ public struct ExerciseLog: Sendable, Equatable {
 }
 
 /// One visit to the gym: exercises in the order they were first logged.
-public struct WorkoutSession: Sendable, Equatable {
+public struct WorkoutSession: Sendable, Equatable, Codable {
   public let startedAt: Date
   public private(set) var exercises: [ExerciseLog]
 
@@ -49,6 +49,16 @@ public struct WorkoutSession: Sendable, Equatable {
     } else {
       exercises.append(ExerciseLog(exercise: exercise, sets: [set]))
     }
+    return set
+  }
+
+  /// Removes the last set of an exercise and returns it; drops the exercise when none is left.
+  @discardableResult
+  public mutating func removeLastSet(of exercise: String) -> WorkoutSet? {
+    guard let index = exercises.firstIndex(where: { $0.exercise == exercise }),
+      let set = exercises[index].sets.popLast()
+    else { return nil }
+    if exercises[index].sets.isEmpty { exercises.remove(at: index) }
     return set
   }
 
