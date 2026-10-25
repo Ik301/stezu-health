@@ -2,6 +2,15 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 F-002 Expenditure estimate (night agent)
+
+- Added `Expenditure.estimate(asOf:intake:weighIns:config:)` with `IntakeEntry`, `ExpenditureConfig`, `ExpenditureEstimate` and `ExpenditureResult` in Packages/StezuCore/Sources/StezuCore/Expenditure.swift. It reuses `TrendWeight.estimate` for the trend at both window edges.
+- Expenditure = mean of full intake days - trend change x 3500 / 21. Partial days (under 50% of their 7-day block's median) are excluded and counted. Fewer than 14 full days, or no weigh-in by the day before the window, gives `.insufficientData(reason:)`, never 0. Decisions D-024, D-025.
+- Tests: ExpenditureTests (3 tests, synthetic values). Gates: `FEATURE_ID=F-002 scripts/gate-linux.sh` passed G1 to G4 locally. F-002 flipped with check-features.py --flip.
+- Naming: `Expenditure.estimate`, result enum `ExpenditureResult`; no library added (Foundation only).
+- Left undone / noticed: the 14 and 18 full-day bars are guesses and need checking against real logging. A day logged in two separate apps would be summed twice; deduplication belongs to the HealthKit import. `ExpenditureConfig.windowDays` under 1 is not validated.
+- Next: F-003, weekly calorie target rule.
+
 ## 2026-10-25 F-004 Protein floor flag (night agent)
 
 - Added `ProteinFloor` in Packages/StezuCore/Sources/StezuCore/ProteinFloor.swift: `Meal` (protein low/high grams), `Config` (floor with no default, calendar, 3-day window, meals-per-day bar for high confidence), and `check(asOf:meals:config:)` returning `.evaluated(Check)` or `.insufficientData(Insufficient)`.
