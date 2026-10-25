@@ -939,6 +939,33 @@
       ],
       "needs_server": false,
       "passes": false
+    },
+    {
+      "id": "S-027",
+      "kind": "story",
+      "area": "data",
+      "title": "See this week's blood oxygen, respiratory rate and temperature from the strap, each with its coverage",
+      "steps": [
+        "Launch with -uitest-scenario data-week. Below the S-022 rows, three more rows, each labelled \"context\": Blood oxygen (weekly median %, readings count), Respiratory rate (weekly median breaths/min, nights with data), Temperature (weekly median, nights with data).",
+        "Add read access for oxygenSaturation, respiratoryRate and bodyTemperature (plus appleSleepingWristTemperature if present) to the HealthKit read set, so the one Connect sheet from S-020 covers them.",
+        "Sources lists each new type with its source app and sample count.",
+        "A metric with no samples this week shows \"--\" with its coverage, never 0."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-022"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WeeklyStatTests/testMedianOfPercentReadings"
+      ],
+      "ui_tests": [
+        "AppUITests.WeeklyHealthUITests/testStrapContextRowsShowCoverage"
+      ],
+      "screenshots": [
+        "s027-strap-rows"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }

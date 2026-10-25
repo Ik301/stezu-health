@@ -606,3 +606,13 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). `SetLogger.init(template:startedAt:history:)` computes `last` for every template exercise once and keeps it in the saved value; an exercise is prefilled from its last session's first set (a bodyweight set prefills BW), else from `startPounds` and the low rep, else "--" with Log off. The fallback applies per exercise: when no session of this template had it. The card's "Last 60 x 8, 7d ago" line uses the last session's set at the same position, or its last set. History reaches the view as `AppEnvironment.workoutHistory`: empty in the live app until a session store exists, synthetic under `-uitest-scenario workout-history`.
 - Evidence: Packages/StezuCore/Sources/StezuCore/TemplateHistory.swift, SetLogger.swift, WorkoutSession.swift, App/Sources/AppEnvironment.swift, App/Sources/UITestFixtures.swift (wt/S-005).
 - Reverse if: templates get renamed keys or merged, so the key no longer identifies "the same workout", or history grows large enough that per-Start scans are slow.
+
+## D-047 Device check: free-account signing works; what Zepp writes to Apple Health
+
+- Status: decided by Isaac's device test, 2026-10-25. Answers the open items in D-008 and D-009.
+- Signing: the HealthKit entitlement and the RestActivity extension both signed with his free personal team, installed and ran on his iPhone.
+- Zepp (Helio Strap) writes: weight, heart rate, sleep, activity, a temperature metric, blood oxygen and respiratory rate. HRV was not on his list and may be absent.
+- Consequences:
+  - The weight trend counts only weigh-ins written by Stezu, because Zepp also writes weight (probably a static profile value). Other body-mass sources appear on Sources.
+  - S-027 adds blood oxygen, respiratory rate and temperature as context rows.
+  - The Data screen and Sources expect HRV to be missing.
