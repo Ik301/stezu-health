@@ -395,7 +395,7 @@
         "s007-custom"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-008",
