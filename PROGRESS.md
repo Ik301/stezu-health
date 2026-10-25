@@ -2,6 +2,13 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 S-005 Last session's numbers, same template first (night agent)
+
+- Added `TemplateHistory.lastSession(of:template:before:in:)` and `lastSessions(for:before:in:)` in Packages/StezuCore/Sources/StezuCore/TemplateHistory.swift, plus `LastSessionNumbers.summary(setAt:)` ("Last 60 x 8, 7d ago", "Last BW x 12, today"). `WorkoutSession` gained an optional `templateKey`; `Confidence` and `LastSessionNumbers` are Codable. `SetLogger` takes `history`, keeps `last` per exercise and prefills each exercise from its last session's first set. Decision D-046.
+- Logger screen: the Log card shows `workout.logger.last` (or "Last --"); each logged row adds the last session's numbers for that set. `AppEnvironment.workoutHistory` feeds it; `UITestFixtures.workoutHistory(scenario:)` seeds "workout-history" (Day 1 7 days ago, a newer Day 2 with bench and the only overhead press; synthetic numbers).
+- Tests: TemplateHistoryTests (3, core), WorkoutHistoryFixtureTests (1, AppTests), LastSessionUITests (screenshots s005-last-numbers, s005-first-ever). Gates: `FEATURE_ID=S-005 scripts/gate-linux.sh` G1 to G5 PASS, 163 non-test lines in 8 files. Flipped with check-features.py --flip S-005.
+- Left undone: the live app has no stored history (no Finish yet, S-008), so last numbers only appear under the scenario. The rotation still starts at Day 1 because it does not read history. After a set is logged the card keeps that set's numbers (S-004) rather than switching to the last session's next set.
+
 ## 2026-10-25 S-004 Log a set, steppers, bodyweight, undo (night agent)
 
 - Added `SetLogger` in Packages/StezuCore/Sources/StezuCore/SetLogger.swift: the prepared set (weight, reps, bodyweight flag), `log(at:)`, `undo()`, `stepWeight(up:)`, `stepReps(up:)`, `toggleBodyweight()`; after an exercise's last set the card moves to the next exercise. `WorkoutSession` and its sets are now Codable and gained `removeLastSet(of:)`. `TemplateExercise` gained optional `weightStep` and `startPounds`; the seed (seedVersion 2) gives barbell lifts a 45 lb empty-bar start. Decision D-045.

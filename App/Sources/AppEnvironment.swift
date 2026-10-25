@@ -42,6 +42,9 @@ struct AppEnvironment: Sendable {
   var serverSettings: any ServerSettingsStore
   /// Meal photos saved at the shutter (S-012), stored according to `storage`.
   var mealCaptures: MealCaptureStore
+  /// Finished workouts, for last-session numbers (S-005). Nothing stores them yet, so the live
+  /// app has none; `-uitest-scenario workout-history` seeds synthetic ones.
+  var workoutHistory: [WorkoutSession] = []
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -59,7 +62,8 @@ struct AppEnvironment: Sendable {
       isUITest: true, storage: .memory, scenario: scenario, healthStore: FakeHealthStore(),
       vmTransport: FakeVMTransport(routes: UITestFixtures.vmRoutes, offline: offline),
       photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore(),
-      mealCaptures: MealCaptureStore(storage: .memory))
+      mealCaptures: MealCaptureStore(storage: .memory),
+      workoutHistory: UITestFixtures.workoutHistory(scenario: scenario))
   }
 
   /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.

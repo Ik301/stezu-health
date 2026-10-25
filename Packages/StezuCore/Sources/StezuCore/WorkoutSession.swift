@@ -28,10 +28,13 @@ public struct ExerciseLog: Sendable, Equatable, Codable {
 public struct WorkoutSession: Sendable, Equatable, Codable {
   public let startedAt: Date
   public private(set) var exercises: [ExerciseLog]
+  /// The key of the template the session was started from; nil for an empty workout.
+  public let templateKey: String?
 
-  public init(startedAt: Date, exercises: [ExerciseLog] = []) {
+  public init(startedAt: Date, exercises: [ExerciseLog] = [], templateKey: String? = nil) {
     self.startedAt = startedAt
     self.exercises = exercises
+    self.templateKey = templateKey
   }
 
   /// Logs one set in one call. The exercise is added on its first set.
@@ -69,7 +72,7 @@ public struct WorkoutSession: Sendable, Equatable, Codable {
 }
 
 /// The numbers from the most recent earlier session that included an exercise.
-public struct LastSessionNumbers: Sendable, Equatable {
+public struct LastSessionNumbers: Sendable, Equatable, Codable {
   public let exercise: String
   public let sessionStartedAt: Date
   public let sets: [WorkoutSet]

@@ -1,6 +1,6 @@
 /// How far a derived value can be trusted, and why.
-public struct Confidence: Sendable, Equatable {
-  public enum Level: Int, Sendable, Comparable {
+public struct Confidence: Sendable, Equatable, Codable {
+  public enum Level: Int, Sendable, Comparable, Codable {
     case low
     case medium
     case high

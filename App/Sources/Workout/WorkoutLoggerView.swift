@@ -8,8 +8,9 @@ struct WorkoutLoggerView: View {
   @Environment(\.appEnvironment) private var environment
   @State private var logger: SetLogger
 
-  init(template: WorkoutTemplate) {
-    _logger = State(initialValue: SetLogger(template: template, startedAt: Date()))
+  init(template: WorkoutTemplate, history: [WorkoutSession] = []) {
+    _logger = State(
+      initialValue: SetLogger(template: template, startedAt: Date(), history: history))
   }
 
   var body: some View {
@@ -17,13 +18,16 @@ struct WorkoutLoggerView: View {
       VStack(alignment: .leading, spacing: 12) {
         logCard
         ForEach(Array(logger.loggedSets.enumerated()), id: \.offset) { index, set in
-          Text("Set \(index + 1)   \(Self.weight(set.pounds)) x \(set.reps)")
-            .font(.system(size: Theme.subtitleSize))
-            .foregroundStyle(Theme.text)
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
-            .accessibilityIdentifier("workout.logger.logged.\(index)")
+          Text(
+            "Set \(index + 1)   \(Self.weight(set.pounds)) x \(set.reps)"
+              + (logger.lastNumbers.map { "   " + $0.summary(setAt: index) } ?? "")
+          )
+          .font(.system(size: Theme.subtitleSize))
+          .foregroundStyle(Theme.text)
+          .padding(16)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+          .accessibilityIdentifier("workout.logger.logged.\(index)")
         }
         Button("Undo") { logger.undo() }
           .font(.system(size: 17, weight: .semibold))
@@ -51,6 +55,14 @@ struct WorkoutLoggerView: View {
         .font(.system(size: Theme.labelSize))
         .foregroundStyle(Theme.label)
         .accessibilityIdentifier("workout.logger.reps")
+      // Last session's numbers for this set, same template first; "Last --" the first time.
+      Text(
+        exercise == nil
+          ? "--" : logger.lastNumbers?.summary(setAt: logger.setNumber - 1) ?? "Last --"
+      )
+      .font(.system(size: Theme.labelSize))
+      .foregroundStyle(Theme.label)
+      .accessibilityIdentifier("workout.logger.last")
       stepper(
         logger.isBodyweight ? "BW" : logger.pounds.map { Self.weight($0) } ?? "--",
         id: "workout.logger.weight",
