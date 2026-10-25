@@ -284,3 +284,37 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Insufficient when fewer than 14 full intake days are in the window, or no weigh-in exists on or before the day before the window starts. Trend change = trend at the end day minus trend on the day before the window, so it spans exactly 21 days. Intake is high with 18 or more full days, otherwise medium; the trend can pull it lower. All thresholds live in ExpenditureConfig.
 - Evidence: Packages/StezuCore/Sources/StezuCore/Expenditure.swift (`ExpenditureResult`, `estimate`), ExpenditureTests/testInsufficientDataIsNotZero, testExpenditureFromIntakeAndTrendChange; the F-002 commit on wt/F-002.
 - Reverse if: F-003 needs to act on a low-confidence estimate differently from insufficient data, or 14 days proves too strict for real logging habits.
+
+## D-026 Where the last session's numbers come from
+
+- Status: proposed by night agent, 2026-10-25 (F-008).
+- Problem: the Workout screen shows, for the current exercise, what was lifted last time. Exercises are not done every session, and the session in progress already contains sets of the same exercise.
+- Given: sessions are values (`WorkoutSession`) held by the app; there is no store yet. F-009 builds its suggestion on the same numbers.
+- Constraints:
+  - Taking the previous session as a whole breaks on skipped exercises (bench not done last time shows nothing, though it was done the time before).
+  - Including the session in progress breaks the comparison: the second set would show the first set as "last time".
+  - A cached per-exercise "last numbers" field breaks when a session is edited or deleted (it goes stale silently).
+- Options:
+  - (a) Derive on read: the latest session that started strictly before a given date and has at least one set of that exercise; nil when none.
+  - (b) Only the immediately previous session; nil if the exercise was skipped there.
+  - (c) Keep a per-exercise cache updated on each logSet.
+- Decision: (a). `WorkoutHistory.lastSession(of:before:in:)` is a pure function over the session list, so it cannot go stale and needs no storage. Exercise identity is the exact name string. The result carries a confidence that drops from high (14 days or less) to medium (42) to low as the session ages, with the set count and age as the reason.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutSession.swift (`WorkoutHistory`), WorkoutSessionTests/testLastSessionNumbersPerExercise; the F-008 commit on wt/F-008.
+- Reverse if: exercise names get renamed or aliased in the app; then identity moves to a stable exercise ID.
+
+## D-027 The rest timer stores a start time and reads an injected clock
+
+- Status: proposed by night agent, 2026-10-25 (F-008).
+- Problem: the rest timer has to show the right time left after the phone is locked or the app is suspended mid-rest, and it has to be testable without waiting real seconds.
+- Given: iOS suspends apps and stops their timers in the background. SwiftUI views can redraw on a `TimelineView` tick.
+- Constraints:
+  - A counter decremented by a repeating Timer breaks on suspension (it stops counting) and needs real time in tests.
+  - Reading `Date()` inside StezuCore breaks testability.
+  - A Swift `Clock`/`Instant` generic breaks simple use with Foundation `Date`s that the rest of the core uses.
+- Options:
+  - (a) Store `startedAt`; compute remaining from a `now: () -> Date` closure passed at init. The view only redraws; the core owns no timer.
+  - (b) Store `startedAt` and pass `now` into every read.
+  - (c) A Combine/async ticking timer in the core.
+- Decision: (a). State is idle, resting(remaining) or done(overBy); remaining is nil when idle and never negative. Starting again restarts from the clock. The app passes `{ Date() }`; tests pass a closure over a local variable.
+- Evidence: Packages/StezuCore/Sources/StezuCore/RestTimer.swift, RestTimerTests/testRestTimerUsesInjectedClock; the F-008 commit on wt/F-008.
+- Reverse if: the timer must fire a notification when rest ends while the app is backgrounded; that needs a scheduled local notification in the app, fed from `startedAt + duration`.
