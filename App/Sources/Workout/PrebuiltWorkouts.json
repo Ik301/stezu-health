@@ -1,0 +1,31 @@
+{"seedVersion": 1, "templates": [
+{"key": "day-1", "name": "Day 1 Push", "exercises": [
+  {"key": "bench-press", "name": "Bench press", "sets": 3, "repsLow": 6, "repsHigh": 10, "restSeconds": 150},
+  {"key": "overhead-press", "name": "Overhead press", "sets": 3, "repsLow": 8, "repsHigh": 12, "restSeconds": 120},
+  {"key": "incline-dumbbell-press", "name": "Incline dumbbell press", "sets": 3, "repsLow": 8, "repsHigh": 12, "restSeconds": 90},
+  {"key": "lateral-raise", "name": "Lateral raise", "sets": 3, "repsLow": 12, "repsHigh": 15, "restSeconds": 60},
+  {"key": "triceps-pushdown", "name": "Triceps pushdown", "sets": 3, "repsLow": 10, "repsHigh": 15, "restSeconds": 60}]},
+{"key": "day-2", "name": "Day 2 Pull", "exercises": [
+  {"key": "barbell-row", "name": "Barbell row", "sets": 3, "repsLow": 6, "repsHigh": 10, "restSeconds": 150},
+  {"key": "lat-pulldown", "name": "Lat pulldown", "sets": 3, "repsLow": 8, "repsHigh": 12, "restSeconds": 90},
+  {"key": "seated-cable-row", "name": "Seated cable row", "sets": 3, "repsLow": 10, "repsHigh": 12, "restSeconds": 90},
+  {"key": "face-pull", "name": "Face pull", "sets": 3, "repsLow": 12, "repsHigh": 15, "restSeconds": 60},
+  {"key": "biceps-curl", "name": "Biceps curl", "sets": 3, "repsLow": 10, "repsHigh": 15, "restSeconds": 60}]},
+{"key": "day-3", "name": "Day 3 Legs", "exercises": [
+  {"key": "back-squat", "name": "Back squat", "sets": 3, "repsLow": 5, "repsHigh": 8, "restSeconds": 180},
+  {"key": "romanian-deadlift", "name": "Romanian deadlift", "sets": 3, "repsLow": 8, "repsHigh": 10, "restSeconds": 150},
+  {"key": "leg-press", "name": "Leg press", "sets": 3, "repsLow": 10, "repsHigh": 12, "restSeconds": 120},
+  {"key": "leg-curl", "name": "Leg curl", "sets": 3, "repsLow": 10, "repsHigh": 15, "restSeconds": 60},
+  {"key": "calf-raise", "name": "Calf raise", "sets": 3, "repsLow": 12, "repsHigh": 15, "restSeconds": 60}]},
+{"key": "day-4", "name": "Day 4 Upper", "exercises": [
+  {"key": "incline-bench-press", "name": "Incline bench press", "sets": 3, "repsLow": 6, "repsHigh": 10, "restSeconds": 150},
+  {"key": "pull-up", "name": "Pull-up", "sets": 3, "repsLow": 6, "repsHigh": 10, "restSeconds": 120},
+  {"key": "dumbbell-shoulder-press", "name": "Dumbbell shoulder press", "sets": 3, "repsLow": 8, "repsHigh": 12, "restSeconds": 90},
+  {"key": "chest-supported-row", "name": "Chest-supported row", "sets": 3, "repsLow": 8, "repsHigh": 12, "restSeconds": 90},
+  {"key": "hammer-curl", "name": "Hammer curl", "sets": 3, "repsLow": 10, "repsHigh": 15, "restSeconds": 60}]},
+{"key": "day-5", "name": "Day 5 Lower", "exercises": [
+  {"key": "deadlift", "name": "Deadlift", "sets": 3, "repsLow": 3, "repsHigh": 6, "restSeconds": 180},
+  {"key": "front-squat", "name": "Front squat", "sets": 3, "repsLow": 6, "repsHigh": 8, "restSeconds": 150},
+  {"key": "walking-lunge", "name": "Walking lunge", "sets": 3, "repsLow": 10, "repsHigh": 12, "restSeconds": 90},
+  {"key": "leg-extension", "name": "Leg extension", "sets": 3, "repsLow": 12, "repsHigh": 15, "restSeconds": 60},
+  {"key": "hanging-leg-raise", "name": "Hanging leg raise", "sets": 3, "repsLow": 10, "repsHigh": 15, "restSeconds": 60}]}]}
