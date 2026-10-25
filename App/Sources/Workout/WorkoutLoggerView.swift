@@ -7,6 +7,8 @@ import SwiftUI
 struct WorkoutLoggerView: View {
   @Environment(\.appEnvironment) private var environment
   @State private var logger: SetLogger
+  /// The rest after the last logged set (S-006); nil until the first Log.
+  @State private var rest: RestActivityController?
 
   init(template: WorkoutTemplate, history: [WorkoutSession] = []) {
     _logger = State(
@@ -17,6 +19,7 @@ struct WorkoutLoggerView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
         logCard
+        restCard
         ForEach(Array(logger.loggedSets.enumerated()), id: \.offset) { index, set in
           Text(
             "Set \(index + 1)   \(Self.weight(set.pounds)) x \(set.reps)"
@@ -78,7 +81,7 @@ struct WorkoutLoggerView: View {
           .overlay(Capsule().strokeBorder(Theme.invertedText, lineWidth: 1))
           .accessibilityIdentifier("workout.logger.bodyweight")
         Button {
-          logger.log(at: Date())
+          logSet()
         } label: {
           Text("Log")
             .font(.system(size: 17, weight: .semibold))
@@ -96,6 +99,60 @@ struct WorkoutLoggerView: View {
     .padding(18)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.invertedCard))
+  }
+
+  /// Logs the card's set and starts the rest at that exercise's template rest, with no tap.
+  private func logSet() {
+    guard let exercise = logger.exercise else { return }
+    let setLabel = "Set \(logger.setNumber) of \(exercise.sets)"
+    guard logger.log(at: Date()) != nil else { return }
+    var controller = rest ?? RestActivityController(alerts: environment.restAlerts)
+    controller.setLogged(exercise, setLabel: setLabel)
+    rest = controller
+  }
+
+  /// The countdown with -15 s, +15 s and Skip, while a rest runs. The countdown's value is the
+  /// rest's start time, so a test can see that adjusting keeps it.
+  @ViewBuilder
+  private var restCard: some View {
+    if let rest, let startedAt = rest.startedAt {
+      VStack(alignment: .leading, spacing: 8) {
+        Text("Rest")
+          .font(.system(size: Theme.labelSize))
+          .foregroundStyle(Theme.label)
+        TimelineView(.periodic(from: startedAt, by: 1)) { _ in
+          Text(RestActivityController.text(rest.remaining))
+            .font(.system(size: Theme.bigNumberSize, weight: .medium).monospacedDigit())
+            .tracking(Theme.bigNumberTracking)
+            .foregroundStyle(Theme.text)
+            .accessibilityIdentifier("workout.rest.countdown")
+            .accessibilityValue("\(Int(startedAt.timeIntervalSince1970))")
+        }
+        HStack(spacing: 12) {
+          restButton("-15 s", id: "workout.rest.minus") { self.rest?.adjust(by: -15) }
+          restButton("+15 s", id: "workout.rest.plus") { self.rest?.adjust(by: 15) }
+          restButton("Skip", id: "workout.rest.skip") { self.rest?.skip() }
+        }
+      }
+      .padding(16)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+      .task(id: rest.endsAt) {
+        guard let endsAt = self.rest?.endsAt else { return }
+        try? await Task.sleep(for: .seconds(max(0, endsAt.timeIntervalSinceNow)))
+        if !Task.isCancelled { self.rest?.tick() }
+      }
+    }
+  }
+
+  private func restButton(_ title: String, id: String, action: @escaping () -> Void) -> some View {
+    Button(title, action: action)
+      .font(.system(size: 17, weight: .semibold))
+      .foregroundStyle(Theme.text)
+      .frame(maxWidth: .infinity, minHeight: 48)
+      .overlay(Capsule().strokeBorder(Theme.text, lineWidth: 1))
+      .buttonStyle(.plain)
+      .accessibilityIdentifier(id)
   }
 
   /// A big number between - and + buttons with ids "<id>.minus" and "<id>.plus".
