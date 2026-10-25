@@ -572,3 +572,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Disk mode uses Application Support/meals, `-uitest-persist` uses the temporary store folder's meals/, and memory mode a fresh temporary folder per launch, so there is one code path. The live camera (`LiveCameraPhotoSource`) asks for access when Food opens; if denied, the screen explains how to turn it on in Settings.
 - Evidence: App/Sources/Food/MealCapture.swift, App/Sources/Food/FoodView.swift, App/Sources/AppEnvironment.swift, App/Tests/MealCaptureTests.swift (wt/S-012).
 - Reverse if: meals need queries the files cannot answer cheaply (history by day, sync state), at which point a real store replaces the folder behind the same actor.
+
+## D-045 The logger is one Codable value saved whole after every log or undo
+
+- Status: proposed by night agent, 2026-10-25 (S-004).
+- Problem: a set must be stored the moment it is logged, undo must take back exactly the last set even after the card moved to the next exercise, and the prepared numbers must survive with it.
+- Given: `WorkoutSession` (D-026) keeps sets per exercise, not one global order. No session store exists yet; S-008 adds Finish and Health. Memory storage under `-uitest` keeps no files (D-039).
+- Constraints:
+  - Undoing by the latest `loggedAt` breaks when two sets share a timestamp.
+  - Saving only on Finish breaks "saved at that moment" and loses sets if the app is killed.
+  - A database or new dependency breaks rule 7 on a card branch.
+- Options:
+  - (a) `SetLogger` in core: template, session, the card's exercise, weight, reps, bodyweight flag and a log order of exercise indices; Codable and saved whole as active-workout.json by `WorkoutSessionStore` on every change.
+  - (b) Append-only event log (logged / undone) replayed at load.
+  - (c) Keep state in the view and save only the session.
+- Decision: (a). The view saves through `.onChange(of: logger)`. Undo pops the log order, removes that exercise's last set and puts its numbers (and bodyweight state) back on the card. Bodyweight logs `pounds == nil`. Steppers clamp weight to [one step, 2000] and reps to [1, 100]; the weight step is the exercise's `weightStep`, else 5 lb. The prefilled weight is the exercise's `startPounds` (the seed gives barbell lifts the 45 lb empty bar; seedVersion 2), else "--" with Log off until a weight or BW is chosen. Nothing yet reads the saved file back (resume is later work).
+- Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift, App/Sources/Workout/WorkoutSessionStore.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/Workout/PrebuiltWorkouts.json (wt/S-004).
+- Reverse if: sessions move into a shared store with history (S-005/S-008), or the file grows enough that whole-file writes per set become slow.

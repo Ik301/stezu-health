@@ -8,12 +8,18 @@ public struct TemplateExercise: Sendable, Equatable, Codable {
   public var repsLow: Int
   public var repsHigh: Int
   public var restSeconds: Int
+  /// Pounds per weight stepper tap; nil means the default (SetLogger.defaultWeightStep).
+  public var weightStep: Double?
+  /// The weight prefilled before any history, such as an empty bar; nil shows "--".
+  public var startPounds: Double?
 
   public init(
-    key: String, name: String, sets: Int, repsLow: Int, repsHigh: Int, restSeconds: Int
+    key: String, name: String, sets: Int, repsLow: Int, repsHigh: Int, restSeconds: Int,
+    weightStep: Double? = nil, startPounds: Double? = nil
   ) {
     (self.key, self.name, self.sets) = (key, name, sets)
     (self.repsLow, self.repsHigh, self.restSeconds) = (repsLow, repsHigh, restSeconds)
+    (self.weightStep, self.startPounds) = (weightStep, startPounds)
   }
 
   /// "8-12", or "8" when the range is one number.
