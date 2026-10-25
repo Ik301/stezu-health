@@ -48,6 +48,8 @@ struct AppEnvironment: Sendable {
   /// The rest's Live Activity and zero notification (S-006): live on the phone, a recorder in
   /// `-uitest` and previews.
   var restAlerts: any RestAlerts = FakeRestAlerts()
+  /// Import program's file source: the Files picker, or a synthetic program in `-uitest`.
+  var programFilePicker: ProgramFilePicker
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -57,7 +59,7 @@ struct AppEnvironment: Sendable {
       isUITest: false, storage: .disk, scenario: nil, healthStore: HealthKitStore(),
       vmTransport: settings.load().transport(), photoSource: LiveCameraPhotoSource(),
       serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk),
-      restAlerts: LiveRestAlerts())
+      restAlerts: LiveRestAlerts(), programFilePicker: .files)
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.
@@ -69,7 +71,8 @@ struct AppEnvironment: Sendable {
         held: UITestFixtures.heldRoutes(scenario: scenario)),
       photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore(),
       mealCaptures: MealCaptureStore(storage: .memory),
-      workoutHistory: UITestFixtures.workoutHistory(scenario: scenario))
+      workoutHistory: UITestFixtures.workoutHistory(scenario: scenario),
+      programFilePicker: .fixture(UITestFixtures.programFile(scenario: scenario)))
   }
 
   /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.
