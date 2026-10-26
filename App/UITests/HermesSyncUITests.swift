@@ -218,6 +218,33 @@ final class HermesSyncUITests: XCTestCase {
     XCTAssertFalse(row.label.contains("waiting"), "the deletion still waits: \(row.label)")
   }
 
+  /// S-033: the background-sync scenario's launch is the debug hook: a visit is queued as if
+  /// recorded while the app was closed, then the BGAppRefreshTask handler's pass runs once. With
+  /// no tap, the fake POST /sync gets the scenario's three Health samples and the visit record,
+  /// and Settings shows a background sync time while the foreground sync is still "--".
+  @MainActor
+  func testBackgroundSyncUpdatesStatus() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "background-sync")
+
+    let gear = app.element("home.settings")
+    XCTAssertTrue(gear.waitForExistence(timeout: 30), "no gear on Home")
+    gear.tap()
+    XCTAssertTrue(app.element("screen.settings.title").waitForExistence(timeout: 10))
+    let background = app.element("settings.sync.background")
+    XCTAssertTrue(background.waitForExistence(timeout: 10), "no Background sync row")
+    wait(for: "label != '--'", on: background)
+
+    // The fake server answered with the samples and counts the visit it received; nothing
+    // waits, and the foreground row still shows no sync of its own.
+    let row = app.element("settings.sync.status")
+    wait(for: "label CONTAINS '3 samples'", on: row)
+    wait(for: "label CONTAINS ', 1 record'", on: row)
+    XCTAssertTrue(row.label.hasPrefix("--"), "a foreground sync ran: \(row.label)")
+    XCTAssertFalse(row.label.contains("waiting"), "batches still wait: \(row.label)")
+    saveScreenshot("s033-background-sync", of: app)
+  }
+
   /// Drags the Settings sheet down from its grabber; a swipe on the title leaves it open.
   @MainActor
   private func closeSettings(_ app: XCUIApplication) {

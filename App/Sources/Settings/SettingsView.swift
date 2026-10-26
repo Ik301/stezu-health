@@ -14,6 +14,7 @@ struct SettingsView: View {
   @State private var token = ""
   @State private var status = ServerConnection.untested.text
   @State private var syncText = "--"
+  @State private var backgroundText = "--"
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -42,6 +43,11 @@ struct SettingsView: View {
         Spacer()
         Text(syncText).accessibilityIdentifier("settings.sync.status")
       }
+      HStack {
+        label("Background sync")  // S-033
+        Spacer()
+        Text(backgroundText).accessibilityIdentifier("settings.sync.background")
+      }
       pill("Sync now", id: "settings.sync.now") {
         Task { syncText = HermesSyncFile.text(await environment.syncHermes()) }
       }
@@ -57,7 +63,9 @@ struct SettingsView: View {
     }
     .task {  // live while open, so a meal synced in the background shows (S-029)
       while !Task.isCancelled {
-        syncText = HermesSyncFile.text(await environment.healthSync.state)
+        let state = await environment.healthSync.state
+        syncText = HermesSyncFile.text(state)
+        backgroundText = HermesSyncFile.time(state.lastBackgroundSyncAt)
         try? await Task.sleep(nanoseconds: 1_000_000_000)
       }
     }

@@ -1,5 +1,6 @@
 import Foundation
 import StezuCore
+import UIKit
 
 /// S-028: the sync engine; its state lives in sync-state.json, next to finished-workouts.json.
 enum HermesSyncFile {
@@ -18,7 +19,7 @@ enum HermesSyncFile {
 
   /// "--" before the first sync, else its time, the server's sample count and any waiting batches.
   static func text(_ state: SyncState) -> String {
-    var parts = [state.lastSyncAt?.formatted(date: .abbreviated, time: .shortened) ?? "--"]
+    var parts = [time(state.lastSyncAt)]
     if let samples = state.samplesTotal { parts.append("\(samples) samples") }
     if let records = state.recordsTotal {
       parts.append("\(records) record\(records == 1 ? "" : "s")")
@@ -26,14 +27,23 @@ enum HermesSyncFile {
     if !state.pending.isEmpty { parts.append("\(state.pending.count) waiting") }
     return parts.joined(separator: ", ")
   }
+
+  /// A sync time, or "--" before there is one (S-033's background row too).
+  static func time(_ date: Date?) -> String {
+    date?.formatted(date: .abbreviated, time: .shortened) ?? "--"
+  }
 }
 
 extension AppEnvironment {
-  /// One pass; Health once connected (S-020) or faked. Unconfigured or offline: the queue waits.
+  /// One pass; Health once connected (S-020) or faked, and only while the phone is unlocked
+  /// (S-033). Unconfigured or offline: the queue waits. Then the next background run is asked for.
   @discardableResult
-  func syncHermes() async -> SyncState {
-    let connected = isUITest || healthConnection.isConnected
-    return await healthSync.run(health: connected ? healthStore : nil, transport: vmTransport)
+  func syncHermes(background: Bool = false) async -> SyncState {
+    let unlocked = await MainActor.run { UIApplication.shared.isProtectedDataAvailable }
+    let connected = unlocked && (isUITest || healthConnection.isConnected)
+    defer { scheduleBackgroundSync() }
+    return await healthSync.run(
+      health: connected ? healthStore : nil, transport: vmTransport, background: background)
   }
 
   /// Open, foreground and Finish, off the main actor. `-uitest` syncs only on Sync now.
