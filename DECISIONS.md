@@ -1021,3 +1021,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). In `-uitest` `BarcodeSource.fixture` delivers one synthetic code 8 seconds after the switch. A found product opens the existing pick sheet (`PickedItem`), so Log works as for a search pick.
 - Evidence: Packages/StezuCore/Sources/StezuCore/Barcode.swift, Packages/StezuCore/Sources/StezuCore/FoodSearch.swift, App/Sources/Food/BarcodeScanner.swift, App/Sources/Food/FoodView.swift, BarcodeClientTests, BarcodeUITests (commit on wt/S-016).
 - Reverse if: products with no per-serving values are common enough to need a per-100 g or per-package choice, or the scanner has to read several packages for one meal.
+
+## D-072 Log saves the meal on the phone, then writes one food correlation tagged with the meal id, and saves whether Health took it
+
+- Status: proposed by night agent, 2026-10-26 (S-018).
+- Problem: a logged meal must reach Apple Health as one food entry from ranges, a denied or failed write must not lose the meal, and Undo must take the entry back out of Health as well as off the phone.
+- Given: Log writes `<id>.log` (D-068); meal amounts are low-high ranges (D-049); HealthKit stores single quantities and keeps custom metadata; workouts already record `inHealth` after their write (S-008).
+- Constraints:
+  - Writing to Health before the local save breaks "saved locally first": a crash between the two leaves a Health entry the phone does not know.
+  - Writing the low or the high alone breaks the range rule; the midpoint without the ends loses them for good.
+  - Finding the entry again by date or value breaks Undo when two meals share a minute.
+- Options:
+  - (a) `MealHealth.log`: save the meal, write `FoodEntry` (the totals' midpoints) through `HealthStore.saveFood` as one HKCorrelation of type food holding energy and protein samples, each with its low and high in metadata (`stezu_kcal_low/high`, `stezu_protein_g_low/high`); the meal id is the correlation's sync identifier and `stezu_meal_id` on all three objects; then save the meal again with `inHealth` true or false. Undo deletes the three by `stezu_meal_id`.
+  - (b) Two loose samples (energy, protein) with no correlation.
+  - (c) Write Health first and save only on success.
+- Decision: (a). The sync version is the write time in ms, so a later write of the same meal replaces the entry. A meal with neither total known writes nothing and is "Not in Health". A failed local save throws before Health.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MealHealth.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Food/FoodView.swift, MealHealthTests (commit on wt/S-018).
+- Reverse if: HealthKit rejects custom-key deletes on a correlation type on a device, or meals become editable after Log (S-019); then delete by the correlation's own objects and rewrite with a new sync version.

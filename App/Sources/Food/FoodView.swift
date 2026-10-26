@@ -18,6 +18,8 @@ struct FoodView: View {
   @State private var picked: PickedItem?
   /// The meal just logged, while its undo toast shows.
   @State private var logged: UUID?
+  /// Whether Health took that meal (S-018).
+  @State private var loggedInHealth: Bool?
   @State private var logFailed = false
   @State private var barcode = BarcodeState.scanning
   @FocusState private var searching: Bool
@@ -164,10 +166,17 @@ struct FoodView: View {
   private func undoToast(_ id: UUID) -> some View {
     HStack {
       Text("Meal logged").accessibilityIdentifier("food.logged.toast")
+      if let inHealth = loggedInHealth {
+        Text(inHealth ? "In Health" : "Not in Health").font(.system(size: Theme.labelSize))
+          .foregroundStyle(Theme.label).accessibilityIdentifier("food.logged.health")
+      }
       Spacer()
       Button("Undo") {
         logged = nil
-        Task { await environment.mealCaptures.unlog(id) }
+        Task {
+          await environment.mealCaptures.unlog(id)
+          try? await environment.healthStore.deleteFood(syncIdentifier: id.uuidString)
+        }
       }
       .fontWeight(.semibold).accessibilityIdentifier("food.logged.undo")
     }
@@ -181,13 +190,17 @@ struct FoodView: View {
   }
 
   /// The single Log tap: the items are saved as confirmed and the sheet closes to the camera.
+  /// Then the meal goes to Health as one food entry (S-018); a denied write keeps the meal.
   private func logMeal(_ items: [MatchedItem], id: UUID) {
     let meal = LoggedMeal(id: id, loggedAt: environment.now(), items: items)
     (captured, picked, query) = (nil, nil, "")
+    let store = environment.mealCaptures
     Task {
       do {
-        try await environment.mealCaptures.log(meal)
-        (logged, logFailed) = (meal.id, false)
+        let written = try await MealHealth.log(meal, health: environment.healthStore) {
+          try await store.log($0)
+        }
+        (logged, loggedInHealth, logFailed) = (meal.id, written.inHealth, false)
       } catch {
         logFailed = true
       }

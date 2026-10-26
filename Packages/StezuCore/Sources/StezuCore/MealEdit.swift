@@ -59,6 +59,8 @@ public struct LoggedMeal: Sendable, Equatable, Codable, Identifiable {
   public let loggedAt: Date
   public let status: Status
   public let items: [MatchedItem]
+  /// Whether Health took the meal (S-018); nil until the write was tried.
+  public var inHealth: Bool? = nil
 
   public init(id: UUID, loggedAt: Date, items: [MatchedItem]) {
     self.id = id
