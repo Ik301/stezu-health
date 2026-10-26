@@ -1195,3 +1195,11 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). `HealthSample.id` carries the metadata id, else Health's UUID, so a re-import matches either; a fake sample with no id gets `health.<ms>`. An import with nothing found queues nothing and starts no pass.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeighInStore.swift, HealthStore.swift, HealthSources.swift, SyncRecord.swift, App/Sources/Data/WeightRow.swift (WeighInFile, AppEnvironment.weightHealth), App/Sources/Health/HealthKitStore.swift, App/Sources/Data/DayView.swift, WeighInStoreTests (3), HermesSyncUITests/testWeighInIsStoredLocallyAndSynced (commit on wt/S-031).
 - Reverse if: another screen starts reading body mass for weigh-ins without the wrapper (then pass weigh-ins explicitly), or Health's own writes from other Stezu installs need merging (then import on every read, matched by id).
+
+## D-083 Importing a program file replaces the whole program; history is kept
+
+- Status: decided 2026-10-26. Isaac switched from the five-day split to Push and Pull. The mechanism is proposed (S-034).
+- What: a program file is the whole program. After a confirmation, the template list becomes exactly the file's templates, in its order. Removed templates disappear from the list, never from history. Once a program has been imported, the bundled seed stops upserting, so removed templates can't come back.
+- Why: under D-052 an import only added or replaced templates by key, so switching programs would leave the old days in the list beside the new ones, with no way to remove them in the app.
+- Reverses: D-052's upsert-only import, under its own Reverse-if.
+- Reverse if: Isaac wants to keep several programs side by side. Then programs become named sets, not a single list.

@@ -1150,6 +1150,39 @@
       ],
       "needs_server": true,
       "passes": false
+    },
+    {
+      "id": "S-034",
+      "kind": "story",
+      "area": "workout",
+      "title": "Importing a program file replaces the whole program, and workout history is kept",
+      "steps": [
+        "After a valid file is picked, a confirmation shows the file's template names: \"Replace your program with Push, Pull? Your workout history is kept.\" with Replace and Cancel. Cancel changes nothing.",
+        "Replace leaves the template list holding exactly the file's templates, in the file's order. Templates the file lacks are removed from the list. This reverses D-052's upsert-only import, as its Reverse-if allows.",
+        "History is kept. Finished sessions of removed templates stay in History under their own names, and their records on the server are untouched (no deletions are queued).",
+        "An unfinished workout started from a removed template can still be logged and finished. Its logger keeps its own copy of the exercises (D-046).",
+        "The bundled seed never brings removed templates back. Once a program has been imported, the library records it (a `programImported` flag that decodes as false from older files), and later seed upserts are skipped.",
+        "An invalid file still leaves the library exactly as it was, with the same messages as before (D-052).",
+        "Launch with -uitest, open Workout and import the generic two-template fixture over the default seed, which has more templates. The confirmation names both, and Replace leaves exactly those two in file order. A finished session from a removed template is still listed in History."
+      ],
+      "tap_budget": "Import, pick the file, Replace (1 more tap than before)",
+      "depends_on": [
+        "S-011"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ProgramImportTests/testImportReplacesWholeProgramInFileOrder",
+        "StezuCoreTests.ProgramImportTests/testSeedNeverRestoresRemovedTemplates",
+        "StezuCoreTests.ProgramImportTests/testOldLibraryFileDecodesWithoutFlag"
+      ],
+      "ui_tests": [
+        "AppUITests.ProgramImportUITests/testImportReplacesProgramAndKeepsHistory"
+      ],
+      "screenshots": [
+        "s034-replace-confirm",
+        "s034-program-replaced"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }
