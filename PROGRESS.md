@@ -221,3 +221,10 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Tests: MetricHistoryTests (1), AppUITests MetricDetailUITests (screenshots s024-metric, s024-week-days). `FEATURE_ID=S-024 scripts/gate-linux.sh` passed G1 to G5 (294 non-test lines in 5 files before the flip). S-024 flipped with check-features.py --flip.
 - Naming: `Metric` (core enum, raw values match the overview ids), `MetricOpenButton`, `TrendChart` drawn with Canvas (no Charts import).
 - Left undone: only the chevron opens a detail, not a tap anywhere on the row (the rows keep their child accessibility ids, and a whole-row button would merge them); sleep shows "From: --" because `SleepInterval` carries no source; the chart has no axis labels; value formatting is duplicated between WeeklyHealthRows and `Metric.format` (diff budget); steps' source names come from a raw sample read over 8 weeks, which may be slow on a device with many samples.
+
+## 2026-10-25 S-017 Offline meal photo waits in a queue and matches later (night agent)
+
+- A shutter press with no connection (or no server set) shows "Pending, will match when online" and "Today: -- kcal, +1 pending" in the sheet, never 0 kcal. The photo was already saved; a meal stays pending until its POST /scan reply is saved beside it as `<id>.scan`. Opening Food retries pending meals oldest first; the newest one matched opens in the sheet with its items and ranges. Nothing deletes a queued meal. Decision D-061.
+- Core: MealQueue.swift (`QueuedMeal`, `MealQueue.retry/pendingCount/todayText`); `PhotoMatchClient.scanReply` returns the raw reply. App: `MatchState.pending`, `MealMatcher.scan/retryQueue`, `MealCaptureStore.saveReply/queue`.
+- Tests: MealQueueTests (3), AppTests MealQueueStoreTests (1), AppUITests OfflineQueueUITests (screenshots s017-pending, s017-matched-later).
+- Left undone: the "+1 pending" line is in the pending sheet only, not on Home's Food card; retries run only when Food opens (not at launch or on reconnect); there is no Log button yet (S-015), so a matched meal is "ready to Log" but logged kcal stays "--"; no list of queued meals (History is still a stub).

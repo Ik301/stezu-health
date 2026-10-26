@@ -1,3 +1,4 @@
+import StezuCore
 import SwiftUI
 import UIKit
 
@@ -12,6 +13,7 @@ struct FoodView: View {
   @State private var captured: CapturedMeal?
   @State private var match = MatchState.matching
   @State private var captureFailed = false
+  @State private var today: String?
 
   var body: some View {
     VStack(spacing: 0) {
@@ -28,9 +30,12 @@ struct FoodView: View {
     .padding(16)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.black.overlay { cameraImage }.clipped().ignoresSafeArea(edges: .top))
-    .task { await startCamera() }
+    .task {
+      await startCamera()
+      await retryQueue()
+    }
     .onDisappear { (environment.photoSource as? LiveCameraPhotoSource)?.stop() }
-    .sheet(item: $captured) { _ in PhotoMatchSheet(state: match) }
+    .sheet(item: $captured) { _ in PhotoMatchSheet(state: match, today: today) }
   }
 
   @ViewBuilder private var cameraImage: some View {
@@ -117,9 +122,24 @@ struct FoodView: View {
       let meal = try await MealCapture(environment: environment).shutter()
       match = .matching
       captured = meal
-      match = await MealMatcher(environment: environment).match(meal)
+      let result = await MealMatcher(environment: environment).match(meal)
+      if result == .pending {
+        let pending = await environment.mealCaptures.queue().pendingCount(on: environment.now())
+        today = MealQueue.todayText(loggedKcal: nil, pending: pending)
+      }
+      match = result
     } catch {
       captureFailed = true
     }
+  }
+
+  /// Opening Food retries pending meals oldest first (S-017). The newest one matched now opens
+  /// in the sheet, ready to Log; a meal still pending stays in the queue.
+  private func retryQueue() async {
+    guard let meal = await MealMatcher(environment: environment).retryQueue(),
+      let found = meal.match, captured == nil
+    else { return }
+    match = .matched(found)
+    captured = CapturedMeal(id: meal.id, capturedAt: meal.capturedAt)
   }
 }
