@@ -8,6 +8,7 @@ struct MealEditor: View {
   @State private var edit: MealEdit
   @State private var searching: SearchTarget?
   @State private var query = ""
+  @State private var detent = PresentationDetent.medium
   @FocusState private var focused: Bool
 
   /// What a search pick does: take an item's place, or join the list.
@@ -27,7 +28,8 @@ struct MealEditor: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(Theme.background)
-    .presentationDetents([.large])
+    .presentationDetents([.medium, .large], selection: $detent)
+    .onChange(of: searching) { _, target in if target != nil { detent = .large } }
   }
 
   private var list: some View {
