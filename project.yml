@@ -29,13 +29,14 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth
         CODE_SIGN_ENTITLEMENTS: App/StezuHealth.entitlements
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Stezu Health
+        INFOPLIST_KEY_CFBundleDisplayName: Ingest
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_NSHealthShareUsageDescription: "Stezu reads weight, steps, sleep, heart rate variability, resting heart rate and workouts from Apple Health to show your week."
-        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Stezu saves your weigh-ins, logged meals and strength workouts to Apple Health."
-        INFOPLIST_KEY_NSCameraUsageDescription: "Stezu uses the camera to photograph meals and scan food barcodes."
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "Ingest reads weight, steps, sleep, heart rate variability, resting heart rate and workouts from Apple Health to show your week."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Ingest saves your weigh-ins, logged meals and strength workouts to Apple Health."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Ingest uses the camera to photograph meals and scan food barcodes."
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         TARGETED_DEVICE_FAMILY: "1"
     scheme:
@@ -56,7 +57,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth.RestActivity
         INFOPLIST_FILE: App/RestActivity/Info.plist
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Stezu Rest
+        INFOPLIST_KEY_CFBundleDisplayName: Ingest Rest
         SKIP_INSTALL: YES
         TARGETED_DEVICE_FAMILY: "1"
   AppTests:
