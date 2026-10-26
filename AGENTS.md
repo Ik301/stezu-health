@@ -18,6 +18,7 @@ Read this first. SPEC.md says what to build (for v1, D-032 to D-035 override it 
       -destination 'platform=iOS Simulator,name=<an installed iPhone>' CODE_SIGNING_ALLOWED=NO
 
 The scheme runs AppTests and AppUITests. CI picks the simulator dynamically (see ci.yml).
+On a Mac, run `scripts/set-team.sh` once per clone: it writes your team to the gitignored Config/Local.xcconfig, which Config/Signing.xcconfig includes for StezuHealth and RestActivity, so `xcodegen generate` keeps signing; never commit a team.
 
 ## features.json (schema 2)
 

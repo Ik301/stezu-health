@@ -1,0 +1,12 @@
+// Signing for the StezuHealth and RestActivity targets (project.yml configFiles, Debug and
+// Release). This file is committed and names no team: CI builds unsigned
+// (CODE_SIGNING_ALLOWED=NO) and needs none.
+//
+// Your own team goes in Config/Local.xcconfig, which is gitignored and written once per clone by
+// scripts/set-team.sh. The include below is optional (#include?), so CI and a fresh clone build
+// without it. xcodegen generate rewrites the project but never these files, so the team
+// survives a regenerate.
+
+CODE_SIGN_STYLE = Automatic
+
+#include? "Local.xcconfig"
