@@ -27,6 +27,20 @@ targets:
     configFiles:
       Debug: Config/Signing.xcconfig
       Release: Config/Signing.xcconfig
+    # Array keys that GENERATE_INFOPLIST_FILE has no INFOPLIST_KEY_ setting for (D-079).
+    # XcodeGen writes App/Info.plist (gitignored) on every generate and points INFOPLIST_FILE at it;
+    # Xcode merges the INFOPLIST_KEY_ settings below into it. Edit here, never the plist.
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UIBackgroundModes:
+          - location
+          - fetch
+          - processing
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.ik301.stezuhealth.sync
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth
@@ -40,6 +54,8 @@ targets:
         INFOPLIST_KEY_NSHealthShareUsageDescription: "Ingest reads weight, steps, sleep, heart rate variability, resting heart rate and workouts from Apple Health to show your week."
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Ingest saves your weigh-ins, logged meals and strength workouts to Apple Health."
         INFOPLIST_KEY_NSCameraUsageDescription: "Ingest uses the camera to photograph meals and scan food barcodes."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Ingest records the places you visit and sends them to your own server. Nothing is shared with anyone else."
+        INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: "Ingest records the places you visit in the background and sends them to your own server. Nothing is shared with anyone else."
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         TARGETED_DEVICE_FAMILY: "1"
     scheme:

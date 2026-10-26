@@ -89,6 +89,34 @@ jobs:
             -resultBundlePath build/ios.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             | tee build/xcodebuild.txt
+      - name: Check the built app's Info.plist (D-079)
+        if: always()
+        run: |
+          set -euo pipefail
+          PLIST="$(find ~/Library/Developer/Xcode/DerivedData \
+            -path '*/Build/Products/Debug-iphonesimulator/StezuHealth.app/Info.plist' -print -quit)"
+          test -n "$PLIST" || { echo "no built StezuHealth.app/Info.plist"; exit 1; }
+          plutil -p "$PLIST"
+          python3 - "$PLIST" <<'EOF'
+          import plistlib, sys
+          p = plistlib.load(open(sys.argv[1], "rb"))
+          want = {
+              "UIBackgroundModes": ["location", "fetch", "processing"],
+              "BGTaskSchedulerPermittedIdentifiers": ["com.ik301.stezuhealth.sync"],
+          }
+          bad = [k for k, v in want.items() if sorted(p.get(k) or []) != sorted(v)]
+          for k in ("NSLocationWhenInUseUsageDescription",
+                    "NSLocationAlwaysAndWhenInUseUsageDescription",
+                    "NSHealthShareUsageDescription", "NSCameraUsageDescription",
+                    "CFBundleDisplayName"):
+              if not p.get(k):
+                  bad.append(k)
+          if p.get("CFBundleShortVersionString") in (None, "", "1.0"):
+              bad.append("CFBundleShortVersionString=%r" % p.get("CFBundleShortVersionString"))
+          if bad:
+              sys.exit("Info.plist missing or wrong: " + ", ".join(bad))
+          print("Info.plist OK")
+          EOF
       - name: Export UI test screenshots
         if: always()
         run: python3 scripts/export-screenshots.py build/ios.xcresult build/screenshots

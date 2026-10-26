@@ -337,3 +337,8 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 
 - Config/Signing.xcconfig (committed: `CODE_SIGN_STYLE = Automatic`, `#include? "Local.xcconfig"`) is the Debug and Release config file of StezuHealth and RestActivity. scripts/set-team.sh (macOS) writes the gitignored Config/Local.xcconfig with `DEVELOPMENT_TEAM`, from its argument or the first Apple Development certificate's OU, prints where to find the Team ID in Xcode when neither works, and runs `xcodegen generate`. README.md has "Build on your Mac". Decision D-077.
 - Checked: set-team.sh on Linux with stubbed `uname`, `security`, `openssl` and `xcodegen` (LibreSSL, OpenSSL 1.1 and 3 subject formats, an argument, a bad argument, no certificate, and the macOS-only refusal); CI's unsigned ios build. Not checked: a signed device build on a Mac.
+
+## 2026-10-26 infra/background-location: Info.plist keys for S-032 location and S-033 background sync (daytime session)
+
+- project.yml (StezuHealth): NSLocationWhenInUseUsageDescription and NSLocationAlwaysAndWhenInUseUsageDescription as `INFOPLIST_KEY_` settings; an `info:` block with UIBackgroundModes (location, fetch, processing), BGTaskSchedulerPermittedIdentifiers (`com.ik301.stezuhealth.sync`) and the versions from MARKETING_VERSION and CURRENT_PROJECT_VERSION. xcodegen writes it to App/Info.plist, now gitignored. AGENTS.md lists the keys. Decision D-079.
+- CI: the ios job prints the built app's Info.plist and fails if those keys are missing. No HealthKit background-delivery entitlement.
