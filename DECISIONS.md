@@ -735,3 +735,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A throw from the sheet leaves the flag unset, so Connect can be tried again.
 - Evidence: App/Sources/Data/HealthConnection.swift, App/Sources/Data/DataView.swift, Packages/StezuCore/Sources/StezuCore/HealthSources.swift, AppTests HealthConnectTests, HealthSourcesTests (commit b06a4dd on wt/S-020).
 - Reverse if: a later version adds types; then the flag must become a version number so the sheet asks again for the new types only.
+
+## D-055 A swap lives in the session's logger by template slot; custom exercises are keyed once from their name and saved apart from the bundled list
+
+- Status: proposed by night agent, 2026-10-25 (S-007).
+- Problem: a swapped exercise must replace the one on the Log card for this session only, leaving the template as it was, and a custom exercise needs a key that never changes so history and later picks find it.
+- Given: `SetLogger` (D-045) holds the template and the session and is saved whole after every change; sets are stored by exercise name. `TemplateLibrary` keeps templates and marks edited ones. The library list ships in the app (D-034: generic only).
+- Constraints:
+  - Writing the swap into the template breaks "this session only" and marks the template edited, so later seeds skip it.
+  - Undo looking up the slot's current exercise breaks once a slot is swapped after a set was logged (the set is stored under the old name).
+  - Keying custom exercises by list position or a random id breaks merging with a newer bundled list and is not reproducible in tests.
+- Options:
+  - (a) `SetLogger.swaps` maps a template slot to the swapped-in exercise (keeping the slot's sets and reps, taking the library's rest); undo records the slot and the exercise name; custom exercises get "custom-<name slug>" (with -2, -3 on a clash) and are saved to custom-exercises.json beside the active workout, merged after the bundled ExerciseLibrary.json on load.
+  - (b) A copy of the template edited in place for the session.
+  - (c) Custom exercises keyed by UUID and stored inside the template library file.
+- Decision: (a). The swapped exercise is prefilled from its last session of any template, else with no weight ("--"). A key starting with "custom-" is what marks an exercise custom.
+- Evidence: Packages/StezuCore/Sources/StezuCore/ExerciseLibrary.swift, Packages/StezuCore/Sources/StezuCore/SetLogger.swift, App/Sources/Workout/ExerciseLibraryView.swift, App/Sources/Workout/WorkoutLoggerView.swift (wt/S-007).
+- Reverse if: a swap should be offered as a template change too ("always use this"), or custom exercises must sync between devices; then add an explicit template edit and a UUID beside the slug key.

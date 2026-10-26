@@ -9,8 +9,11 @@ struct WorkoutLoggerView: View {
   @State private var logger: SetLogger
   /// The rest after the last logged set (S-006); nil until the first Log.
   @State private var rest: RestActivityController?
+  @State private var showLibrary = false  // the Exercises library sheet (S-007)
+  private let history: [WorkoutSession]
 
   init(template: WorkoutTemplate, history: [WorkoutSession] = []) {
+    self.history = history
     _logger = State(
       initialValue: SetLogger(template: template, startedAt: Date(), history: history))
   }
@@ -43,14 +46,33 @@ struct WorkoutLoggerView: View {
     .onChange(of: logger) { _, changed in
       WorkoutSessionStore(storage: environment.storage).save(changed)
     }
+    .sheet(isPresented: $showLibrary) {
+      ExerciseLibraryView(history: history + [logger.session]) { picked in
+        logger.swap(to: picked, history: history)
+        showLibrary = false
+      }
+      .environment(\.appEnvironment, environment)
+    }
   }
 
   private var logCard: some View {
     VStack(alignment: .leading, spacing: 10) {
       let exercise = logger.exercise
-      Text(exercise?.name ?? "No exercises")
-        .font(.system(size: 28, weight: .semibold))
-        .accessibilityIdentifier("workout.logger.exercise")
+      HStack(alignment: .firstTextBaseline) {
+        Text(exercise?.name ?? "No exercises")
+          .font(.system(size: 28, weight: .semibold))
+          .accessibilityIdentifier("workout.logger.exercise")
+        Spacer()
+        if exercise != nil {
+          Menu {
+            Button("Swap") { showLibrary = true }
+              .accessibilityIdentifier("workout.logger.swap")
+          } label: {
+            Image(systemName: "ellipsis").frame(width: 48, height: 48)
+          }
+          .accessibilityIdentifier("workout.logger.menu")
+        }
+      }
       Text(exercise.map { "Set \(logger.setNumber) of \($0.sets)" } ?? "--")
         .font(.system(size: Theme.subtitleSize))
         .accessibilityIdentifier("workout.logger.set")

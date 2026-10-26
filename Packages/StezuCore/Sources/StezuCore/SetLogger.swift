@@ -18,11 +18,19 @@ public struct SetLogger: Sendable, Equatable, Codable {
   public private(set) var reps: Int
   /// A bodyweight set: logged with `pounds == nil`, never 0.
   public private(set) var isBodyweight = false
-  /// The exercise index of every logged set, oldest first, so undo knows the last one.
-  private var logOrder: [Int] = []
+  /// The slot and exercise name of every logged set, oldest first, so undo knows the last one.
+  private var logOrder: [LoggedSlot] = []
   /// Each exercise's last-session numbers, same template first (TemplateHistory); exercises never
   /// done before have no key.
-  public let last: [String: LastSessionNumbers]
+  public private(set) var last: [String: LastSessionNumbers]
+  /// Exercises swapped in from the library for this session only, by template slot. The
+  /// template itself never changes.
+  public private(set) var swaps: [Int: TemplateExercise] = [:]
+
+  private struct LoggedSlot: Sendable, Equatable, Codable {
+    let index: Int
+    let name: String
+  }
 
   /// Prefills each exercise from its last session's first set, else from the template's start.
   public init(
@@ -51,7 +59,22 @@ public struct SetLogger: Sendable, Equatable, Codable {
   }
 
   public var exercise: TemplateExercise? {
-    template.exercises.indices.contains(exerciseIndex) ? template.exercises[exerciseIndex] : nil
+    template.exercises.indices.contains(exerciseIndex) ? exerciseInSlot(exerciseIndex) : nil
+  }
+
+  private func exerciseInSlot(_ index: Int) -> TemplateExercise {
+    swaps[index] ?? template.exercises[index]
+  }
+
+  /// Puts a library exercise in the card's slot for this session only, keeping the slot's sets
+  /// and reps, and prefills it from its last session of any template, else with no weight.
+  public mutating func swap(to replacement: LibraryExercise, history: [WorkoutSession]) {
+    guard let current = exercise else { return }
+    let swapped = current.replaced(by: replacement)
+    swaps[exerciseIndex] = swapped
+    last[swapped.name] = WorkoutHistory.lastSession(
+      of: swapped.name, before: session.startedAt, in: history)
+    prefill(swapped)
   }
 
   public var weightStep: Double { exercise?.weightStep ?? Self.defaultWeightStep }
@@ -76,11 +99,11 @@ public struct SetLogger: Sendable, Equatable, Codable {
       let set = session.logSet(
         exercise.name, pounds: isBodyweight ? nil : pounds, reps: reps, at: date)
     else { return nil }
-    logOrder.append(exerciseIndex)
+    logOrder.append(LoggedSlot(index: exerciseIndex, name: exercise.name))
     let done = session.sets(for: exercise.name)?.count ?? 0
     if done >= exercise.sets, exerciseIndex + 1 < template.exercises.count {
       exerciseIndex += 1
-      prefill(template.exercises[exerciseIndex])
+      prefill(exerciseInSlot(exerciseIndex))
     }
     return set
   }
@@ -88,11 +111,10 @@ public struct SetLogger: Sendable, Equatable, Codable {
   /// Removes only the last logged set and returns the card to it with its numbers.
   @discardableResult
   public mutating func undo() -> WorkoutSet? {
-    guard let index = logOrder.last,
-      let set = session.removeLastSet(of: template.exercises[index].name)
+    guard let slot = logOrder.last, let set = session.removeLastSet(of: slot.name)
     else { return nil }
     logOrder.removeLast()
-    exerciseIndex = index
+    exerciseIndex = slot.index
     (isBodyweight, reps) = (set.pounds == nil, set.reps)
     if let weight = set.pounds { pounds = weight }
     return set
