@@ -12,6 +12,8 @@ struct WorkoutView: View {
   @State private var active: WorkoutTemplate?
   @State private var picking = false
   @State private var importMessage: String?
+  /// A checked program file waiting for Replace or Cancel (S-034).
+  @State private var pending: [WorkoutTemplate]?
   /// Finished sessions (S-008), oldest first; loaded once, appended on each Finish.
   @State private var finished: [FinishedWorkout]?
   /// The saved workout in progress (S-009), offered as Resume in place of the black card.
@@ -44,10 +46,19 @@ struct WorkoutView: View {
       if active == nil { loadSaved() }
     }
     .sheet(isPresented: $showHistory) {
-      WorkoutHistoryView(
-        sessions: history,
-        names: Dictionary(
-          (library?.templates ?? []).map { ($0.key, $0.name) }, uniquingKeysWith: { a, _ in a }))
+      WorkoutHistoryView(sessions: history, names: library?.names ?? [:])
+    }
+    .alert(
+      pending.map(WorkoutTemplateStore.question) ?? "",
+      isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } }),
+      presenting: pending
+    ) { templates in
+      Button("Replace") { replaceProgram(with: templates) }
+        .accessibilityIdentifier("workout.import.replace")
+      Button("Cancel", role: .cancel) {}
+        .accessibilityIdentifier("workout.import.cancel")
+    } message: { _ in
+      Text("Your workout history is kept.")
     }
     .fileImporter(isPresented: $picking, allowedContentTypes: [.json]) { result in
       importProgram((try? result.get()).flatMap(WorkoutTemplateStore.read))
@@ -59,10 +70,18 @@ struct WorkoutView: View {
     environment.workoutHistory + (finished ?? []).map(\.session)
   }
 
+  /// A valid file asks to replace the program; a refused one says why and changes nothing.
   private func importProgram(_ data: Data?) {
+    switch WorkoutTemplateStore.check(data) {
+    case .confirm(let templates): (pending, importMessage) = (templates, nil)
+    case .refused(let line): importMessage = line
+    }
+  }
+
+  private func replaceProgram(with templates: [WorkoutTemplate]) {
     let store = WorkoutTemplateStore(storage: environment.storage)
     var updated = library ?? store.load()
-    importMessage = store.importProgram(data, into: &updated)
+    importMessage = store.replaceProgram(with: templates, in: &updated)
     library = updated
   }
 
@@ -246,7 +265,7 @@ struct WorkoutView: View {
   /// A finished session this week: its template, sets, and whether Health has it.
   private func sessionRow(_ workout: FinishedWorkout, id: String) -> some View {
     let key = workout.session.templateKey
-    let name = library?.templates.first(where: { $0.key == key })?.name ?? "Workout"
+    let name = key.flatMap { library?.names[$0] } ?? "Workout"
     let sets = workout.workingSets
     return HStack {
       Text("\(name)   \(sets) \(sets == 1 ? "set" : "sets")")

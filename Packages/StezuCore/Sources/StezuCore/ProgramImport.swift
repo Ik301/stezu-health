@@ -66,11 +66,11 @@ public enum ProgramImport {
 }
 
 extension TemplateLibrary {
-  /// Applies a program file: each template replaces the one with its key (or is appended) and is
-  /// kept from later seeds like an edit. An invalid file changes nothing. Returns the count.
+  /// Applies a program file: it replaces the whole program, in the file's order (D-083), and the
+  /// seed is skipped from then on. An invalid file changes nothing. Returns the count.
   public mutating func importProgram(_ data: Data) -> Result<Int, ProgramImport.Failure> {
     ProgramImport.parse(data).map { templates in
-      for template in templates { edit(template) }
+      replaceProgram(with: templates)
       return templates.count
     }
   }
