@@ -883,7 +883,7 @@
         "s024-week-days"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-025",

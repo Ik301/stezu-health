@@ -816,7 +816,24 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: project.yml (CFBundleDisplayName, usage strings), App/Sources/Assets.xcassets, design/AppIcon.svg, DESIGN.md; commit 7d02a7c.
 - Reverse if: the name changes again (edit the display strings only), or Ingest goes to the App Store, where the bundle ids would have to be renamed before the first release.
 
-## D-060 Health sync reads one anchored page at a time and saves it to an on-device queue with its anchor before sending
+## D-060 Metric detail reads its 8 weeks from Health when it opens and buckets per-day values into Monday-first weeks; a day without a key is absent
+
+- Status: proposed by night agent, 2026-10-25 (S-024).
+- Problem: every overview metric has to open one detail with 8 weekly values, their coverage and each week's 7 days, but each metric is built differently (weight from the trend, steps and resting heart rate from daily statistics, sleep from nights, HRV from raw readings), and an empty day or week must not turn into 0.
+- Given: `HealthStore.dailyValues`, `sleepIntervals` and `samples` (D-058), `TrendWeight.series` and Stezu-only weigh-ins (D-057), `WeeklyStat` with coverage and confidence, and Monday-to-Sunday weeks from `WeeklyStats.week`.
+- Constraints:
+  - A separate detail per metric breaks the story's one template and multiplies the code past the diff budget.
+  - Keeping 8 weeks in a local cache breaks the rule that Health is the store for read types, and goes stale when another app writes late.
+  - Filling missing days with 0 breaks rule 5 and the weekly means.
+- Options:
+  - (a) `MetricHistory.load` reads 8 weeks (plus the trend's 90-day lead-in for weight) when the sheet opens, turns them into a `[day start: value]` map, and one `history(...)` splits that into 8 weeks of 7 days, each week's value and coverage made by the metric's own `WeeklyStat` function. A day without a key is nil and shows "--".
+  - (b) Call the overview's `WeeklyHealth.load` 8 times, once per week, and add a separate per-day read.
+  - (c) A local cache of daily values filled in the background.
+- Decision: (a). Weight's week value is the trend at its last weigh-in that week, with weigh-in days as coverage; HRV's day value is that day's median. Sources are the app names on the read samples; sleep intervals carry none, so sleep shows "From: --".
+- Evidence: Packages/StezuCore/Sources/StezuCore/MetricHistory.swift, App/Sources/Data/MetricDetailView.swift, DataView.swift, MetricHistoryTests, AppUITests MetricDetailUITests (commit on wt/S-024).
+- Reverse if: opening a detail is slow on the device (8 weeks of raw step samples for the source names); then read sources from `HealthSources` once and pass them in.
+
+## D-061 Health sync reads one anchored page at a time and saves it to an on-device queue with its anchor before sending
 
 - Status: proposed by night agent, 2026-10-25 (S-028).
 - Problem: every Health type the app reads has to reach POST /sync, first as a 90-day backfill and then only as changes (deletions included), in requests of about 2,000 items, without blocking the UI and without losing anything when there is no server, no network or a 5xx.
