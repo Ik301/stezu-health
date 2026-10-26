@@ -79,6 +79,23 @@ def range_total(field: str, bound: str) -> str:
             f" '$.items') i))")
 
 
+def jbetween(path: str, lo: float, hi: float) -> str:
+    """A JSON number at path within [lo, hi], else NULL. CoreLocation marks an invalid accuracy or
+    speed with a negative value, and a latitude or longitude outside its range is not a place."""
+    return f"CASE WHEN {jnum(path)} BETWEEN {lo} AND {hi} THEN {jnum(path)} END"
+
+
+def jtime(path: str) -> str:
+    """An ISO 8601 timestamp string at path, else NULL. A year before 1970 or after 2999 is
+    CLVisit's distantPast or distantFuture (an unknown arrival or departure), so it is NULL too."""
+    t = jtext(path)
+    return f"CASE WHEN {t} GLOB {DATE} || 'T*' AND substr({t}, 1, 4) BETWEEN '1970' AND '2999' THEN {t} END"
+
+
+# Where a visit or location record says it was (S-032); synthetic in tests, never in the repo.
+PLACE = (f"{jbetween('$.latitude', -90, 90)} AS latitude", f"{jbetween('$.longitude', -180, 180)} AS longitude",
+         f"{jbetween('$.horizontal_accuracy_m', 0, 1e9)} AS horizontal_accuracy_m")
+
 # A finished session's sets, read from its exercises[].sets[] (objects only, so odd payloads never fail).
 SESSION_SETS = ("FROM json_each(CASE WHEN json_type(payload_json, '$.exercises') = 'array' THEN payload_json END,"
                 " '$.exercises') e, json_each(coalesce(CASE WHEN e.type = 'object' THEN CASE WHEN"
@@ -163,6 +180,21 @@ VIEWS = {
                           f" {jtext('$.name', src='i.value')} END AS n FROM json_each(CASE WHEN"
                           " json_type(payload_json, '$.items') = 'array' THEN payload_json END, '$.items') i))"
                           " AS items"),
+    "stezu_visits": f"SELECT id, arrived_at, departed_at, {day_of('coalesce(arrived_at, departed_at)')} AS day,"
+                    " latitude, longitude, horizontal_accuracy_m, CASE WHEN julianday(departed_at) >="
+                    " julianday(arrived_at) THEN (julianday(departed_at) - julianday(arrived_at)) * 1440.0 END"
+                    " AS duration_min, updated_at FROM "
+                    + live("visit", f"{jtime('$.arrived_at')} AS arrived_at",
+                           f"{jtime('$.departed_at')} AS departed_at", *PLACE),
+    "stezu_locations": f"SELECT id, at, {day_of('at')} AS day, latitude, longitude, horizontal_accuracy_m, speed_mps,"
+                       " updated_at FROM "
+                       + live("location", f"{jtime('$.at')} AS at", *PLACE,
+                              f"{jbetween('$.speed_mps', 0, 1e6)} AS speed_mps"),
+    # A day with no visit and no fix has no row; a count with nothing recorded is NULL, never 0.
+    "places_daily": "SELECT day, nullif(sum(kind = 'visit'), 0) AS visits,"
+                    " nullif(sum(kind = 'location'), 0) AS location_fixes FROM (SELECT day, 'visit' AS kind"
+                    " FROM stezu_visits UNION ALL SELECT day, 'location' FROM stezu_locations)"
+                    " WHERE day IS NOT NULL GROUP BY day",
 } | {name: "SELECT day, type, unit, n, min_value, mean_value, max_value, sources FROM daily_quantity"
            " WHERE type IN (" + ", ".join(f"'{Q}{t}'" for t in types) + ")" for name, types in DAILY.items()}
 
