@@ -1038,3 +1038,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The sync version is the write time in ms, so a later write of the same meal replaces the entry. A meal with neither total known writes nothing and is "Not in Health". A failed local save throws before Health.
 - Evidence: Packages/StezuCore/Sources/StezuCore/MealHealth.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Food/FoodView.swift, MealHealthTests (commit on wt/S-018).
 - Reverse if: HealthKit rejects custom-key deletes on a correlation type on a device, or meals become editable after Log (S-019); then delete by the correlation's own objects and rewrite with a new sync version.
+
+## D-073 History reads meals from the meal files, and an edit or delete goes to the phone first, then replaces or removes the Health entry by meal id
+
+- Status: proposed by night agent, 2026-10-26 (S-019).
+- Problem: the camera's strip and History must show today's and past meals as summed ranges, and an edit or a delete of a past meal must change the phone's copy, the totals and the meal's Health entry together, with no copy left behind.
+- Given: each logged meal is `<id>.log` in the meal folder and pending photos are `<id>.json` without a `.scan` (D-068, S-017); a meal's Health entry is a food correlation tagged with the meal id (D-072); a scenario's seeded meals so far lived only in `AppEnvironment.mealHistory`, in memory.
+- Constraints:
+  - Keeping seeded meals outside the store breaks edit and delete: a deleted seed comes back on the next read, and the strip and History disagree.
+  - Relying on HealthKit's sync-version replace alone breaks "replaced" if the samples inside the old correlation survive; two entries would double the day in Health.
+  - Deleting from Health first breaks "never lose data" when the phone's write then fails.
+- Options:
+  - (a) `MealCaptureStore.days()` gathers `.log` meals and pending photos into `FoodDay`s (newest first, totals from `FoodRange.total`, nil with no meal). Save: `MealHealth.replace` writes the edited `.log` (same id and time), deletes the Health entry by meal id, then writes it again as Log does. Delete: `MealHealth.delete` removes the `.log`, then the Health entry. `-uitest-scenario food-history` writes its meals into the memory store at launch, and the fixture photo when Food opens.
+  - (b) Keep an in-memory list in the view and write back on dismiss.
+  - (c) Mark deleted meals with a tombstone file and filter on read.
+- Decision: (a). Every reader (strip, History, Data) sees the same files, so an edit or delete shows everywhere on the next read. A failed Health delete leaves the meal deleted on the phone; the result is returned, not shown.
+- Evidence: Packages/StezuCore/Sources/StezuCore/FoodDay.swift, Packages/StezuCore/Sources/StezuCore/MealHealth.swift, App/Sources/Food/MealCapture.swift, App/Sources/Food/FoodHistory.swift, App/Sources/Food/FoodView.swift, FoodDayTests, MealHistoryUITests (commit on wt/S-019).
+- Reverse if: S-029 needs tombstones for /sync (then (c) on top of (a)), or HealthKit's sync-version replace is shown on a device to remove the old samples, so the delete before the rewrite can go.
