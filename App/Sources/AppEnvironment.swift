@@ -59,6 +59,8 @@ struct AppEnvironment: Sendable {
   var mealHistory: [LoggedMeal] = []
   /// Barcode mode's codes (S-016): VisionKit's scanner, or a synthetic code in `-uitest`.
   var barcodeSource = BarcodeSource.camera
+  /// Weigh-ins, saved on the phone first (S-031): weigh-ins.json, or memory in `-uitest`.
+  var weighIns = WeighInStore()
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -70,7 +72,8 @@ struct AppEnvironment: Sendable {
       serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk),
       restAlerts: LiveRestAlerts(), programFilePicker: .files,
       healthConnection: HealthConnection(defaults: .standard),
-      healthSync: HermesSyncFile.engine(storage: .disk))
+      healthSync: HermesSyncFile.engine(storage: .disk), weighIns: WeighInFile.store(storage: .disk)
+    )
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.

@@ -9,6 +9,7 @@ struct DataView: View {
   @Environment(\.appEnvironment) private var environment
   @State private var connected: Bool?
   @State private var sourcesOpen = false
+  @State private var notInHealth: [String] = []
   @State private var metric: Metric?
 
   var body: some View {
@@ -22,7 +23,9 @@ struct DataView: View {
           }
         }
         .scrollIndicators(.hidden)
-        pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }
+        pill("Sources", id: "data.sources", inverted: false) {
+          Task { (notInHealth, sourcesOpen) = (await environment.weighInsNotInHealth(), true) }
+        }
       } else {
         Text(
           "Ingest reads weight, steps, heart rate, HRV, resting heart rate, sleep, blood oxygen, "
@@ -39,8 +42,8 @@ struct DataView: View {
         }
       }
     }
-    .sheet(isPresented: $sourcesOpen) {
-      SourcesView(store: environment.healthStore, now: environment.now())
+    .sheet(isPresented: $sourcesOpen) { [notInHealth] in
+      SourcesView(store: environment.healthStore, failedWrites: notInHealth, now: environment.now())
         .presentationDragIndicator(.visible)
     }
     .sheet(item: $metric) { MetricDetailView(metric: $0).presentationDragIndicator(.visible) }

@@ -1159,3 +1159,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Exercise keys come from the library first and the templates second (templates win on a shared name); an unknown name sends a null key. `pounds` is always present, null for bodyweight.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutRecord.swift, SyncRecord.swift, HealthSync.swift, WorkoutFinish.swift, App/Sources/Settings/HermesSync.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/Workout/WorkoutView.swift, WorkoutRecordTests (3), HermesSyncUITests/testLoggedSetsAndFinishedWorkoutAreSynced (commit on wt/S-030).
 - Reverse if: two sets can be logged in the same millisecond of one session (then store an id per set), or the server starts treating an equal record replayed by the backfill as a conflict.
+
+## D-081 Weigh-ins live in weigh-ins.json behind an actor; the weight screens read them through a HealthStore wrapper, and Health's earlier Stezu weigh-ins are imported once
+
+- Status: proposed by night agent, 2026-10-26 (S-031).
+- Problem: a weigh-in must survive a denied or failed Health write and still reach the server, the weight row, the 8-week detail, Home and the Day view must all show the phone's weigh-ins instead of Health's, and the weigh-ins earlier builds wrote only to Health (D-057) must move to the phone without being counted twice.
+- Given: D-076 (the phone first, Health a copy, decided); `WeeklyWeight.load`, `MetricHistory.load` and `DayRecords.load` all read body mass through `HealthStore.samples(of: .bodyMass)` and keep only Stezu's bundle id (D-047); records ride `HealthSync.enqueue` (D-075); Health only becomes readable after the Connect sheet (S-020).
+- Constraints:
+  - Rewriting the three loaders to take weigh-ins breaks the card's file budget and their existing tests' signatures.
+  - Importing before Health has asked reads nothing, and a once-only flag set then would never import.
+  - Matching imports by time breaks on two weigh-ins in the same second; a Health UUID or the weigh-in id in metadata does not.
+- Options:
+  - (a) `WeighInStore` (actor over `WeighInLog`: weigh-ins and a `migrated` flag, saved to weigh-ins.json after every change). Add saves, then writes Health with `stezu_weighin_id` metadata and saves `inHealth`, then queues a `weigh_in` record (id, measured_at, pounds, in_health). Delete removes locally, deletes in Health by metadata id or UUID, then queues a tombstone. `WeighInHealth` wraps the HealthStore: its body-mass read imports once (only after Connect), drops Health's Stezu samples and adds the store's as Stezu samples; every other call passes through. The four screens read `AppEnvironment.weightHealth`.
+  - (b) Add a weigh-ins parameter to each loader and merge in every view.
+  - (c) Keep Health as the store and copy each new sample to the server from the anchored sync.
+- Decision: (a). `HealthSample.id` carries the metadata id, else Health's UUID, so a re-import matches either; a fake sample with no id gets `health.<ms>`. An import with nothing found queues nothing and starts no pass.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeighInStore.swift, HealthStore.swift, HealthSources.swift, SyncRecord.swift, App/Sources/Data/WeightRow.swift (WeighInFile, AppEnvironment.weightHealth), App/Sources/Health/HealthKitStore.swift, App/Sources/Data/DayView.swift, WeighInStoreTests (3), HermesSyncUITests/testWeighInIsStoredLocallyAndSynced (commit on wt/S-031).
+- Reverse if: another screen starts reading body mass for weigh-ins without the wrapper (then pass weigh-ins explicitly), or Health's own writes from other Stezu installs need merging (then import on every read, matched by id).

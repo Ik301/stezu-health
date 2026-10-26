@@ -21,8 +21,8 @@ public protocol HealthStore: Sendable {
   /// the same `externalID` already in Health is not written again, so a retry is safe.
   func saveStrengthWorkout(start: Date, end: Date, externalID: String) async throws
 
-  /// Writes one body-mass sample. Health records Stezu as its source.
-  func saveBodyMass(pounds: Double, at date: Date) async throws
+  /// Writes one body-mass sample, Stezu as its source, tagged with the weigh-in `id` (S-031).
+  func saveBodyMass(pounds: Double, at date: Date, id: String) async throws
 
   /// Per-day statistics keyed by day start, merged across apps by Health: totals for steps,
   /// means for discrete types such as resting heart rate. A day without data has no key.
@@ -35,12 +35,20 @@ public protocol HealthStore: Sendable {
     async throws -> HealthChanges
   /// Deletes Stezu's own body-mass samples dated `date` (S-025); other apps' are untouched.
   func deleteBodyMass(at date: Date) async throws
+  /// Deletes Stezu's body-mass sample whose weigh-in id or Health UUID is `id` (S-031).
+  func deleteBodyMass(id: String) async throws
 
   /// Writes one logged meal as a food correlation (S-018). An entry with the same sync
   /// identifier replaces the one in Health. Throws when the write is denied or fails.
   func saveFood(_ entry: FoodEntry) async throws
   /// Removes the meal's food entry and the samples inside it (Undo).
   func deleteFood(syncIdentifier: String) async throws
+}
+
+extension HealthStore {
+  public func saveBodyMass(pounds: Double, at date: Date) async throws {
+    try await saveBodyMass(pounds: pounds, at: date, id: UUID().uuidString)
+  }
 }
 
 /// One page of an anchored Health read (S-028).
@@ -98,12 +106,12 @@ public actor FakeHealthStore: HealthStore {
     savedWorkouts.append(SavedWorkout(start: start, end: end, externalID: externalID))
   }
 
-  public func saveBodyMass(pounds: Double, at date: Date) async throws {
+  public func saveBodyMass(pounds: Double, at date: Date, id: String) async throws {
     if failsWrites { throw FakeHealthStoreError.writeFailed }
     storedSamples.append(
       HealthSample(
         type: .bodyMass, date: date, sourceName: "Stezu",
-        sourceBundleID: WeeklyWeight.stezuBundleID, value: pounds))
+        sourceBundleID: WeeklyWeight.stezuBundleID, value: pounds, id: id))
   }
 
   /// Per day of the current calendar; unlike Health it keeps overlap between apps.
@@ -145,6 +153,11 @@ public actor FakeHealthStore: HealthStore {
     storedSamples.removeAll {
       $0.type == .bodyMass && $0.date == date && $0.sourceBundleID == WeeklyWeight.stezuBundleID
     }
+  }
+
+  public func deleteBodyMass(id: String) async throws {
+    if failsWrites { throw FakeHealthStoreError.writeFailed }
+    storedSamples.removeAll { $0.type == .bodyMass && $0.id == id }
   }
 
   /// Food entries written, one per sync identifier.

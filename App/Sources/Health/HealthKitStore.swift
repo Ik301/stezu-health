@@ -66,10 +66,26 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
     guard try await builder.finishWorkout() != nil else { throw HKError(.errorInvalidArgument) }
   }
 
-  func saveBodyMass(pounds: Double, at date: Date) async throws {
+  /// Tags a weigh-in's sample with its id (S-031), so Delete can find it.
+  private static let weighInKey = "stezu_weighin_id"
+
+  func saveBodyMass(pounds: Double, at date: Date, id: String) async throws {
     let quantity = HKQuantity(unit: .pound(), doubleValue: pounds)
     try await store.save(
-      HKQuantitySample(type: HKQuantityType(.bodyMass), quantity: quantity, start: date, end: date))
+      HKQuantitySample(
+        type: HKQuantityType(.bodyMass), quantity: quantity, start: date, end: date,
+        metadata: [Self.weighInKey: id]))
+  }
+
+  /// Only samples this app wrote with that weigh-in id or Health UUID.
+  func deleteBodyMass(id: String) async throws {
+    var match = [HKQuery.predicateForObjects(withMetadataKey: Self.weighInKey, allowedValues: [id])]
+    if let uuid = UUID(uuidString: id) { match.append(HKQuery.predicateForObject(with: uuid)) }
+    let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+      HKQuery.predicateForObjects(from: HKSource.default()),
+      NSCompoundPredicate(orPredicateWithSubpredicates: match),
+    ])
+    _ = try await store.deleteObjects(of: HKQuantityType(.bodyMass), predicate: predicate)
   }
 
   /// Tags the correlation and both samples, so Undo can find them all.
@@ -228,7 +244,8 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
             return HealthSample(
               type: type, date: type == .workout ? $0.startDate : $0.endDate,
               sourceName: source.name,
-              sourceBundleID: source.bundleIdentifier, value: value)
+              sourceBundleID: source.bundleIdentifier, value: value,
+              id: $0.metadata?[Self.weighInKey] as? String ?? $0.uuid.uuidString)
           })
       }
       store.execute(query)

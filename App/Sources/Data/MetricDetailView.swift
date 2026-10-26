@@ -43,7 +43,7 @@ struct MetricDetailView: View {
     .background(Theme.background.ignoresSafeArea())
     .task {
       history = await MetricHistory.load(
-        metric, from: environment.healthStore, now: environment.now())
+        metric, from: environment.weightHealth, now: environment.now())
     }
   }
 
