@@ -195,6 +195,29 @@ VIEWS = {
                     " nullif(sum(kind = 'location'), 0) AS location_fixes FROM (SELECT day, 'visit' AS kind"
                     " FROM stezu_visits UNION ALL SELECT day, 'location' FROM stezu_locations)"
                     " WHERE day IS NOT NULL GROUP BY day",
+    # iPhone app-focus intervals sent by the Mac uploader (mac/screentime, D-081). The length is the
+    # payload's duration_s when positive, else end minus start; anything else is NULL, never 0.
+    "stezu_app_usage": f"SELECT id, device_name, device_model, bundle_id, app_name, started_at, ended_at,"
+                       f" {day_of('started_at')} AS day, CASE WHEN dur > 0 THEN dur WHEN julianday(ended_at) >"
+                       " julianday(started_at) THEN (julianday(ended_at) - julianday(started_at)) * 86400.0 END"
+                       " AS duration_s, capped, updated_at FROM "
+                       + live("app_usage", f"{jtext('$.device_name')} AS device_name",
+                              f"{jtext('$.device_model')} AS device_model", f"{jtext('$.bundle_id')} AS bundle_id",
+                              f"{jtext('$.app_name')} AS app_name", f"{jtime('$.start')} AS started_at",
+                              f"{jtime('$.end')} AS ended_at", f"{jnum('$.duration_s')} AS dur",
+                              f"{jbool('$.capped')} AS capped"),
+    # Per day and device: minutes in apps, distinct apps, and the five apps with the most minutes as
+    # JSON [{"bundle_id", "minutes"}]. Intervals without a day, bundle id or length are left out, so a
+    # day with none has no row rather than 0. An interval counts toward the day it started.
+    "screen_time_daily": "WITH per_app AS (SELECT day, device_name, bundle_id, sum(duration_s) / 60.0 AS minutes,"
+                         " count(*) AS n, sum(capped = 1) AS n_capped FROM stezu_app_usage WHERE day IS NOT NULL"
+                         " AND bundle_id IS NOT NULL AND duration_s IS NOT NULL GROUP BY day, device_name, bundle_id)"
+                         " SELECT day, device_name, round(sum(minutes), 1) AS total_min, count(*) AS apps,"
+                         " (SELECT json_group_array(json_object('bundle_id', t.bundle_id, 'minutes',"
+                         " round(t.minutes, 1))) FROM (SELECT bundle_id, minutes FROM per_app p WHERE p.day = a.day"
+                         " AND p.device_name IS a.device_name ORDER BY minutes DESC, bundle_id LIMIT 5) t) AS top_apps,"
+                         " sum(n) AS intervals, sum(n_capped) AS capped_intervals FROM per_app a"
+                         " GROUP BY day, device_name",
 } | {name: "SELECT day, type, unit, n, min_value, mean_value, max_value, sources FROM daily_quantity"
            " WHERE type IN (" + ", ".join(f"'{Q}{t}'" for t in types) + ")" for name, types in DAILY.items()}
 
