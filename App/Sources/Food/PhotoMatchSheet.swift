@@ -7,6 +7,8 @@ import UIKit
 enum MatchState: Sendable, Equatable {
   case matching
   case matched(PhotoMatch)
+  /// No connection or no server set: the meal waits in the queue (S-017).
+  case pending
   case failed
 }
 
@@ -16,15 +18,37 @@ struct MealMatcher: Sendable {
   let environment: AppEnvironment
 
   func match(_ meal: CapturedMeal) async -> MatchState {
+    do {
+      return .matched(try await scan(meal))
+    } catch is VMTransportError {
+      return .pending
+    } catch {
+      return .failed
+    }
+  }
+
+  /// Sends the saved photo and keeps the reply with the meal, so a relaunch finds it matched.
+  func scan(_ meal: CapturedMeal) async throws -> PhotoMatch {
     guard let photo = await environment.mealCaptures.photo(for: meal.id),
       let jpeg = await Self.downscaled(photo)
-    else { return .failed }
+    else { throw CocoaError(.fileReadNoSuchFile) }
     let day = Date.ISO8601FormatStyle(timeZone: .current).year().month().day()
     let hash = SHA256.hash(data: jpeg).map { String(format: "%02x", $0) }.joined()
-    let match = try? await PhotoMatchClient(transport: environment.vmTransport).scan(
+    let reply = try await PhotoMatchClient(transport: environment.vmTransport).scanReply(
       mealID: meal.id, date: day.format(meal.capturedAt),
       meal: MealPeriod.at(meal.capturedAt), jpeg: jpeg, sha256: hash)
-    return match.map { .matched($0) } ?? .failed
+    let match = try PhotoMatchClient.decode(reply)
+    try await environment.mealCaptures.saveReply(reply, for: meal.id)
+    return match
+  }
+
+  /// Retries the saved meals still pending, oldest first, and returns the newest one matched now.
+  func retryQueue() async -> QueuedMeal? {
+    var queue = await environment.mealCaptures.queue()
+    let matched = await queue.retry {
+      try await scan(CapturedMeal(id: $0.id, capturedAt: $0.capturedAt))
+    }
+    return queue.meals.last { matched.contains($0.id) }
   }
 
   @MainActor static func downscaled(_ photo: Data, maxSide: CGFloat = 1000) -> Data? {
@@ -42,11 +66,17 @@ struct MealMatcher: Sendable {
 /// The sheet after the shutter: "Matching...", then the matched items with ranges and the totals.
 struct PhotoMatchSheet: View {
   let state: MatchState
+  /// Today's line while a meal is pending, such as "-- kcal, +1 pending".
+  var today: String?
 
   var body: some View {
     switch state {
     case .matching:
       status("Matching...", id: "food.matching", detail: "Photo saved on this phone.")
+    case .pending:
+      status(
+        "Pending, will match when online", id: "food.match.pending",
+        detail: "Photo saved on this phone.")
     case .failed:
       status("Could not match", id: "food.match.failed", detail: "Photo saved on this phone.")
     case .matched(let match):
@@ -60,6 +90,10 @@ struct PhotoMatchSheet: View {
         .foregroundStyle(Theme.text).accessibilityIdentifier(id)
       Text(detail).font(.system(size: Theme.labelSize))
         .foregroundStyle(Theme.label).accessibilityIdentifier("food.captured.saved")
+      if let today {
+        Text("Today: \(today)").font(.system(size: Theme.labelSize, weight: .medium))
+          .foregroundStyle(Theme.text).accessibilityIdentifier("food.today")
+      }
     }
     .presentationDetents([.fraction(0.3)])
   }
