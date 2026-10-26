@@ -352,6 +352,12 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Left undone: the backfill and the Finish record have no AppTests of their own (core tests cover them); a failed Health write is still not retried; a session deleted in the Day view sends no tombstone; set records carry no rest or RPE; exercise keys for names that are in neither the library nor a template are sent as null.
 - The session record carries no `in_health`: it is queued before the Health write, so the server's `stezu_sessions.in_health` stays NULL. Re-sending the session after the write would fill it.
 
+## 2026-10-26 infra/mac-screentime-uploader: iPhone Screen Time through the Mac (daytime session)
+
+- mac/screentime/: `stezu_screentime.py` (stdlib, Python 3.9+) reads the iPhone's App.InFocus events from the Mac's Biome remote streams with its own SEGB v1/v2 and protobuf reader, builds per-app focus intervals (4 h cap, marked), and posts `app_usage` records to POST /sync in batches of 2,000. `--setup` writes `~/.config/stezu/mac-uploader.env` (0600, token not echoed); `--list-devices`, `--dry-run`, `--check-access`. Devices default to sync.db iPhone models, else STEZU_DEVICES. A launchd agent (daily 20:00 plus RunAtLoad) runs the real interpreter binary, which install.sh prints for Full Disk Access and checks with the agent's first run. Every run re-sends the trailing 7 days; open intervals wait. Decision D-081.
+- Gates: G6 runs `mac/screentime/run_tests.sh` (14 tests, synthetic SEGB files and sync.db; passed on Python 3.9, 3.12 and 3.14).
+- Not checked: anything on a real Mac (install.sh, launchd, Full Disk Access, real Biome files on macOS 26.6.2).
+
 ## 2026-10-26 S-032 Places are recorded in the background, saved on the phone first, and sent to Hermes (night agent)
 
 - Sources has a Location row at the top: the permission (Always, While Using, Off), "Last location:" with the time of the newest recorded visit or fix or "--", and Allow until access is Always. One tap on Allow asks for When In Use and then, from the same tap, Always. The row refreshes every second while Sources is open.
