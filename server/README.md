@@ -192,7 +192,7 @@ tombstone, so the sample stays deleted if it arrives (or is replayed) later.
 
 | Field | Type | Rules |
 |---|---|---|
-| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`; others are stored too. |
+| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`, `visit`, `location`; others are stored too. |
 | `id` | string, 1–128 | The app's stable id for the record. |
 | `updated_at` | string | ISO 8601 with an offset. The newest version wins; an equal or older `updated_at` is a duplicate and changes nothing, so bump it on every edit. |
 | `deleted` | bool | Default `false`. `true` is a tombstone. |
@@ -279,9 +279,12 @@ NULL, never 0.
 | `stezu_sets` | One row per live `set` record: `id`, `session_id`, `template_key`, `exercise_key`, `exercise_name`, `pounds` (NULL for bodyweight), `reps`, `logged_at`, `day`, `kind` (e.g. `working`), `updated_at`. |
 | `stezu_sessions` | One row per live `workout_session` record: `id`, `started_at`, `ended_at`, `day`, `template_key`, `template_name`, `duration_min`, `n_exercises`, `n_sets`, `total_reps`, `in_health` (1/0), `updated_at`. |
 | `stezu_weighins` | One row per live `weigh_in` record: `id`, `measured_at`, `day`, `pounds`, `kg`, `in_health` (1/0), `updated_at`. |
+| `stezu_visits` | One row per live `visit` record: `id`, `arrived_at`, `departed_at` (NULL while unknown), `day`, `latitude`, `longitude`, `horizontal_accuracy_m`, `duration_min` (NULL unless both ends are known and departure is not before arrival), `updated_at`. |
+| `stezu_locations` | One row per live `location` record: `id`, `at`, `day`, `latitude`, `longitude`, `horizontal_accuracy_m`, `speed_mps`, `updated_at`. |
+| `places_daily` | Per `day` with at least one visit or fix: `visits` (visits by their `day`) and `location_fixes`; a count with nothing recorded that day is NULL, not 0. |
 | `stezu_meals` | One row per live `meal` record: `id`, `eaten_at`, `day`, `status`, `edited` (1/0), `in_health` (1/0), `n_items`, `kcal_low`, `kcal_high`, `protein_g_low`, `protein_g_high` (the items' ranges summed), `items` (names, `; `-separated), `updated_at`. |
 
-The four record views read `payload_json` with `json_extract` and never fail on an odd payload:
+The record views read `payload_json` with `json_extract` and never fail on an odd payload:
 a field that is missing, `null` or of the wrong type is NULL, never 0. `pounds` of 0 or less is
 NULL (bodyweight, or a bad value). A record's `day` is the payload's `day` when it is a
 `YYYY-MM-DD` string, else the date part of its timestamp as the phone stamped it (its own zone
@@ -289,7 +292,11 @@ and offset), so it matches the day the app shows; it is not recomputed in `STEZU
 `n_sets` and `total_reps` count `exercises[].sets[]` in the session payload; a session without an
 `exercises` array falls back to the live `set` records with its `session_id`, and is NULL when
 there are none. A meal's range is NULL when it has no items or any item lacks that range, as in
-the app (`FoodRange.total`). Booleans are 1, 0 or NULL.
+the app (`FoodRange.total`). Booleans are 1, 0 or NULL. In the place views a latitude outside
+-90 to 90, a longitude outside -180 to 180, and a negative accuracy or speed (CoreLocation's
+"invalid") are NULL; a speed of 0 is kept. A timestamp whose year is before 1970 or after 2999
+(CLVisit's `distantPast` and `distantFuture`) is NULL. A visit's `day` falls back to the date of
+`arrived_at`, then `departed_at`.
 
 Record payloads (snake_case, as `MealRecord` in StezuCore's SyncRecord.swift). The views read
 these names; the names in brackets are also accepted:
@@ -299,6 +306,8 @@ these names; the names in brackets are also accepted:
 | `set` (S-030) | `id`, `session_id`, `template_key`, `exercise_key`, `exercise_name` [`name`], `pounds` (number, `null` for bodyweight, never 0), `reps`, `logged_at` (ISO 8601 with offset, milliseconds), `kind` (`working`), optional `day`. Undo sends the same id with `deleted: true`. |
 | `workout_session` (S-030) | `id`, `template_key`, `template_name` [`template`], `started_at` [`start`], `ended_at` [`end`, `finished_at`], `in_health` [`inHealth`], `exercises`: `[{exercise_key, exercise_name, sets: [set payloads as above]}]`, optional `day`. |
 | `weigh_in` (S-031) | `id`, `measured_at`, `pounds`, `in_health` [`inHealth`] (`null` until the Health write was tried), optional `day`. |
+| `visit` (S-032) | `id`, `arrived_at` (ISO 8601 with offset, or `null` when unknown), `departed_at` (`null` until the departure is known), `latitude`, `longitude` (degrees, WGS 84), `horizontal_accuracy_m` (metres), `day`. A departure, or any other change, resends the same id with a newer `updated_at`; it replaces the row, never adds one. Send `null` for an unknown end, not `distantPast` or `distantFuture`. |
+| `location` (S-032) | `id`, `at` (ISO 8601 with offset), `latitude`, `longitude`, `horizontal_accuracy_m`, `speed_mps` (`null` when CoreLocation reports none, never a negative or 0 for missing), `day`. A significant location change. |
 | `meal` (S-029) | `id`, `eaten_at`, `day`, `status`, `edited`, `in_health`, `items`: `[{item_id, name, source, halls, serving, servings, confidence, rough, kcal: {low, high}, protein_g: {low, high}}]`. |
 
 A night is keyed by its wake date: a sleep segment belongs to the local date of its end plus
