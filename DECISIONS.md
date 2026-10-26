@@ -1114,7 +1114,18 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Config/Signing.xcconfig, scripts/set-team.sh, project.yml, .gitignore, README.md "Build on your Mac" (commit on infra/local-signing).
 - Reverse if: the project moves to a paid team shared by several people (then the team may go in a committed xcconfig), or XcodeGen gains a supported local-override file.
 
-## D-078 Sets and sessions become `/sync` records with ids derived from their times, queued after the phone's save, and stored workouts are backfilled once behind a flag in the sync state
+## D-078 The app also collects phone-only background data: location, Screen Time, background health sync
+
+- Status: decided by Isaac, 2026-10-26. The mechanisms are proposed.
+- What: data that only the iPhone can see is collected by this app and sent to the server like everything else, local first (D-076). That covers location, Screen Time, and Health data synced without opening the app.
+- Feasibility on the current free Apple account (Apple's capability table, checked 2026-10-26):
+  - Location: works. It needs Info.plist strings and the location background mode. Visits plus significant changes, no continuous GPS (S-032).
+  - Background sync: works through a BGAppRefreshTask (S-033). Whether HealthKit background delivery signs on a free account is unverified, so it is left out until checked.
+  - Screen Time: Family Controls (development) is available only with the paid Apple Developer Program. Even then, iOS never lets an app read raw usage: a DeviceActivityReport extension can only display it, and a DeviceActivityMonitor extension only receives threshold callbacks for apps the user picked, which are opaque tokens. The routes are under research before any story is written.
+- Tension (D-012): passive collection has no logging burden, which is why it is acceptable, but no loop consumes location or Screen Time yet. Each stream stays tracking-only until a loop names what it is for.
+- Privacy: location and usage data never enter the repo, logs or prompts. They live in the VM's health database (mode 0600).
+
+## D-079 Sets and sessions become `/sync` records with ids derived from their times, queued after the phone's save, and stored workouts are backfilled once behind a flag in the sync state
 
 - Status: proposed by night agent, 2026-10-26 (S-030).
 - Problem: every logged and undone set and every finished session must reach the server's records with ids that stay the same across an undo, a backfill and a replay, the phone's own save must come before both the record and the Health copy, and the workouts stored before this build must be sent once, never twice.
