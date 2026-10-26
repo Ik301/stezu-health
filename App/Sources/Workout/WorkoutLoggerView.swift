@@ -64,6 +64,7 @@ struct WorkoutLoggerView: View {
           .accessibilityIdentifier("workout.logger.undo")
       }
     }
+    .scrollIndicators(.hidden)
     .onChange(of: logger) { _, changed in
       WorkoutSessionStore(storage: environment.storage).save(changed)
     }

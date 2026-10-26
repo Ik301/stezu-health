@@ -39,6 +39,7 @@ struct MetricDetailView: View {
       }
       .font(.system(size: 17)).foregroundStyle(Theme.text).padding(16)
     }
+    .scrollIndicators(.hidden)
     .background(Theme.background.ignoresSafeArea())
     .task {
       history = await MetricHistory.load(

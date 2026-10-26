@@ -63,6 +63,7 @@ struct MealEditor: View {
       }
       .padding(16)
     }
+    .scrollIndicators(.hidden)
   }
 
   private func stepper(_ index: Int, id: String) -> some View {

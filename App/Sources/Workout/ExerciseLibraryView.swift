@@ -37,6 +37,7 @@ struct ExerciseLibraryView: View {
       }
       .padding(20)
     }
+    .scrollIndicators(.hidden)
     .buttonStyle(.plain)
     .foregroundStyle(Theme.text)
     .background(Theme.background.ignoresSafeArea())

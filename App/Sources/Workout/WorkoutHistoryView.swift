@@ -89,6 +89,7 @@ struct WorkoutHistoryView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12, content: content).padding(20)
     }
+    .scrollIndicators(.hidden)
     .buttonStyle(.plain)
     .foregroundStyle(Theme.text)
     .background(Theme.background.ignoresSafeArea())

@@ -19,6 +19,8 @@ struct StezuHealthApp: App {
     WindowGroup {
       AppShell(serverSaved: { environment.useServer($0) })
         .environment(\.appEnvironment, environment)
+        // DESIGN.md: no scroll bars anywhere; views added later inherit this.
+        .scrollIndicators(.hidden)
         .onChange(of: scenePhase, initial: true) { _, phase in  // S-028: open and foreground
           if phase == .active { environment.syncHermesInBackground() }
         }
