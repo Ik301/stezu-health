@@ -2,6 +2,14 @@
 
 Newest entry first. One entry per card: the date, the card, what changed, the gate result and what comes next.
 
+## 2026-10-25 S-011 Import a workout program file (night agent)
+
+- Workout has an Import program row under the templates. Live it opens the Files picker for a .json file; `-uitest` uses a fixture picker on AppEnvironment that returns a generic two-template program (replaces Day 1, adds Day 6), or a broken one under `-uitest-scenario program-invalid`. The screen shows "Imported N templates" or "Import failed." with the reason. Decision D-052.
+- Core: `ProgramImport.parse` and `TemplateLibrary.importProgram` (ProgramImportTests, 2 tests). App: ProgramFilePickerTests. UI: ProgramImportUITests (valid import, then a relaunch with the invalid file), screenshot s011-imported.
+- Gates: `FEATURE_ID=S-011 scripts/gate-linux.sh` passed G1 to G5 (168 non-test lines in 5 files). S-011 flipped with check-features.py --flip.
+- Naming: `ProgramFilePicker` (.files / .fixture); no library added (UniformTypeIdentifiers is a system framework).
+- Left undone / noticed: an import never removes templates missing from the file; the result line stays until the screen is left; there is no undo.
+
 ## 2026-10-25 S-006 Rest countdown after each set, with a Live Activity (night agent)
 
 - `RestTimer` gained `adjust(by:)`, `skip()` and `endsAt`; adjusting keeps the start time. App/Sources/Workout/RestActivityController.swift holds the rest for the logger plus the `RestAlerts` protocol and `FakeRestAlerts`; LiveRestAlerts.swift drives the RestActivity Live Activity and one local notification at zero. `AppEnvironment.restAlerts` is live on the phone and the fake in `-uitest`. Decision D-051.

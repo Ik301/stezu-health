@@ -1,5 +1,6 @@
 import StezuCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The Workout area: the next template in the rotation as the black card, a row for each other
 /// template and Empty workout, and this week's numbers. Start opens the logger. Keep the
@@ -9,6 +10,8 @@ struct WorkoutView: View {
   @Environment(\.appEnvironment) private var environment
   @State private var library: TemplateLibrary?
   @State private var active: WorkoutTemplate?
+  @State private var picking = false
+  @State private var importMessage: String?
 
   private static let emptyWorkout = WorkoutTemplate(
     key: "empty", name: "Empty workout", exercises: [])
@@ -26,6 +29,16 @@ struct WorkoutView: View {
         library = WorkoutTemplateStore(storage: environment.storage).load()
       }
     }
+    .fileImporter(isPresented: $picking, allowedContentTypes: [.json]) { result in
+      importProgram((try? result.get()).flatMap(WorkoutTemplateStore.read))
+    }
+  }
+
+  private func importProgram(_ data: Data?) {
+    let store = WorkoutTemplateStore(storage: environment.storage)
+    var updated = library ?? store.load()
+    importMessage = store.importProgram(data, into: &updated)
+    library = updated
   }
 
   @ViewBuilder
@@ -53,6 +66,26 @@ struct WorkoutView: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("workout.template.\(template.key)")
       }
+      // Above the button, so it shows where the button was when the list ends below the fold.
+      if let importMessage {
+        Text(importMessage)
+          .font(.system(size: Theme.labelSize))
+          .foregroundStyle(Theme.text)
+          .accessibilityIdentifier("workout.import.message")
+      }
+      Button {
+        switch environment.programFilePicker {
+        case .files: picking = true
+        case .fixture(let data): importProgram(data)
+        }
+      } label: {
+        Text("Import program")
+          .font(.system(size: Theme.subtitleSize))
+          .foregroundStyle(Theme.label)
+          .frame(maxWidth: .infinity, minHeight: 48)
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("workout.import")
     }
   }
 

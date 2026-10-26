@@ -683,3 +683,21 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/RestTimer.swift, App/Sources/Workout/RestActivityController.swift, App/Sources/Workout/LiveRestAlerts.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/AppEnvironment.swift (wt/S-006).
 - Reverse if: the rest must survive leaving the logger or a relaunch, or a screen other than the logger must show it; then move it to (b) and save its start and end.
 
+## D-052 An imported program file is validated whole, then each template is upserted by key and marked edited
+
+- Status: proposed by night agent, 2026-10-25 (S-011).
+- Problem: a program file picked on the phone has to add or replace templates without touching history, and a bad file must leave the library exactly as it was; a later bundled seed must not undo an import.
+- Given: TemplateLibrary (D-042) holds templates by key, applies seeds only when their version is newer, and skips keys in `editedKeys`. Sessions are stored apart from templates. The file uses the seed's format, so it also carries a seedVersion.
+- Constraints:
+  - Applying templates while validating breaks "changes nothing": a file that fails on its third template would leave the first two in.
+  - Treating the file as a seed breaks repeat imports: its seedVersion would have to beat the bundled one, and an older-numbered file would be ignored.
+  - Leaving imported keys unprotected breaks the import on the next app update, when a newer seed overwrites the same keys.
+- Options:
+  - (a) Decode and check the whole file first (`ProgramImport.parse`: JSON shape, at least one template, unique non-empty keys, names, sets >= 1, a valid rep range, rest >= 0), then `edit` each template, which upserts by key and adds it to `editedKeys`. The file's seedVersion is ignored.
+  - (b) Upsert as a seed with a forced version.
+  - (c) Keep imported templates in a second library layered over the seed.
+- Decision: (a). `TemplateLibrary.importProgram(_:)` returns the count or a `ProgramImport.Failure` whose message the screen shows after "Import failed."; the app saves the library only on success. The picker is `AppEnvironment.programFilePicker`: the Files picker (`.fileImporter`, security-scoped read) live, a generic fixture in `-uitest` (`program-invalid` scenario for a broken file).
+- Evidence: Packages/StezuCore/Sources/StezuCore/ProgramImport.swift, App/Sources/Workout/ProgramFilePicker.swift, App/Sources/Workout/WorkoutView.swift, App/Sources/AppEnvironment.swift (40f9d5e).
+- Reverse if: Isaac wants an import to replace the whole program (remove templates the file lacks), or a seed fix should reach an imported template.
+
+
