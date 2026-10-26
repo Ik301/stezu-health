@@ -1,4 +1,5 @@
 import Foundation
+import StezuCore
 
 /// A meal photo saved on the phone at the shutter, before anything is sent to the server.
 struct CapturedMeal: Sendable, Equatable, Identifiable, Codable {
@@ -36,6 +37,20 @@ actor MealCaptureStore {
   }
 
   func photo(for id: UUID) -> Data? { file(named: "\(id).jpg") }
+
+  /// Keeps the server's reply for a meal as `<id>.scan`; a meal without one is still pending.
+  func saveReply(_ reply: Data, for id: UUID) throws {
+    try reply.write(to: folder.appending(path: "\(id).scan"), options: .atomic)
+  }
+
+  /// Every captured meal with its saved match, oldest first. Nothing here deletes a meal.
+  func queue() -> MealQueue {
+    MealQueue(
+      all().map { meal in
+        let match = file(named: "\(meal.id).scan").flatMap { try? PhotoMatchClient.decode($0) }
+        return QueuedMeal(id: meal.id, capturedAt: meal.capturedAt, match: match)
+      })
+  }
 
   private func file(named name: String) -> Data? {
     try? Data(contentsOf: folder.appending(path: name))
