@@ -1022,7 +1022,7 @@
         "s029-meal-synced"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     }
   ]
 }

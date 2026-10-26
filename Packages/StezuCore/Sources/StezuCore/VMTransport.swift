@@ -61,16 +61,22 @@ public struct UnconfiguredVMTransport: VMTransport {
 /// Canned responses keyed by route ("POST /scan"). Unknown routes answer 404. It records every
 /// request, and while offline it throws `unreachable`, as a phone without a connection would.
 /// Held routes never answer, like a server still working: the call waits until its task ends.
+/// With `countsRecords`, GET /sync/status adds `records_total`: the live records it was sent.
 public actor FakeVMTransport: VMTransport {
   private var routes: [String: VMResponse]
   private let held: Set<String>
+  private let countsRecords: Bool
   public private(set) var sent: [VMRequest] = []
   public private(set) var isOffline: Bool
 
-  public init(routes: [String: VMResponse] = [:], offline: Bool = false, held: Set<String> = []) {
+  public init(
+    routes: [String: VMResponse] = [:], offline: Bool = false, held: Set<String> = [],
+    countsRecords: Bool = false
+  ) {
     self.routes = routes
     self.isOffline = offline
     self.held = held
+    self.countsRecords = countsRecords
   }
 
   public func setResponse(_ response: VMResponse, for route: String) {
@@ -89,8 +95,25 @@ public actor FakeVMTransport: VMTransport {
     while held.contains(request.route) {
       try await Task.sleep(nanoseconds: 1_000_000_000)
     }
+    if countsRecords, request.route == "GET /sync/status", let reply = routes[request.route],
+      var status = (try? JSONSerialization.jsonObject(with: reply.body)) as? [String: Any]
+    {
+      status["records_total"] = liveRecords()
+      let body = try JSONSerialization.data(withJSONObject: status)
+      return VMResponse(status: reply.status, body: body)
+    }
     // A key may add one query pair ("GET /search?estimate=true"); it wins when it matches.
     let narrower = request.query.compactMap { routes["\(request.route)?\($0.key)=\($0.value)"] }
     return narrower.first ?? routes[request.route] ?? VMResponse(status: 404)
+  }
+
+  /// Records sent to POST /sync by `(kind, id)`, the last version kept, tombstones not counted.
+  private func liveRecords() -> Int {
+    var latest: [String: Bool] = [:]
+    for request in sent where request.route == "POST /sync" {
+      let batch = try? JSONDecoder().decode(SyncBatch.self, from: request.body ?? Data())
+      for record in batch?.records ?? [] { latest["\(record.kind)/\(record.id)"] = record.deleted }
+    }
+    return latest.values.filter { !$0 }.count
   }
 }

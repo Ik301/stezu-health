@@ -86,7 +86,7 @@ struct AppEnvironment: Sendable {
         changes: UITestFixtures.healthChanges(scenario: scenario)),
       vmTransport: FakeVMTransport(
         routes: UITestFixtures.vmRoutes, offline: offline,
-        held: UITestFixtures.heldRoutes(scenario: scenario)),
+        held: UITestFixtures.heldRoutes(scenario: scenario), countsRecords: true),
       photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore(),
       mealCaptures: MealCaptureStore(
         storage: .memory, seed: UITestFixtures.foodHistory(scenario: scenario)),

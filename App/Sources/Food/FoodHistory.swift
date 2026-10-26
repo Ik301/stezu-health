@@ -121,8 +121,11 @@ struct FoodHistory: View {
     let (store, health) = (environment.mealCaptures, environment.healthStore)
     if delete {
       _ = await MealHealth.delete(meal.id, health: health) { await store.unlog($0) }
-    } else {
-      _ = try? await MealHealth.replace(meal, health: health) { try await store.log($0) }
+      await environment.syncMeal(nil, id: meal.id)
+    } else if let written = try? await MealHealth.replace(
+      meal, health: health, save: { try await store.log($0) })
+    {
+      await environment.syncMeal(written, id: meal.id, edited: true)
     }
     await load()
     changed()

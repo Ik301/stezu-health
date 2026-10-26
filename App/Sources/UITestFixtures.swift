@@ -67,10 +67,11 @@ enum UITestFixtures {
     ]
   }
 
-  /// POST /scan answers only in this scenario; otherwise it is held and "Matching..." stays.
+  /// POST /scan answers only in these scenarios ("sync-meals": S-029 logs the fixture match);
+  /// otherwise it is held and "Matching..." stays.
   static let photoMatchScenario = "photo-match"
   static func heldRoutes(scenario: String?) -> Set<String> {
-    scenario == photoMatchScenario ? [] : ["POST /scan"]
+    scenario == photoMatchScenario || scenario == "sync-meals" ? [] : ["POST /scan"]
   }
 
   /// "data-week": Data is already connected and the clock is Sunday 2026-01-11, noon. Stezu
