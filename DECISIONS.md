@@ -1203,3 +1203,14 @@ The research notes cited here are kept private, because they contain personal he
 - Why: under D-052 an import only added or replaced templates by key, so switching programs would leave the old days in the list beside the new ones, with no way to remove them in the app.
 - Reverses: D-052's upsert-only import, under its own Reverse-if.
 - Reverse if: Isaac wants to keep several programs side by side. Then programs become named sets, not a single list.
+
+## D-084 Optional blocks (Abs) are add-on templates appended to the current workout, not separate workouts
+
+- Status: decided 2026-10-26. Isaac wants an optional abs section that can follow any day. The mechanism is proposed (S-035).
+- What: a program file can mark a template `"addOn": true`. While a workout is running, the logger shows "+ <name>". Tapping it appends that template's exercises to the same workout.
+- Options considered:
+  - (a) Add-on templates appended in-session: chosen.
+  - (b) Abs as its own workout. It costs a second Start and Finish, and makes two Health workouts for one gym visit.
+  - (c) An "optional" flag on exercises inside each day. The same exercises would be copied into every day, and a change would have to be made in several places.
+- Why (a): one tap, one session, and the block is defined once.
+- Reverse if: add-ons need to run on their own (a home abs day). Then also allow starting an add-on as a workout.

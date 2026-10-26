@@ -1183,6 +1183,38 @@
       ],
       "needs_server": false,
       "passes": false
+    },
+    {
+      "id": "S-035",
+      "kind": "story",
+      "area": "workout",
+      "title": "An optional add-on block (like Abs) can be added to the end of any workout with one tap",
+      "steps": [
+        "A template in a program file may carry \"addOn\": true. Add-ons pass the same validation as other templates. Library files from older builds decode with no add-ons. Add-ons are not listed as days on the Workout screen.",
+        "While any workout is running, the logger shows one button per add-on below the day's exercises, named after it (\"+ Abs\"). Tapping it appends the add-on's exercises to the current workout, after the day's own, and the button goes away. The appended exercises behave like any other: logging, undo, swap, and the rest timer with each exercise's rest.",
+        "It stays one workout: one Finish, one Apple Health workout, one workout_session record. The session keeps the day's template key and lists the add-on's exercises with their sets. Set records carry the add-on exercise keys. An appended exercise with no logged sets is left out of the saved session.",
+        "Last numbers for an add-on exercise come from the most recent session that had that exercise key, whatever its template, because add-ons follow different days. This extends D-046 for add-ons only.",
+        "Quitting and relaunching mid-workout keeps the appended exercises and their sets (the logger's saved state includes them).",
+        "Launch with -uitest and import a generic fixture with two days and one add-on. The Workout screen lists only the two days. Start a day, tap the add-on button, log one set of its first exercise, and Finish. History shows one session containing the add-on exercise."
+      ],
+      "tap_budget": "1 tap to add the block",
+      "depends_on": [
+        "S-034"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ProgramImportTests/testAddOnFlagParsesAndOldFilesDecode",
+        "StezuCoreTests.SetLoggerTests/testAppendAddOnKeepsOneSessionAndSkipsUnloggedExercises",
+        "StezuCoreTests.SetLoggerTests/testAddOnLastNumbersComeFromAnyTemplate"
+      ],
+      "ui_tests": [
+        "AppUITests.WorkoutLoggerUITests/testAddOnAppendsToCurrentWorkout"
+      ],
+      "screenshots": [
+        "s035-addon-button",
+        "s035-addon-appended"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }
