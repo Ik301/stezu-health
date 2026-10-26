@@ -35,6 +35,12 @@ public protocol HealthStore: Sendable {
     async throws -> HealthChanges
   /// Deletes Stezu's own body-mass samples dated `date` (S-025); other apps' are untouched.
   func deleteBodyMass(at date: Date) async throws
+
+  /// Writes one logged meal as a food correlation (S-018). An entry with the same sync
+  /// identifier replaces the one in Health. Throws when the write is denied or fails.
+  func saveFood(_ entry: FoodEntry) async throws
+  /// Removes the meal's food entry and the samples inside it (Undo).
+  func deleteFood(syncIdentifier: String) async throws
 }
 
 /// One page of an anchored Health read (S-028).
@@ -139,6 +145,19 @@ public actor FakeHealthStore: HealthStore {
     storedSamples.removeAll {
       $0.type == .bodyMass && $0.date == date && $0.sourceBundleID == WeeklyWeight.stezuBundleID
     }
+  }
+
+  /// Food entries written, one per sync identifier.
+  public private(set) var savedFoods: [FoodEntry] = []
+
+  public func saveFood(_ entry: FoodEntry) async throws {
+    if failsWrites { throw FakeHealthStoreError.writeFailed }
+    savedFoods.removeAll { $0.syncIdentifier == entry.syncIdentifier }
+    savedFoods.append(entry)
+  }
+
+  public func deleteFood(syncIdentifier: String) async throws {
+    savedFoods.removeAll { $0.syncIdentifier == syncIdentifier }
   }
 }
 
