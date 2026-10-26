@@ -21,6 +21,8 @@ public struct MatchedItem: Sendable, Equatable, Decodable {
   /// The first hall serving it; nil for an item on no menu.
   public let hall: String?
   public let halls: [String]?
+  /// A packaged food's brand (search results only).
+  public let brand: String?
   public let serving: String?
   public let servings: Double?
   /// The server's confidence in the match, 0 to 1.
@@ -46,6 +48,11 @@ extension KeyedDecodingContainer {
 public struct PhotoMatch: Sendable, Equatable, Decodable {
   public let mealId: String
   public let items: [MatchedItem]
+
+  public init(mealId: String, items: [MatchedItem]) {
+    self.mealId = mealId
+    self.items = items
+  }
 
   public var totalKcal: FoodRange? { FoodRange.total(items.map(\.kcal)) }
   public var totalProteinG: FoodRange? { FoodRange.total(items.map(\.proteinG)) }

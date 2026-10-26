@@ -8,6 +8,8 @@ enum UITestFixtures {
     "GET /health": VMResponse(
       status: 200, body: Data(#"{"status": "ok", "version": "0.1.0"}"#.utf8)),
     "POST /scan": VMResponse(status: 200, body: Data(scanReply.utf8)),
+    "GET /search": VMResponse(status: 200, body: Data(searchReply.utf8)),
+    "GET /search?estimate=true": VMResponse(status: 200, body: Data(estimateReply.utf8)),
     "POST /sync": VMResponse(status: 200, body: Data(#"{"accepted": 3, "rejected": 0}"#.utf8)),
     "GET /sync/status": VMResponse(status: 200, body: Data(#"{"samples_total": 3}"#.utf8)),
   ]
@@ -150,5 +152,27 @@ enum UITestFixtures {
       "protein_g": {"low": 2, "high": 3}},
      {"item_id": "unlisted", "name": "Brownie", "hall": null, "servings": 1, "confidence": 0.4,
       "rough": true, "kcal": {"low": 150, "high": 350}, "protein_g": {"low": 1, "high": 4}}]}
+    """#
+
+  /// GET /search for any text (S-014): one dish at two made-up halls, one restaurant dish, one
+  /// packaged food. The text estimate answers only with estimate=true.
+  static let searchReply = #"""
+    {"q": "rice", "date": "2026-01-05", "meal": null, "groups": [
+     {"source": "dining", "status": "ok", "results": [
+      {"id": "01-L-1", "name": "Herb Rice", "hall": "North Hall", "meal": "Lunch",
+       "serving": "4 oz", "kcal": 160, "protein_g": 4, "halls": ["North Hall", "South Hall"]}]},
+     {"source": "open_food_facts", "status": "ok", "results": [
+      {"gtin": "0000000000017", "name": "Plain Yogurt", "brand": "Example Dairy",
+       "per_serving": {"label": "1 cup", "kcal": 100, "protein_g": 16}}]},
+     {"source": "usda_fdc", "status": "ok", "results": [
+      {"fdc_id": 1, "name": "Bean burrito, restaurant", "brand": null,
+       "per_serving": {"label": "1 burrito", "kcal": 400, "protein_g": 12}}]},
+     {"source": "estimate", "status": "available", "results": []}]}
+    """#
+  static let estimateReply = #"""
+    {"q": "noodle bowl", "date": "2026-01-05", "meal": null, "groups": [
+     {"source": "estimate", "status": "ok", "results": [
+      {"name": "Noodle Bowl", "portion": "1 bowl", "rough": true,
+       "kcal": {"low": 420, "high": 980}, "protein_g": {"low": 12, "high": 28}}]}]}
     """#
 }
