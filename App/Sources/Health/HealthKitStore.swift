@@ -175,8 +175,10 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
             let value = ($0 as? HKQuantitySample).flatMap { sample in
               type.unit.map { sample.quantity.doubleValue(for: $0) }
             }
+            // A workout is dated by its start, so S-023 can match it to a Stezu session.
             return HealthSample(
-              type: type, date: $0.endDate, sourceName: source.name,
+              type: type, date: type == .workout ? $0.startDate : $0.endDate,
+              sourceName: source.name,
               sourceBundleID: source.bundleIdentifier, value: value)
           })
       }
