@@ -20,7 +20,7 @@ struct HomeInputs: Sendable, Equatable {
     let health = (try? await environment.healthStore.samples(of: .workout, since: week.start)) ?? []
     let library = WorkoutTemplateStore(storage: environment.storage).load()
     return HomeInputs(
-      weight: await WeeklyWeight.load(from: environment.healthStore, now: now).week,
+      weight: await WeeklyWeight.load(from: environment.weightHealth, now: now).week,
       food: FoodDay.on(now, meals: meals),
       workouts: WeeklyIntake.workouts(
         stezu: environment.workoutHistory + finished, health: health, in: week),

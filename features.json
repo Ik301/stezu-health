@@ -1087,7 +1087,7 @@
         "s031-weighin-synced"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-032",

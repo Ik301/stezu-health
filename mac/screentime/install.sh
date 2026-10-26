@@ -52,17 +52,22 @@ if [ ! -f "$CONFIG" ]; then
 fi
 chmod 600 "$CONFIG"
 
-# 4. Full Disk Access for the interpreter.
+# 4. Full Disk Access for the interpreter. macOS matches the grant against the Python.app bundle
+#    that holds the binary: adding the bare binary shows an "exec" entry that never matches.
+APP="${REAL%%/Contents/MacOS/*}"
+case "$APP" in *.app) ;; *) APP="$REAL" ;; esac
 cat <<EOF
 
-Full Disk Access is needed by this binary (launchd runs it directly):
+Full Disk Access is needed by the Python that launchd runs directly:
 
-  $REAL
+  $APP
 
   1. System Settings > Privacy & Security > Full Disk Access (opening it now).
-  2. Click +, press Cmd+Shift+G, paste the path above, press Return, then Open.
-     If the picker will not select the file, paste the Python.app folder that contains it instead.
-  3. Make sure its switch is on. Terminal's own grant does not cover the agent.
+  2. Click +, press Cmd+Shift+G, paste this folder, and press Return:
+       $(dirname "$APP")/
+  3. Select $(basename "$APP") (Python's rocket icon), then Open, and make sure its switch is on.
+     An entry with a plain "exec" icon is the bare binary and does not work: remove it with -.
+  Terminal's own grant does not cover the agent.
 
 EOF
 open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles" 2>/dev/null || true
@@ -86,7 +91,7 @@ for _ in $(seq 1 90); do
   new_err="$(tail -n +"$((err_lines + 1))" "$ERR")"
   if printf '%s' "$new_err" | grep -q "FULL DISK ACCESS DENIED"; then
     printf '%s\n\n' "$new_err"
-    echo "FAILED: the agent cannot read Biome. Grant Full Disk Access to $REAL as above, then run:"
+    echo "FAILED: the agent cannot read Biome. Grant Full Disk Access to the bundle $APP (not an \"exec\" entry) as above, then run:"
     echo "  launchctl kickstart -k $DOMAIN/$LABEL && sleep 20 && tail -n 5 \"$OUT\" \"$ERR\""
     exit 1
   fi

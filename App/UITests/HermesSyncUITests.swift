@@ -136,6 +136,101 @@ final class HermesSyncUITests: XCTestCase {
     saveScreenshot("s030-workout-synced", of: app)
   }
 
+  /// S-031: in the sync scenario one weigh-in (1 tap + Save) is saved on the phone, shows in the
+  /// weight row and reaches the fake POST /sync as one weigh_in record, so the row's live
+  /// records go from 0 to 1; deleting it in the Day view sends it with deleted: true, back to 0.
+  @MainActor
+  func testWeighInIsStoredLocallyAndSynced() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "sync")
+
+    // Before: the fake server holds no records.
+    let gear = app.element("home.settings")
+    XCTAssertTrue(gear.waitForExistence(timeout: 30), "no gear on Home")
+    gear.tap()
+    let row = app.element("settings.sync.status")
+    XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
+    app.element("settings.sync.now").tap()
+    wait(for: "label CONTAINS ', 0 records'", on: row)
+    closeSettings(app)
+
+    // Weigh in once: the row shows it.
+    let card = app.element("home.card.data")
+    XCTAssertTrue(card.waitForExistence(timeout: 10), "no Data card on Home")
+    card.tap()
+    let connect = app.element("data.connect")
+    XCTAssertTrue(connect.waitForExistence(timeout: 10), "no Connect on Data")
+    connect.tap()
+    let weighIn = app.element("data.weighIn")
+    XCTAssertTrue(weighIn.waitForExistence(timeout: 10), "no Weigh in on the Weight row")
+    weighIn.tap()
+    let save = app.element("data.weighIn.save")
+    XCTAssertTrue(save.waitForExistence(timeout: 10), "no weigh-in stepper")
+    let value = app.element("data.weighIn.value").label
+    save.tap()
+    wait(for: "label == 'Weigh-ins: 1 of 7'", on: app.element("data.weight.coverage"))
+    XCTAssertEqual(app.element("data.weight.trend").label, value, "the row is not the weigh-in")
+
+    // The fake server received one weigh_in record.
+    app.element("nav.home").tap()
+    XCTAssertTrue(gear.waitForExistence(timeout: 10), "not back on Home")
+    gear.tap()
+    XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
+    wait(for: "label CONTAINS ', 1 record'", on: row)
+    XCTAssertFalse(row.label.contains("waiting"), "the weigh-in still waits: \(row.label)")
+    saveScreenshot("s031-weighin-synced", of: app)
+    closeSettings(app)
+
+    // Delete it in today's Day view (a second tap confirms).
+    XCTAssertTrue(card.waitForExistence(timeout: 10), "no Data card on Home")
+    card.tap()
+    let open = app.element("data.weight.open")
+    XCTAssertTrue(open.waitForExistence(timeout: 10), "no way into Weight")
+    open.tap()
+    let thisWeek = app.element("metric.week.0")
+    XCTAssertTrue(thisWeek.waitForExistence(timeout: 10), "no weeks")
+    thisWeek.tap()
+    let today = (Calendar.current.component(.weekday, from: Date()) + 5) % 7  // Monday is 0
+    let openToday = app.element("metric.day.\(today).open")
+    XCTAssertTrue(openToday.waitForExistence(timeout: 10), "no way into today")
+    openToday.tap()
+    let first = app.element("day.record.0")
+    wait(for: "label == 'Weigh-in'", on: first)
+    XCTAssertEqual(app.element("day.record.0.detail").label, value)
+    XCTAssertEqual(app.element("day.record.0.source").label, "From Stezu")
+    let delete = app.element("day.record.0.delete")
+    delete.tap()
+    wait(for: "label == 'Confirm'", on: delete)
+    delete.tap()
+    XCTAssertTrue(app.element("day.empty").waitForExistence(timeout: 10), "not deleted")
+
+    // The deletion reached the fake server: no live records again.
+    app.element("metric.day.back").tap()
+    app.element("metric.back").tap()
+    app.element("metric.close").tap()
+    let home = app.element("nav.home")
+    XCTAssertTrue(home.waitForExistence(timeout: 10), "the Weight detail did not close")
+    home.tap()
+    XCTAssertTrue(gear.waitForExistence(timeout: 10), "not back on Home")
+    gear.tap()
+    XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
+    wait(for: "label CONTAINS ', 0 records'", on: row)
+    XCTAssertFalse(row.label.contains("waiting"), "the deletion still waits: \(row.label)")
+  }
+
+  /// Drags the Settings sheet down from its grabber; a swipe on the title leaves it open.
+  @MainActor
+  private func closeSettings(_ app: XCUIApplication) {
+    let settings = app.element("screen.settings.title")
+    for _ in 0..<3 where settings.exists {
+      app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).press(
+        forDuration: 0.1,
+        thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+      sleep(2)
+    }
+    wait(for: "exists == false", on: settings)
+  }
+
   @MainActor
   private func wait(for format: String, on element: XCUIElement) {
     let met = XCTNSPredicateExpectation(predicate: NSPredicate(format: format), object: element)

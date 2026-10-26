@@ -1179,7 +1179,24 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: mac/screentime/ (stezu_screentime.py, install.sh, uninstall.sh, com.ik301.stezu.screentime.plist, README.md, Tests/), scripts/gate-linux.sh G6. Tested on Linux with synthetic SEGB v1/v2 files and a synthetic sync.db only; not yet run on a Mac (macOS 26.6.2 layout assumed from 26.1 and 27 reports).
 - Reverse if: a macOS update changes the Biome layout beyond a parser fix, Share Across Devices stops carrying iPhone events, or the paid program is bought and the in-app export (c) gives Apple's own totals.
 
-## D-082 Each location event is saved to location-log.json first, then queued as a `visit` or `location` record whose id comes from its time, and sent by one pass of the existing queue
+## D-082 Weigh-ins live in weigh-ins.json behind an actor; the weight screens read them through a HealthStore wrapper, and Health's earlier Stezu weigh-ins are imported once
+
+- Status: proposed by night agent, 2026-10-26 (S-031).
+- Problem: a weigh-in must survive a denied or failed Health write and still reach the server, the weight row, the 8-week detail, Home and the Day view must all show the phone's weigh-ins instead of Health's, and the weigh-ins earlier builds wrote only to Health (D-057) must move to the phone without being counted twice.
+- Given: D-076 (the phone first, Health a copy, decided); `WeeklyWeight.load`, `MetricHistory.load` and `DayRecords.load` all read body mass through `HealthStore.samples(of: .bodyMass)` and keep only Stezu's bundle id (D-047); records ride `HealthSync.enqueue` (D-075); Health only becomes readable after the Connect sheet (S-020).
+- Constraints:
+  - Rewriting the three loaders to take weigh-ins breaks the card's file budget and their existing tests' signatures.
+  - Importing before Health has asked reads nothing, and a once-only flag set then would never import.
+  - Matching imports by time breaks on two weigh-ins in the same second; a Health UUID or the weigh-in id in metadata does not.
+- Options:
+  - (a) `WeighInStore` (actor over `WeighInLog`: weigh-ins and a `migrated` flag, saved to weigh-ins.json after every change). Add saves, then writes Health with `stezu_weighin_id` metadata and saves `inHealth`, then queues a `weigh_in` record (id, measured_at, pounds, in_health). Delete removes locally, deletes in Health by metadata id or UUID, then queues a tombstone. `WeighInHealth` wraps the HealthStore: its body-mass read imports once (only after Connect), drops Health's Stezu samples and adds the store's as Stezu samples; every other call passes through. The four screens read `AppEnvironment.weightHealth`.
+  - (b) Add a weigh-ins parameter to each loader and merge in every view.
+  - (c) Keep Health as the store and copy each new sample to the server from the anchored sync.
+- Decision: (a). `HealthSample.id` carries the metadata id, else Health's UUID, so a re-import matches either; a fake sample with no id gets `health.<ms>`. An import with nothing found queues nothing and starts no pass.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeighInStore.swift, HealthStore.swift, HealthSources.swift, SyncRecord.swift, App/Sources/Data/WeightRow.swift (WeighInFile, AppEnvironment.weightHealth), App/Sources/Health/HealthKitStore.swift, App/Sources/Data/DayView.swift, WeighInStoreTests (3), HermesSyncUITests/testWeighInIsStoredLocallyAndSynced (commit on wt/S-031).
+- Reverse if: another screen starts reading body mass for weigh-ins without the wrapper (then pass weigh-ins explicitly), or Health's own writes from other Stezu installs need merging (then import on every read, matched by id).
+
+## D-083 Each location event is saved to location-log.json first, then queued as a `visit` or `location` record whose id comes from its time, and sent by one pass of the existing queue
 
 - Status: proposed by night agent, 2026-10-26 (S-032).
 - Problem: visits and significant location changes arrive while the app is in the background or was just relaunched for them, often with the phone locked and only seconds of run time. Each one must be kept on the phone before anything else, reach the server once, and a visit reported first on arrival and again on departure must stay one visit.

@@ -75,9 +75,13 @@ that binary directly, and that is the file to grant. `install.sh` prints the exa
 `sys.executable` for other pythons). Steps:
 
 1. System Settings > Privacy & Security > Full Disk Access.
-2. Click +, press Cmd+Shift+G, paste the path, Return, Open. If the picker will not select the file,
-   paste the `Python.app` folder that contains it.
+2. Click +, press Cmd+Shift+G, paste the folder that contains `Python.app` (install.sh prints it),
+   press Return, select `Python.app` (Python's rocket icon) and click Open.
 3. Make sure its switch is on.
+
+Grant the `Python.app` bundle, not the binary inside it. macOS matches the grant against the
+bundle: adding the bare binary shows an entry with a plain "exec" icon, and the agent is still
+denied (seen on macOS 26.6.2). If you see that entry, remove it with - and add the bundle.
 
 Terminal's grant covers runs typed into Terminal, not the agent. A Command Line Tools update can move
 the interpreter (a new `Versions/3.x`): the agent then fails to start (`launchctl print` shows the

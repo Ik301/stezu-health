@@ -337,16 +337,20 @@ def save_state(path: Path, state: dict) -> None:
 
 
 def fda_target() -> str:
-    """The binary that needs Full Disk Access: a framework python re-execs into Python.app."""
-    app = Path(sys.base_prefix) / "Resources/Python.app/Contents/MacOS/Python"
-    return str(app) if app.exists() else os.path.realpath(sys.executable)
+    """What to add under Full Disk Access. A framework python re-execs into Python.app, and macOS
+    matches the grant against that bundle; the bare binary inside it shows as "exec" and never
+    matches (seen on macOS 26.6)."""
+    app = Path(sys.base_prefix) / "Resources/Python.app"
+    return str(app) if (app / "Contents/MacOS/Python").exists() else os.path.realpath(sys.executable)
 
 
 FDA_HELP = """stezu-screentime: FULL DISK ACCESS DENIED ({detail}).
-Grant it to the binary that opens the files:
+Grant it to the Python app that opens the files:
   {exe}
-System Settings > Privacy & Security > Full Disk Access > +, press Cmd+Shift+G, paste that path,
-Open, and make sure its switch is on. Run from Terminal, Terminal needs the grant instead."""
+System Settings > Privacy & Security > Full Disk Access > +, press Cmd+Shift+G, paste the folder
+that contains it, select it (Python's rocket icon), Open, and make sure its switch is on. An entry
+with a plain "exec" icon is the bare binary and does not work. Run from Terminal, Terminal needs
+the grant instead."""
 
 
 # ---- Main -----------------------------------------------------------------------------------

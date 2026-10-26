@@ -59,6 +59,8 @@ struct AppEnvironment: Sendable {
   var mealHistory: [LoggedMeal] = []
   /// Barcode mode's codes (S-016): VisionKit's scanner, or a synthetic code in `-uitest`.
   var barcodeSource = BarcodeSource.camera
+  /// Weigh-ins, saved on the phone first (S-031): weigh-ins.json, or memory in `-uitest`.
+  var weighIns = WeighInStore()
   /// S-032: CoreLocation or a scenario's events, and the log they are saved to (D-076).
   var locationSource: any LocationSource = FixtureLocationSource(events: [])
   var places = LocationRecorder { _ in }
@@ -73,8 +75,9 @@ struct AppEnvironment: Sendable {
       serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk),
       restAlerts: LiveRestAlerts(), programFilePicker: .files,
       healthConnection: HealthConnection(defaults: .standard),
-      healthSync: HermesSyncFile.engine(storage: .disk), locationSource: CoreLocationSource(),
-      places: AppEnvironment.placesFile(storage: .disk))
+      healthSync: HermesSyncFile.engine(storage: .disk),
+      weighIns: WeighInFile.store(storage: .disk),
+      locationSource: CoreLocationSource(), places: AppEnvironment.placesFile(storage: .disk))
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.
