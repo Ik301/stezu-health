@@ -68,6 +68,8 @@ struct PhotoMatchSheet: View {
   let state: MatchState
   /// Today's line while a meal is pending, such as "-- kcal, +1 pending".
   var today: String?
+  /// The Log tap with the edited items.
+  var log: ([MatchedItem]) -> Void = { _ in }
 
   var body: some View {
     switch state {
@@ -80,7 +82,7 @@ struct PhotoMatchSheet: View {
     case .failed:
       status("Could not match", id: "food.match.failed", detail: "Photo saved on this phone.")
     case .matched(let match):
-      matched(match)
+      MealEditor(match: match, log: log)
     }
   }
 
@@ -98,32 +100,15 @@ struct PhotoMatchSheet: View {
     .presentationDetents([.fraction(0.3)])
   }
 
-  private func matched(_ match: PhotoMatch) -> some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 10) {
-        HStack(alignment: .firstTextBaseline) {
-          Text("Meal").font(.system(size: Theme.subtitleSize, weight: .semibold))
-            .accessibilityIdentifier("food.match.title")
-          Spacer()
-          Text(Self.range(match.totalKcal, unit: "kcal"))
-            .accessibilityIdentifier("food.match.total.kcal")
-          Text(Self.range(match.totalProteinG, unit: "g protein"))
-            .accessibilityIdentifier("food.match.total.protein")
-        }
-        ForEach(Array(match.items.enumerated()), id: \.offset) { index, item in
-          row(item, id: "food.match.item.\(index)")
-        }
-      }
-      .padding(16)
-    }
-    .background(Theme.background)
-    .presentationDetents([.medium, .large])
-  }
-
-  private func row(_ item: MatchedItem, id: String) -> some View {
+  /// One item: a tap on the name opens search to replace it (S-015); `controls` go below.
+  static func row<Controls: View>(
+    _ item: MatchedItem, id: String, onName: @escaping () -> Void,
+    @ViewBuilder controls: () -> Controls
+  ) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack {
         Text(item.name).font(.system(size: Theme.subtitleSize, weight: .medium))
+          .onTapGesture(perform: onName).accessibilityAddTraits(.isButton)
           .accessibilityIdentifier("\(id).name")
         if item.isRough {
           Text("rough").font(.system(size: Theme.labelSize, weight: .semibold))
@@ -143,6 +128,7 @@ struct PhotoMatchSheet: View {
           .accessibilityIdentifier("\(id).protein")
       }
       .font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+      controls()
     }
     .foregroundStyle(Theme.text)
     .padding(12)

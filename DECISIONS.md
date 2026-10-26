@@ -950,3 +950,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A batch and its anchor are saved together, so a crash or failure leaves either the old anchor (the page is read again) or the queued batch (resent with the same `batch_id`), never a gap. Since a pass stops at the first failure, the queue holds at most one page while offline. After the queue is empty, GET /sync/status gives `samples_total`; only a 200 there sets `lastSyncAt`. Settings shows "--" until then, and adds "n waiting" while batches are queued. Passes run on open and foreground (scenePhase active) and after Finish, detached at utility priority. `-uitest` syncs only on Sync now.
 - Evidence: Packages/StezuCore/Sources/StezuCore/HealthSync.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Settings/HermesSync.swift, HealthSyncTests (commit 531f56a on wt/S-028).
 - Reverse if: a 4xx other than 413 shows up in practice (a 400 batch would stay at the head of the queue for good, so it would need to be logged and dropped), or the first backfill takes so long that iOS suspends it often; then send pages from a background task.
+
+## D-068 An edit rescales an item's own ranges by the new servings count, and Log writes the confirmed items as one file beside the meal photos
+
+- Status: proposed by night agent, 2026-10-26 (S-015).
+- Problem: before Log the item list changes (replace, half-serving steps, remove, add), the ranges and totals must follow each change without a server call, and the logged meal must be stored on the phone in a way that Undo can take back exactly.
+- Given: a matched item carries ranges for `servings` of `serving` (D-049), a search pick is an item at 1 serving (D-065), and captured meals live as files in one folder (`<id>.jpg`, `<id>.json`, `<id>.scan`, D-063).
+- Constraints:
+  - Recomputing ranges on the server breaks offline editing and costs a call per tap.
+  - Keeping a per-serving base and the count separately breaks nothing yet but adds a second item type the sheet and the store would both need.
+  - Storing logged meals inside the queue files breaks S-017's rule that nothing in the queue changes a meal's files, and Undo would have to rewrite a file instead of removing one.
+- Options:
+  - (a) `MatchedItem.withServings(n)` scales both ranges by n / servings (an item without a count is taken as 1); `MealEdit` holds the items and sums totals from them. Log writes `LoggedMeal` (status confirmed, the edited items) as `<id>.log` in the same folder; Undo deletes that file.
+  - (b) A per-serving base plus a count per line, a separate logged-meals store.
+  - (c) Send the edited list to the server and store what it returns.
+- Decision: (a). Steps are 0.5 and clamp at 0.5; a replacement keeps the servings counted for the item it replaces; an unknown range stays nil when scaled. A search pick is logged under the pick's id, a photo under the meal's id.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MealEdit.swift, App/Sources/Food/MealCapture.swift, App/Sources/Food/MealEditor.swift, MealEditTests, MealLogStoreTests (commit on wt/S-015).
+- Reverse if: logged meals have to sync to the server (/sync) or be edited after Log; then they need their own store with ids the server knows.

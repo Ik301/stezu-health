@@ -16,6 +16,9 @@ struct FoodView: View {
   @State private var today: String?
   @State private var query = ""
   @State private var picked: PickedItem?
+  /// The meal just logged, while its undo toast shows.
+  @State private var logged: UUID?
+  @State private var logFailed = false
   @FocusState private var searching: Bool
 
   var body: some View {
@@ -29,6 +32,10 @@ struct FoodView: View {
           Text("Could not take the photo.").foregroundStyle(.white)
             .accessibilityIdentifier("food.error")
         }
+        if logFailed {
+          Text("Could not save the meal.").foregroundStyle(.white)
+            .accessibilityIdentifier("food.log.error")
+        }
         Spacer()
       } else {
         FoodSearchPanel(query: trimmedQuery) { item in
@@ -37,6 +44,7 @@ struct FoodView: View {
         }
         .padding(.vertical, 8)
       }
+      if let logged { undoToast(logged) }
       bottomBar
     }
     .padding(16)
@@ -48,7 +56,9 @@ struct FoodView: View {
     }
     .onDisappear { (environment.photoSource as? LiveCameraPhotoSource)?.stop() }
     // Reading match and today here makes the body depend on them, so the sheet updates.
-    .sheet(item: $captured) { [match, today] _ in PhotoMatchSheet(state: match, today: today) }
+    .sheet(item: $captured) { [match, today] meal in
+      PhotoMatchSheet(state: match, today: today) { logMeal($0, id: meal.id) }
+    }
   }
 
   private var trimmedQuery: String { query.trimmingCharacters(in: .whitespaces) }
@@ -61,7 +71,8 @@ struct FoodView: View {
       .accessibilityIdentifier("food.search.field")
       .sheet(item: $picked) { picked in
         PhotoMatchSheet(
-          state: .matched(PhotoMatch(mealId: picked.id.uuidString, items: [picked.item])))
+          state: .matched(PhotoMatch(mealId: picked.id.uuidString, items: [picked.item]))
+        ) { logMeal($0, id: picked.id) }
       }
   }
 
@@ -135,6 +146,40 @@ struct FoodView: View {
       .foregroundStyle(.white)
     }
     .padding(16).background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(.black))
+  }
+
+  /// After Log: "Meal logged" with Undo for 8 seconds over the camera.
+  private func undoToast(_ id: UUID) -> some View {
+    HStack {
+      Text("Meal logged").accessibilityIdentifier("food.logged.toast")
+      Spacer()
+      Button("Undo") {
+        logged = nil
+        Task { await environment.mealCaptures.unlog(id) }
+      }
+      .fontWeight(.semibold).accessibilityIdentifier("food.logged.undo")
+    }
+    .font(.system(size: Theme.subtitleSize)).foregroundStyle(Theme.invertedText)
+    .padding(.horizontal, 18).frame(height: 48)
+    .background(Capsule().fill(Theme.invertedCard)).padding(.bottom, 10)
+    .task(id: id) {
+      guard (try? await Task.sleep(nanoseconds: 8_000_000_000)) != nil else { return }
+      logged = nil
+    }
+  }
+
+  /// The single Log tap: the items are saved as confirmed and the sheet closes to the camera.
+  private func logMeal(_ items: [MatchedItem], id: UUID) {
+    let meal = LoggedMeal(id: id, loggedAt: environment.now(), items: items)
+    (captured, picked, query) = (nil, nil, "")
+    Task {
+      do {
+        try await environment.mealCaptures.log(meal)
+        (logged, logFailed) = (meal.id, false)
+      } catch {
+        logFailed = true
+      }
+    }
   }
 
   private func startCamera() async {

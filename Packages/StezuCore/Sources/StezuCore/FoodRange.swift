@@ -1,7 +1,7 @@
 import Foundation
 
 /// A nutrient amount as a low-high range. Food amounts from a photo are never one number.
-public struct FoodRange: Sendable, Equatable, Decodable {
+public struct FoodRange: Sendable, Equatable, Codable {
   public let low: Double
   public let high: Double
 

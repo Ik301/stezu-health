@@ -52,6 +52,23 @@ actor MealCaptureStore {
       })
   }
 
+  /// The Log tap keeps the confirmed meal as `<id>.log`; Undo removes only that file.
+  func log(_ meal: LoggedMeal) throws {
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try JSONEncoder().encode(meal).write(to: folder.appending(path: "\(meal.id).log"))
+  }
+
+  func unlog(_ id: UUID) {
+    try? FileManager.default.removeItem(at: folder.appending(path: "\(id).log"))
+  }
+
+  func logged() -> [LoggedMeal] {
+    let files = (try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? []
+    return files.filter { $0.hasSuffix(".log") }
+      .compactMap { try? JSONDecoder().decode(LoggedMeal.self, from: file(named: $0) ?? Data()) }
+      .sorted { $0.loggedAt < $1.loggedAt }
+  }
+
   private func file(named name: String) -> Data? {
     try? Data(contentsOf: folder.appending(path: name))
   }
