@@ -21,6 +21,7 @@ public enum HealthType: String, CaseIterable, Sendable {
 /// One sample's date, the app that wrote it and, for weight, its value in pounds.
 public struct HealthSample: Sendable, Equatable {
   public let type: HealthType
+  /// When the sample ends; a workout's start.
   public let date: Date
   public let sourceName: String
   public let sourceBundleID: String?

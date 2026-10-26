@@ -18,6 +18,7 @@ struct DataView: View {
           VStack(spacing: 12) {
             WeightRow { metric = $0 }
             WeeklyHealthRows { metric = $0 }
+            WeeklyFoodWorkoutRows()
           }
         }
         pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }

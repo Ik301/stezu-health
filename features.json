@@ -857,7 +857,7 @@
         "s023-food-workouts"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-024",

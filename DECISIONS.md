@@ -967,3 +967,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Steps are 0.5 and clamp at 0.5; a replacement keeps the servings counted for the item it replaces; an unknown range stays nil when scaled. A search pick is logged under the pick's id, a photo under the meal's id.
 - Evidence: Packages/StezuCore/Sources/StezuCore/MealEdit.swift, App/Sources/Food/MealCapture.swift, App/Sources/Food/MealEditor.swift, MealEditTests, MealLogStoreTests (commit on wt/S-015).
 - Reverse if: logged meals have to sync to the server (/sync) or be edited after Log; then they need their own store with ids the server knows.
+
+## D-069 The week's sessions list is merged by start time: a Health workout within a minute of a Stezu session is that session, and Health workouts are dated by their start
+
+- Status: proposed by night agent, 2026-10-26 (S-023).
+- Problem: Data lists this week's sessions from two places, Stezu's own log (seeded history and finished-workouts.json) and Health's workouts, and every session Stezu finishes is also written to Health (D-056), so the same session arrives twice; the Food row needs one weekly figure from meals whose kcal and protein are ranges.
+- Given: Finish writes the workout with the session's start and a deterministic external id (D-056); `HealthSample` carries a date, source name and bundle id but no external id or end; logged meals are `LoggedMeal` files (D-068) with per-item ranges where an unknown range is nil.
+- Constraints:
+  - Matching by bundle id alone breaks a reinstall: the local log is gone and every Stezu workout still in Health would vanish from the week.
+  - Reading the external id needs a new field on `HealthSample` and both stores; it also misses the same session recorded by a watch app.
+  - Dating workouts by their end (as other samples are) breaks start-time matching, since a session's end is not kept in the seeded history.
+  - Summing an unknown item as 0 breaks "absent is not zero".
+- Options:
+  - (a) Merge on start time: Stezu sessions first (repeats within 1 s count once), then each Health workout unless it starts within 60 s of one already listed; `HealthKitStore` dates workouts by `startDate`.
+  - (b) Drop every Health workout from Stezu's bundle.
+  - (c) Add the external id to `HealthSample` and match on it.
+- Decision: (a). Food: each logged day's total is its meals' lows summed and highs summed; the week is the mean of the lows and the mean of the highs over logged days; a day with an unknown item counts as logged but is left out of that mean, and the confidence reason says so.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyIntake.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyFoodWorkoutRows.swift, WeeklyStatTests (commit on wt/S-023).
+- Reverse if: two real sessions start within a minute of each other, or Health workouts need their end date on Sources; then match on the external id instead.

@@ -122,4 +122,95 @@ final class WeeklyStatTests: XCTestCase {
       XCTAssertEqual(stat.coverage, 0)
     }
   }
+
+  /// A logged meal of one made-up item at `day` and `hour`; nil `kcal` is an unknown range.
+  private func meal(_ day: Int, hour: Int = 12, kcal: (Double, Double)?, protein: (Double, Double))
+    throws -> LoggedMeal
+  {
+    let range = kcal.map { #"{"low": \#($0.0), "high": \#($0.1)}"# } ?? "null"
+    let items = try PhotoMatchClient.decode(
+      Data(
+        #"""
+        {"meal_id": "m", "items": [{"item_id": "a", "name": "Bowl", "servings": 1,
+         "kcal": \#(range), "protein_g": {"low": \#(protein.0), "high": \#(protein.1)}}]}
+        """#.utf8)
+    ).items
+    return LoggedMeal(id: UUID(), loggedAt: self.day(day, hour: hour), items: items)
+  }
+
+  /// S-023: the Food row's range is the mean of each logged day's low and high totals.
+  func testRangeMeanOverLoggedDays() throws {
+    let week = WeeklyStats.week(containing: day(11), calendar: calendar)
+    let meals = [
+      // Monday: two meals, summed into one day of 1200-1600 kcal and 60-80 g.
+      try meal(5, hour: 8, kcal: (500, 700), protein: (20, 30)),
+      try meal(5, hour: 19, kcal: (700, 900), protein: (40, 50)),
+      try meal(6, kcal: (700, 900), protein: (40, 50)),
+      try meal(7, kcal: (1200, 1600), protein: (60, 80)),
+      try meal(9, kcal: (700, 900), protein: (40, 50)),
+      try meal(10, kcal: (1200, 1600), protein: (60, 80)),
+      // The Sunday before and the next Monday are outside the week.
+      try meal(4, kcal: (3000, 4000), protein: (200, 300)),
+      try meal(12, kcal: (3000, 4000), protein: (200, 300)),
+    ]
+    let food = WeeklyIntake.food(meals, in: week, calendar: calendar)
+    XCTAssertEqual(food.loggedDays, 5)
+    XCTAssertEqual(food.kcal.value, FoodRange(low: 1000, high: 1320))
+    XCTAssertEqual(food.protein.value, FoodRange(low: 52, high: 68))
+    XCTAssertEqual(food.kcal.coverage, 5)
+    XCTAssertEqual(food.kcal.confidence, Confidence(level: .high, reason: "logged 5 of 7 days"))
+
+    // A day with an unknown item is logged but has no known total, so it leaves the kcal mean.
+    let unknown = try meals + [meal(8, kcal: nil, protein: (10, 20))]
+    let partial = WeeklyIntake.food(unknown, in: week, calendar: calendar)
+    XCTAssertEqual(partial.loggedDays, 6)
+    XCTAssertEqual(partial.kcal.value, FoodRange(low: 1000, high: 1320))
+    XCTAssertEqual(partial.kcal.coverage, 5)
+    XCTAssertEqual(partial.kcal.confidence.reason, "logged 6 of 7 days, 1 with an unknown item")
+    XCTAssertEqual(partial.protein.coverage, 6)
+
+    // No meals this week: absent, never 0.
+    let none = WeeklyIntake.food(
+      [try meal(4, kcal: (500, 600), protein: (1, 2))], in: week, calendar: calendar)
+    XCTAssertEqual(none.loggedDays, 0)
+    XCTAssertNil(none.kcal.value)
+    XCTAssertNil(none.protein.value)
+    XCTAssertEqual(none.kcal.confidence.level, .low)
+  }
+
+  /// S-023: Stezu sessions and Health workouts in one list, newest first; the copy Finish wrote
+  /// to Health and a session kept in two stores each show once.
+  func testWorkoutsMergeSourcesWithoutDuplicates() {
+    let week = WeeklyStats.week(containing: day(11), calendar: calendar)
+    func session(_ day: Int, sets: Int) -> WorkoutSession {
+      var session = WorkoutSession(startedAt: self.day(day, hour: 18), templateKey: "day-1")
+      for index in 0..<sets {
+        session.logSet(
+          "Bench press", pounds: 60, reps: 8, at: session.startedAt + Double(index) * 120)
+      }
+      return session
+    }
+    let stezu = [
+      session(5, sets: 3), session(8, sets: 1), session(5, sets: 3), session(3, sets: 2),
+    ]
+    let health = [
+      // Finish's copy of Monday's session, a few seconds off.
+      HealthSample(
+        type: .workout, date: day(5, hour: 18) + 5, sourceName: "Stezu",
+        sourceBundleID: WeeklyWeight.stezuBundleID),
+      HealthSample(type: .workout, date: day(10, hour: 9), sourceName: "Example Watch"),
+      HealthSample(type: .workout, date: day(10, hour: 9) + 20, sourceName: "Example Phone"),
+      HealthSample(type: .workout, date: day(4, hour: 9), sourceName: "Example Watch"),
+      HealthSample(type: .stepCount, date: day(7, hour: 9), sourceName: "Phone", value: 100),
+    ]
+    let merged = WeeklyIntake.workouts(stezu: stezu, health: health, in: week)
+    XCTAssertEqual(
+      merged,
+      [
+        WeekWorkout(start: day(10, hour: 9), source: .health, detail: "Example Watch"),
+        WeekWorkout(start: day(8, hour: 18), source: .stezu, detail: "1 set"),
+        WeekWorkout(start: day(5, hour: 18), source: .stezu, detail: "3 sets"),
+      ])
+    XCTAssertEqual(WeeklyIntake.workouts(stezu: [], health: [], in: week), [])
+  }
 }

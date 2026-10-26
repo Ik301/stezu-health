@@ -31,6 +31,7 @@ enum UITestFixtures {
   /// Past sessions for a scenario, dated back from `now`. "workout-history": a Day 1 session
   /// 7 days ago and a newer Day 2 session that also has bench press and the only overhead press.
   static func workoutHistory(scenario: String?, now: Date = Date()) -> [WorkoutSession] {
+    if scenario == foodWeekScenario { return foodWeekSessions() }
     guard scenario == "workout-history" else { return [] }
     func session(_ key: String, daysAgo: Int, _ sets: [(String, Double?, Int)]) -> WorkoutSession {
       let start = Calendar.current.date(byAdding: .day, value: -daysAgo, to: now) ?? now
@@ -62,7 +63,7 @@ enum UITestFixtures {
   /// a strap's profile weight on Thursday must not count. All weights are made up.
   static let dataWeekScenario = "data-week"
   static func clock(scenario: String?) -> @Sendable () -> Date {
-    guard scenario == dataWeekScenario else { return { Date() } }
+    guard isDataWeek(scenario) else { return { Date() } }
     let sunday = dataWeekDay(11)
     return { sunday }
   }
@@ -132,6 +133,55 @@ enum UITestFixtures {
           sourceBundleID: "example.strap", value: $0.value)
       }
     }
+  }
+
+  /// "data-food-week" (S-023): data-week's connection and Sunday clock with logged meals and
+  /// sessions instead of samples. All made up.
+  static let foodWeekScenario = "data-food-week"
+  static func isDataWeek(_ scenario: String?) -> Bool {
+    scenario == dataWeekScenario || scenario == foodWeekScenario
+  }
+
+  /// Meal A every logged day (Mon, Tue, Wed, Fri, Sat) and meal B on Mon, Wed and Sat: a mean of
+  /// 1000-1320 kcal and 52-68 g protein over 5 days. The Sunday before must not count.
+  static func loggedMeals(scenario: String?) -> [LoggedMeal] {
+    guard scenario == foodWeekScenario else { return [] }
+    func meal(_ day: Int, _ kcal: (Int, Int), _ protein: (Int, Int)) -> LoggedMeal {
+      let reply = #"""
+        {"meal_id": "fixture", "items": [{"item_id": "x", "name": "Grain Bowl", "servings": 1,
+         "kcal": {"low": \#(kcal.0), "high": \#(kcal.1)},
+         "protein_g": {"low": \#(protein.0), "high": \#(protein.1)}}]}
+        """#
+      let items = (try? PhotoMatchClient.decode(Data(reply.utf8)).items) ?? []
+      return LoggedMeal(id: UUID(), loggedAt: dataWeekDay(day, hour: 12), items: items)
+    }
+    return [5, 6, 7, 9, 10, 4].map { meal($0, (700, 900), (40, 50)) }
+      + [5, 7, 10].map { meal($0, (500, 700), (20, 30)) }
+  }
+
+  /// Stezu sessions Monday (3 sets) and Thursday (2 sets) at 18:00, one the Saturday before.
+  static func foodWeekSessions() -> [WorkoutSession] {
+    [(5, 3), (8, 2), (3, 1)].map { day, sets in
+      var session = WorkoutSession(startedAt: dataWeekDay(day, hour: 18), templateKey: "day-1")
+      for index in 0..<sets {
+        session.logSet(
+          "Bench press", pounds: 60, reps: 8, at: session.startedAt + Double(index + 1) * 120)
+      }
+      return session
+    }
+  }
+
+  /// Health's workouts: Finish's copy of Monday's session and a Saturday run from a watch.
+  static func foodWeekWorkouts(scenario: String?) -> [HealthSample] {
+    guard scenario == foodWeekScenario else { return [] }
+    return [
+      HealthSample(
+        type: .workout, date: dataWeekDay(5, hour: 18), sourceName: "Stezu",
+        sourceBundleID: WeeklyWeight.stezuBundleID),
+      HealthSample(
+        type: .workout, date: dataWeekDay(10, hour: 9), sourceName: "Example Watch",
+        sourceBundleID: "example.watch"),
+    ]
   }
 
   /// A day of January 2026 (0 and below roll back into December) in the device's calendar.

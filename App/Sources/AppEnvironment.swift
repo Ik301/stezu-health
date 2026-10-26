@@ -55,6 +55,8 @@ struct AppEnvironment: Sendable {
   /// The time Data reads its week at: the clock, or a fixed synthetic Sunday in `-uitest`.
   var now: @Sendable () -> Date = { Date() }
   var healthSync = HealthSync(state: SyncState())  // Health to the VM server (S-028)
+  /// Logged meals a scenario seeds (S-023); the live app's meals are in `mealCaptures`.
+  var mealHistory: [LoggedMeal] = []
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -76,7 +78,8 @@ struct AppEnvironment: Sendable {
       healthStore: FakeHealthStore(
         samples: UITestFixtures.healthSamples(scenario: scenario)
           + UITestFixtures.weekHealthSamples(scenario: scenario)
-          + UITestFixtures.strapSamples(scenario: scenario),
+          + UITestFixtures.strapSamples(scenario: scenario)
+          + UITestFixtures.foodWeekWorkouts(scenario: scenario),
         sleep: UITestFixtures.sleep(scenario: scenario),
         changes: UITestFixtures.healthChanges(scenario: scenario)),
       vmTransport: FakeVMTransport(
@@ -87,8 +90,9 @@ struct AppEnvironment: Sendable {
       workoutHistory: UITestFixtures.workoutHistory(scenario: scenario),
       programFilePicker: .fixture(UITestFixtures.programFile(scenario: scenario)),
       healthConnection: HealthConnection(
-        defaults: nil, asked: scenario == UITestFixtures.dataWeekScenario),
-      now: UITestFixtures.clock(scenario: scenario))
+        defaults: nil, asked: UITestFixtures.isDataWeek(scenario)),
+      now: UITestFixtures.clock(scenario: scenario),
+      mealHistory: UITestFixtures.loggedMeals(scenario: scenario))
   }
 
   /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.
