@@ -16,6 +16,10 @@ public protocol HealthStore: Sendable {
 
   /// The newest sample's date, or nil when there is none (or the read is denied).
   func latestSampleDate(of type: HealthType) async throws -> Date?
+
+  /// Writes one traditional strength training workout with no energy samples. A workout with
+  /// the same `externalID` already in Health is not written again, so a retry is safe.
+  func saveStrengthWorkout(start: Date, end: Date, externalID: String) async throws
 }
 
 /// An in-memory HealthStore for tests and `-uitest` launches. It records what was asked of it.
@@ -42,4 +46,36 @@ public actor FakeHealthStore: HealthStore {
   public func latestSampleDate(of type: HealthType) async throws -> Date? {
     storedSamples.filter { $0.type == type }.map(\.date).max()
   }
+
+  /// Strength workouts written, one per external id.
+  public private(set) var savedWorkouts: [SavedWorkout] = []
+  /// When true, every write throws, as a denied or failed HealthKit write does.
+  public private(set) var failsWrites = false
+
+  public func setFailsWrites(_ fails: Bool) {
+    failsWrites = fails
+  }
+
+  public func saveStrengthWorkout(start: Date, end: Date, externalID: String) async throws {
+    if failsWrites { throw FakeHealthStoreError.writeFailed }
+    guard !savedWorkouts.contains(where: { $0.externalID == externalID }) else { return }
+    savedWorkouts.append(SavedWorkout(start: start, end: end, externalID: externalID))
+  }
+}
+
+/// A workout FakeHealthStore was asked to write.
+public struct SavedWorkout: Sendable, Equatable {
+  public let start: Date
+  public let end: Date
+  public let externalID: String
+
+  public init(start: Date, end: Date, externalID: String) {
+    self.start = start
+    self.end = end
+    self.externalID = externalID
+  }
+}
+
+public enum FakeHealthStoreError: Error {
+  case writeFailed
 }

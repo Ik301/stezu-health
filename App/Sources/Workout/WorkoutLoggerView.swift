@@ -12,15 +12,34 @@ struct WorkoutLoggerView: View {
   @State private var showLibrary = false  // the Exercises library sheet (S-007)
   private let history: [WorkoutSession]
 
-  init(template: WorkoutTemplate, history: [WorkoutSession] = []) {
+  /// Finish (S-008): hands the session to the Workout screen, which closes the logger.
+  private let onFinish: (WorkoutSession) -> Void
+
+  init(
+    template: WorkoutTemplate, history: [WorkoutSession] = [],
+    onFinish: @escaping (WorkoutSession) -> Void = { _ in }
+  ) {
     self.history = history
     _logger = State(
       initialValue: SetLogger(template: template, startedAt: Date(), history: history))
+    self.onFinish = onFinish
   }
 
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
+        HStack {
+          Spacer()
+          // No confirmation: one tap ends the rest and finishes.
+          Button("Finish") {
+            rest?.skip()
+            onFinish(logger.session)
+          }
+          .font(.system(size: 17, weight: .semibold))
+          .foregroundStyle(Theme.text)
+          .frame(minWidth: 72, minHeight: 44)
+          .accessibilityIdentifier("workout.logger.finish")
+        }
         logCard
         restCard
         ForEach(Array(logger.loggedSets.enumerated()), id: \.offset) { index, set in
