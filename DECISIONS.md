@@ -802,3 +802,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A night belongs to the day its stages end on, with anything ending after 18:00 counted toward the next day; asleep stages are merged as a union so two apps recording one night count once. HRV stays a median of raw readings, with the reading count as coverage. FakeHealthStore buckets by the current calendar and does not remove overlap.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, SleepNightTests, AppUITests WeeklyHealthUITests (commit on wt/S-022).
 - Reverse if: Isaac's strap writes sleep as one asleepUnspecified block while another app writes stages; then pick one sleep source per night instead of the union.
+
+## D-059 The saved logger is the resume point; idle time runs from its last set, and an idle session is finished, not resumed
+
+- Status: proposed by night agent, 2026-10-25 (S-009).
+- Problem: a workout must survive the app being closed mid-session and reopen on the same exercise with its sets, while a session left open for hours must not stay open forever or end at the moment the app happens to be reopened.
+- Given: `SetLogger` (D-045) is Codable, holds the session, the card's exercise, the undo order and swaps, and is written to active-workout.json after every change. `WorkoutFinish.finish` (D-056) writes Health once per external id and keeps the session either way.
+- Constraints:
+  - Rebuilding the logger from the session alone breaks undo and swaps, which live only in the logger.
+  - Ending an idle session at launch time breaks its duration in Health (a 40-minute session would read as many hours).
+  - Starting a new session over a saved one breaks "a set is stored the moment it is logged": the new logger overwrites the file.
+- Options:
+  - (a) `SessionResume.atLaunch` (core) reads the saved logger: within the idle limit (default 3 hours, `SessionResumeConfig`) it comes back unchanged as Resume; past it, a session with sets is closed through `WorkoutFinish.finish` ending at its last set, and one with no sets is dropped. Idle time runs from the last set, else from the start.
+  - (b) Save only the session and rebuild a logger on resume.
+  - (c) Ask on launch whether to resume or end an old session.
+- Decision: (a). The Workout screen runs the check each time it loads with no logger open, so it also offers Resume after leaving the area mid-session. Resume replaces the black card and passes the saved logger to the logger view in one tap. Starting any other workout while Resume is offered first finishes the saved one at its last set and clears the file.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SessionResume.swift, App/Sources/Workout/WorkoutView.swift, App/Sources/Workout/WorkoutLoggerView.swift, SessionResumeTests, AppUITests SessionResumeUITests (08cd522).
+- Reverse if: the check must also run while the app stays in memory for hours (a scene-phase hook), or Isaac wants to keep a long session open; then raise `idleLimit` or ask (c).
