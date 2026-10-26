@@ -1381,3 +1381,37 @@ The research notes cited here are kept private, because they contain personal he
   - The area nav is hidden while logging.
   - Finish opens a summary: duration, working sets, volume, In Health, and each exercise's best set against the last session of the same template. The summary has an Undo.
 - Strength progress is history, not advice (D-032).
+
+## D-100 Next is computed from the finished-workouts file by one core function; seeded history does not move it
+
+- Status: proposed by night agent, 2026-10-26 (S-036).
+- Problem: under D-089 Home and the Workout screen must show the same Next, the day after the session that finished last, but Home reads its inputs once per appearance from disk while the Workout screen keeps finished sessions in memory, and an Empty workout has no day to follow.
+- Given: finished-workouts.json holds every `FinishedWorkout` with `endedAt` (D-056). `TemplateLibrary.next(after:)` already wraps and falls back to the first day for an unknown key. `AppEnvironment.workoutHistory` is synthetic `-uitest` sessions with no end time, used for last numbers (D-046).
+- Constraints:
+  - Computing Next in each view breaks "the same Next" as soon as one of them changes.
+  - Counting the seeded `workoutHistory` sessions would change Next in every scenario that seeds them and the tests built on those scenarios, though the live app has none.
+  - Following an Empty workout's key would reset the rotation to the first day after every empty session.
+- Options:
+  - (a) `WorkoutRotation.next(in:finished:)`: the finished session with the latest `endedAt` whose key is not nil or "empty" names the last day; `library.next(after:)` does the rest. Home passes the file, the Workout screen its loaded copy of the same file.
+  - (b) Store a "last day" key in the template library at Finish.
+  - (c) Rotate by weekday.
+- Decision: (a). Nothing new is stored, so an off-schedule session moves Next once it is finished, and a removed template falls back to the first day. The `-uitest` scenario "rotation" writes one synthetic finished Day 1 session into the persisted store at launch, so Home and Workout read it the way the live app does.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutRotation.swift, App/Sources/HomeViewModel.swift, App/Sources/Workout/WorkoutView.swift, App/Sources/AppEnvironment.swift, WorkoutRotationTests (commit on wt/S-036).
+- Reverse if: Isaac wants a weekday schedule (D-089), or sessions from other apps should count toward the rotation.
+
+## D-101 Continue reopens the same `WorkoutSession` in the logger; Finish replaces it by id in the file and in Health
+
+- Status: proposed by night agent, 2026-10-26 (S-036).
+- Problem: under D-090 a finished session must reopen with its sets, take new ones, and finish again as the same session, with one copy on the phone, one workout in Health and one `workout_session` record on the server.
+- Given: a session's id is `stezu.workout.<start ms>` (D-056) and set ids add the set's time (S-030), so both depend only on times already stored. The server keeps the newest `updated_at` per `(kind, id)`. `HealthKitStore.saveStrengthWorkout` skips an id already in Health. Finish appends to finished-workouts.json.
+- Constraints:
+  - A new session for the continuation breaks "same id" and makes two rows and two Health workouts.
+  - Saving again without deleting leaves the old, shorter workout in Health, since the write skips a known id.
+  - Making old sets undoable after Continue would need tombstones for sets the server already has.
+- Options:
+  - (a) `SetLogger(continuing:template:history:)` takes the finished session as is, puts the card on the first exercise with sets still to do, prefilled from its last set, and keeps old sets out of Undo. Finish goes through the same `keep`: `WorkoutRotation.keep` replaces the entry with the same id in place (else appends), the session record is queued again with a newer `updated_at`, and when the old copy was in Health, `WorkoutFinish.write(replacing:)` calls `HealthStore.deleteStrengthWorkout(externalID:)` before saving from the start to the new end.
+  - (b) Link a second session to the first.
+  - (c) Edit the finished entry in place without the logger.
+- Decision: (a). Continue needs no workout in progress and a template still in the library; the logger file is saved while continuing as for any session, so a relaunch resumes it and its Finish still replaces by id.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift, WorkoutRotation.swift, WorkoutFinish.swift, HealthStore.swift, App/Sources/Workout/WorkoutView.swift, WorkoutHistoryView.swift, HealthWorkoutReplace.swift, WorkoutRotationTests/testContinuedSessionKeepsIdAndAppendsSets (commit on wt/S-036).
+- Reverse if: continuing older sessions is wanted (D-090), or HealthKit refuses the delete on device; then save the continuation as its own workout.

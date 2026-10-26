@@ -251,6 +251,16 @@ enum UITestFixtures {
     .visit(arrival: now - 1800, departure: nil, latitude: 10.25, longitude: -30.5, accuracy: 40)
   }
 
+  /// "rotation" (S-036, with -uitest-persist): the store's last finished session is Day 1, two
+  /// days ago, too old to continue. Made-up numbers.
+  static let rotationScenario = "rotation"
+  static func rotationFinished(now: Date = Date()) -> [FinishedWorkout] {
+    var session = WorkoutSession(startedAt: now - 2 * 86_400, templateKey: "day-1")
+    session.logSet("Bench press", pounds: 60, reps: 8, at: session.startedAt + 120)
+    session.logSet("Bench press", pounds: 60, reps: 8, at: session.startedAt + 300)
+    return [WorkoutFinish.close(session, at: session.startedAt + 1800)].compactMap { $0 }
+  }
+
   /// A day of January 2026 (0 and below roll back into December) in the device's calendar.
   private static func dataWeekDay(_ day: Int, hour: Int = 12) -> Date {
     let first = Calendar.current.date(

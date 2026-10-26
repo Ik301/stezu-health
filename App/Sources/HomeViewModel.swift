@@ -24,7 +24,8 @@ struct HomeInputs: Sendable, Equatable {
       food: FoodDay.on(now, meals: meals),
       workouts: WeeklyIntake.workouts(
         stezu: environment.workoutHistory + finished, health: health, in: week),
-      nextTemplate: library.next(after: nil)?.name)
+      nextTemplate: WorkoutRotation.next(
+        in: library, finished: FinishedWorkoutStore(storage: environment.storage).load())?.name)
   }
 }
 

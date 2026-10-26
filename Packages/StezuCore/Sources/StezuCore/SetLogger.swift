@@ -47,6 +47,26 @@ public struct SetLogger: Sendable, Equatable, Codable {
     if let first = template.exercises.first { prefill(first) }
   }
 
+  /// Reopens a finished session (D-090): the same session with its sets, so new sets append.
+  /// The card goes to the first exercise with sets still to do (else the last), prefilled from
+  /// its last set in this session. Sets from before cannot be undone.
+  public init(
+    continuing session: WorkoutSession, template: WorkoutTemplate, history: [WorkoutSession] = [],
+    config: WorkoutHistoryConfig = WorkoutHistoryConfig()
+  ) {
+    self.init(template: template, startedAt: session.startedAt, history: history, config: config)
+    self.session = session
+    let slots = exercises
+    exerciseIndex =
+      slots.indices.first { (session.sets(for: slots[$0].name)?.count ?? 0) < slots[$0].sets }
+      ?? max(slots.count - 1, 0)
+    guard let exercise else { return }
+    prefill(exercise)
+    if let set = session.sets(for: exercise.name)?.last {
+      (pounds, reps, isBodyweight) = (set.pounds ?? pounds, set.reps, set.pounds == nil)
+    }
+  }
+
   /// The last-session numbers of the exercise on the card; nil the first time it is done.
   public var lastNumbers: LastSessionNumbers? { exercise.flatMap { last[$0.name] } }
 

@@ -3,11 +3,14 @@ import SwiftUI
 
 /// Workout history (S-010): Monday-to-Sunday weeks that have a session, newest first, each with
 /// its sessions and working-set count. A session opens its exercises and sets; an exercise opens
-/// every session that has it, newest first. Read only; nothing is stored here.
+/// every session that has it, newest first. Nothing is stored here; a session that can still
+/// be continued (S-036) shows Continue, which hands it back to the Workout screen.
 struct WorkoutHistoryView: View {
   let sessions: [WorkoutSession]
   /// Template names by key; a session with no known template shows as "Workout".
   let names: [String: String]
+  var continuable: (WorkoutSession) -> Bool = { _ in false }
+  var onContinue: (WorkoutSession) -> Void = { _ in }
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
@@ -54,6 +57,13 @@ struct WorkoutHistoryView: View {
   private func detail(_ session: WorkoutSession) -> some View {
     page {
       title("\(name(session))   \(Self.day(session.startedAt))", id: "history.session.title")
+      if continuable(session) {
+        Button("Continue") { onContinue(session) }
+          .font(.system(size: 17, weight: .semibold))
+          .frame(maxWidth: .infinity, minHeight: 48)
+          .overlay(Capsule().strokeBorder(Theme.text, lineWidth: 1))
+          .accessibilityIdentifier("history.session.continue")
+      }
       ForEach(Array(session.exercises.enumerated()), id: \.offset) { index, log in
         VStack(alignment: .leading, spacing: 6) {
           NavigationLink {
