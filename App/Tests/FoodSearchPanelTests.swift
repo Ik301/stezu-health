@@ -4,6 +4,7 @@ import XCTest
 @testable import StezuHealth
 
 final class FoodSearchPanelTests: XCTestCase {
+  @MainActor
   func testFixtureGroupsAndDetailLines() throws {
     let groups = try FoodSearchClient.decode(Data(UITestFixtures.searchReply.utf8))
     for section in FoodSearchPanel.sections {
