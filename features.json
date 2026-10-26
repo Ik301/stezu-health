@@ -1023,6 +1023,71 @@
       ],
       "needs_server": true,
       "passes": true
+    },
+    {
+      "id": "S-030",
+      "kind": "story",
+      "area": "workout",
+      "title": "Every logged set and finished workout is saved on the phone first, then sent to Hermes as records",
+      "steps": [
+        "Logging a set still saves it on the phone the moment it is logged (D-045). Right after that local save, the app queues one `set` record on the same sync queue as meals (HealthSync.enqueue, D-075). The payload: set id, session id, template key, exercise key and name, pounds (null for bodyweight, never 0), reps, logged-at, and kind (working). Undo queues the same set id with deleted: true.",
+        "Finish saves the session on the phone first (D-056), then queues one `workout_session` record: session id, template key and name, start, end, and its exercises with their sets. The Apple Health write stays, but it comes after the local save and never gates the record.",
+        "Swaps and custom exercises are part of the session payload (exercise key plus display name), so the server can tell what was actually done.",
+        "On the first launch with this build, every session already in finished-workouts.json, and the sets of an unfinished logger, is queued once as records (a backfill). A flag records that the backfill ran, so it never runs twice. Replays are safe because the server keys records by (kind, id) and keeps the newer updated_at.",
+        "updated_at has millisecond resolution, so a set logged and undone within a second is still two distinct versions.",
+        "Launch with -uitest-scenario sync. Start Day 1, log a set, undo it, log it again, then Finish. FakeVMTransport receives set records (including one deletion) and one workout_session record. Settings' records count goes up."
+      ],
+      "tap_budget": "0 extra taps",
+      "depends_on": [
+        "S-029",
+        "S-009"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WorkoutRecordTests/testSetRecordCarriesSessionAndExercise",
+        "StezuCoreTests.WorkoutRecordTests/testUndoQueuesDeletedSet",
+        "StezuCoreTests.WorkoutRecordTests/testBackfillQueuesFinishedSessionsOnce"
+      ],
+      "ui_tests": [
+        "AppUITests.HermesSyncUITests/testLoggedSetsAndFinishedWorkoutAreSynced"
+      ],
+      "screenshots": [
+        "s030-workout-synced"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-031",
+      "kind": "story",
+      "area": "data",
+      "title": "A weigh-in is saved on the phone first, then written to Apple Health and sent to Hermes",
+      "steps": [
+        "The one-tap weigh-in now writes to a local weigh-in store on the phone first (weigh-ins.json: id, measured-at, pounds). This store is the app's source of truth for weigh-ins, which reverses D-057's 'Health only'. Then it writes the body-mass sample to Apple Health, tagged with the weigh-in id in metadata, and records whether Health took it. Then it queues a `weigh_in` record (id, measured-at, pounds, inHealth) on the sync queue.",
+        "A denied or failed Health write never loses the weigh-in: it stays local, is synced to the VM, and shows 'Not in Health' on Sources.",
+        "The weight row, the 8-week detail, Home and the Day view read weigh-ins from the local store. Other apps' body-mass samples (Zepp's profile weight) are never mixed in (D-047).",
+        "Migration, once per install: Stezu-sourced body-mass samples already in Health (written by earlier builds) are imported into the local store, matched by Health UUID so nothing is doubled, and then queued as records.",
+        "Deleting a weigh-in in the Day view removes it locally first, then from Health by its id, then queues the record with deleted: true.",
+        "Launch with -uitest-scenario sync. Weigh in once; FakeVMTransport receives one weigh_in record, the weight row shows it, and deleting it in the Day view sends a deleted record."
+      ],
+      "tap_budget": "1 tap + Save (unchanged)",
+      "depends_on": [
+        "S-030",
+        "S-021",
+        "S-025"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WeighInStoreTests/testLocalSaveComesBeforeHealthAndSync",
+        "StezuCoreTests.WeighInStoreTests/testMigrationImportsStezuHealthSamplesOnce",
+        "StezuCoreTests.WeighInStoreTests/testDeleteQueuesTombstone"
+      ],
+      "ui_tests": [
+        "AppUITests.HermesSyncUITests/testWeighInIsStoredLocallyAndSynced"
+      ],
+      "screenshots": [
+        "s031-weighin-synced"
+      ],
+      "needs_server": true,
+      "passes": false
     }
   ]
 }

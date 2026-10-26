@@ -1089,3 +1089,11 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). `updated_at` carries milliseconds. `SyncBatch.records` is optional, so a queue saved by S-028 still loads. The `-uitest` fake counts the live records it has received in its GET /sync/status answer (`FakeVMTransport(countsRecords:)`), and a meal change starts a pass under `-uitest` too.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SyncRecord.swift, Packages/StezuCore/Sources/StezuCore/HealthSync.swift, Packages/StezuCore/Sources/StezuCore/VMTransport.swift, App/Sources/Settings/HermesSync.swift, App/Sources/Food/FoodView.swift, App/Sources/Food/FoodHistory.swift, App/Sources/Data/DayView.swift, HealthSyncTests/testMealRecordCarriesRangesAndSource, HermesSyncUITests/testLoggedMealIsSynced (commit on wt/S-029).
 - Reverse if: the queue grows big enough that one batch per meal change crowds the 5,000-item limit's spirit (then coalesce pending records by id), or the server starts rejecting records without a payload key.
+
+## D-076 Data the app records is stored on the phone first, then sent to the server; Apple Health is a copy
+
+- Status: decided by Isaac, 2026-10-26.
+- What: workout sets, finished sessions, weigh-ins and meals are saved in the app's own store first, and sent to the VM server as /sync records from there. Writing them to Apple Health stays, as a local copy written after the app's own save, never as the path the data takes to Hermes.
+- Why: these records are entered in the app itself, so the app is their source of truth. Routing them through Health loses detail (sets, reps and exercise names don't fit a Health workout) and makes the VM depend on a Health write that can be denied.
+- Changes: D-057 (weigh-ins live only in Health) is reversed by S-031. S-030 sends sets and sessions. Meals already work this way (D-068, D-075).
+- Reverse if: never for app-entered data. Health remains the source only for what other devices record (the strap and the phone's sensors).
