@@ -200,6 +200,32 @@ enum UITestFixtures {
     ]
   }
 
+  /// "food-history" (S-019), all made up: today a yogurt at 8:00 and a two-dish lunch at 12:30
+  /// (330-450 kcal, 20-27 g protein in all); yesterday a burrito at 19:00 and a photo pending.
+  static func foodHistory(scenario: String?) -> (logged: [LoggedMeal], pending: [CapturedMeal]) {
+    guard scenario == "food-history" else { return ([], []) }
+    let today = Calendar.current.startOfDay(for: Date())
+    func meal(_ hours: Double, _ items: [(String, String, [Int])]) -> LoggedMeal {
+      let json = items.map { name, source, r in
+        #"{"item_id": "\#(name)", "name": "\#(name)", \#(source), "servings": 1, "kcal": {"#
+          + #""low": \#(r[0]), "high": \#(r[1])}, "protein_g": {"low": \#(r[2]), "high": \#(r[3])}}"#
+      }
+      let reply = #"{"meal_id": "fixture", "items": ["# + json.joined(separator: ",") + "]}"
+      let decoded = (try? PhotoMatchClient.decode(Data(reply.utf8)).items) ?? []
+      return LoggedMeal(id: UUID(), loggedAt: today + hours * 3600, items: decoded)
+    }
+    let (north, south) = (#""hall": "North Hall""#, #""hall": "South Hall""#)
+    return (
+      [
+        meal(8, [("Plain Yogurt", #""brand": "Example Dairy""#, [90, 110, 14, 18])]),
+        meal(
+          12.5,
+          [("Herb Rice", north, [160, 220, 4, 6]), ("Roast Vegetables", south, [80, 120, 2, 3])]),
+        meal(-5, [("Bean Burrito", #""brand": "Example Grill""#, [360, 440, 10, 14])]),
+      ], [CapturedMeal(id: UUID(), capturedAt: today - 17 * 3600)]
+    )
+  }
+
   /// A day of January 2026 (0 and below roll back into December) in the device's calendar.
   private static func dataWeekDay(_ day: Int, hour: Int = 12) -> Date {
     let first = Calendar.current.date(

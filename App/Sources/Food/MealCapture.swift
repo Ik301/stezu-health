@@ -11,12 +11,23 @@ struct CapturedMeal: Sendable, Equatable, Identifiable, Codable {
 /// finds them. Memory mode (`-uitest`) uses a fresh temporary folder, so each launch starts empty.
 actor MealCaptureStore {
   private let folder: URL
+  /// Seeded meals still without a photo; `seedPhotos` gives them the fixture plate.
+  private var unphotographed: [UUID]
 
-  init(storage: StorageMode) {
+  /// A `-uitest` scenario's meals are written at launch: logged meals and pending photos.
+  init(storage: StorageMode, seed: (logged: [LoggedMeal], pending: [CapturedMeal]) = ([], [])) {
     switch storage {
     case .memory: folder = FileManager.default.temporaryDirectory.appending(path: "\(UUID())")
     case .temporary(let root): folder = root.appending(path: "meals")
     case .disk: folder = URL.applicationSupportDirectory.appending(path: "meals")
+    }
+    unphotographed = seed.logged.map(\.id) + seed.pending.map(\.id)
+    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    for meal in seed.logged {
+      try? JSONEncoder().encode(meal).write(to: folder.appending(path: "\(meal.id).log"))
+    }
+    for meal in seed.pending {
+      try? JSONEncoder().encode(meal).write(to: folder.appending(path: "\(meal.id).json"))
     }
   }
 
@@ -67,6 +78,19 @@ actor MealCaptureStore {
     return files.filter { $0.hasSuffix(".log") }
       .compactMap { try? JSONDecoder().decode(LoggedMeal.self, from: file(named: $0) ?? Data()) }
       .sorted { $0.loggedAt < $1.loggedAt }
+  }
+
+  /// Logged meals and pending photos by day, newest first (S-019); a pending photo is one with
+  /// no server match and no Log.
+  func days() -> [FoodDay] {
+    let meals = logged()
+    let pending = queue().pending.filter { photo in !meals.contains { $0.id == photo.id } }
+    return FoodDay.days(meals: meals, pending: pending)
+  }
+
+  func seedPhotos(_ photo: Data) {
+    for id in unphotographed { try? photo.write(to: folder.appending(path: "\(id).jpg")) }
+    unphotographed = []
   }
 
   private func file(named name: String) -> Data? {
