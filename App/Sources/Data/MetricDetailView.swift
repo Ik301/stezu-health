@@ -3,26 +3,32 @@ import SwiftUI
 
 /// One detail for every metric (S-024): the last 8 weeks, newest first, each with its value and
 /// coverage, then the sources and how the value is made. Weight adds weigh-in dots and the trend
-/// line. A tap on a week lists its days, Monday to Sunday; a day without data shows "--".
+/// line. A tap on a week lists its days, Monday to Sunday; a day without data shows "--". A
+/// day's chevron opens everything recorded on it (S-025).
 struct MetricDetailView: View {
   let metric: Metric
   @Environment(\.appEnvironment) private var environment
   @Environment(\.dismiss) private var dismiss
   @State private var history: MetricHistory?
   @State private var openWeek: Int?
+  @State private var openDay: Date?
   private let shape = RoundedRectangle(cornerRadius: Theme.cardRadius)
 
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
-        if openWeek == nil {
+        if openDay != nil {
+          Button("Week") { openDay = nil }.accessibilityIdentifier("metric.day.back")
+        } else if openWeek == nil {
           Button("Done") { dismiss() }.accessibilityIdentifier("metric.close")
         } else {
           Button("8 weeks") { openWeek = nil }.accessibilityIdentifier("metric.back")
         }
-        Text(metric.title).font(.system(size: 34, weight: .semibold))
-          .accessibilityIdentifier("metric.title")
-        if let history, let index = openWeek {
+        Text(openDay?.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) ?? metric.title)
+          .font(.system(size: 34, weight: .semibold)).accessibilityIdentifier("metric.title")
+        if let openDay {
+          DayView(day: openDay).padding(16).background(Theme.card, in: shape)
+        } else if let history, let index = openWeek {
           days(history.weeks[index]).padding(16).background(Theme.card, in: shape)
         } else if let history {
           if metric == .weight {
@@ -82,6 +88,14 @@ struct MetricDetailView: View {
           Spacer()
           Text(day.value.map(metric.format) ?? "--").font(.system(size: 17, weight: .medium))
             .accessibilityIdentifier("metric.day.\(index).value")
+          Button {
+            openDay = day.day
+          } label: {
+            Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold))
+              .foregroundStyle(Theme.label).frame(width: 44, height: 22).contentShape(Rectangle())
+          }
+          .accessibilityLabel("Everything on this day")
+          .accessibilityIdentifier("metric.day.\(index).open")
         }
       }
     }

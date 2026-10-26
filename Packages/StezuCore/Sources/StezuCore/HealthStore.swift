@@ -33,6 +33,8 @@ public protocol HealthStore: Sendable {
   /// Up to `limit` changes after `anchor` (opaque), or from `start` on without one (S-028).
   func changes(of type: HealthType, after anchor: Data?, since start: Date, limit: Int)
     async throws -> HealthChanges
+  /// Deletes Stezu's own body-mass samples dated `date` (S-025); other apps' are untouched.
+  func deleteBodyMass(at date: Date) async throws
 }
 
 /// One page of an anchored Health read (S-028).
@@ -130,6 +132,13 @@ public actor FakeHealthStore: HealthStore {
       }
     }
     return (samples, deleted, Data(String(read + page.count).utf8))
+  }
+
+  public func deleteBodyMass(at date: Date) async throws {
+    if failsWrites { throw FakeHealthStoreError.writeFailed }
+    storedSamples.removeAll {
+      $0.type == .bodyMass && $0.date == date && $0.sourceBundleID == WeeklyWeight.stezuBundleID
+    }
   }
 }
 
