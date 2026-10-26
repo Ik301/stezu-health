@@ -35,7 +35,8 @@ struct FoodView: View {
       await retryQueue()
     }
     .onDisappear { (environment.photoSource as? LiveCameraPhotoSource)?.stop() }
-    .sheet(item: $captured) { _ in PhotoMatchSheet(state: match, today: today) }
+    // Reading match and today here makes the body depend on them, so the sheet updates.
+    .sheet(item: $captured) { [match, today] _ in PhotoMatchSheet(state: match, today: today) }
   }
 
   @ViewBuilder private var cameraImage: some View {
@@ -139,7 +140,7 @@ struct FoodView: View {
     guard let meal = await MealMatcher(environment: environment).retryQueue(),
       let found = meal.match, captured == nil
     else { return }
-    match = .matched(found)
     captured = CapturedMeal(id: meal.id, capturedAt: meal.capturedAt)
+    match = .matched(found)
   }
 }
