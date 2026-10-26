@@ -64,6 +64,39 @@ enum UITestFixtures {
         sourceBundleID: "example.strap", value: 150.0)
     ]
   }
+
+  /// "data-week" context (S-022), all made up: steps Mon to Sat in two halves (mean 7333) plus
+  /// the Saturday before, HRV on 5 days (median 47 ms), resting HR on 5 days (mean 59 bpm), and
+  /// 5 nights (ending Mon, Tue, Wed, Fri, Sat) of 7h 20m asleep among in-bed and awake stages.
+  static func weekHealthSamples(scenario: String?) -> [HealthSample] {
+    guard scenario == dataWeekScenario else { return [] }
+    let steps: [Int: Double] = [3: 6000, 5: 4000, 6: 3250, 7: 3600, 8: 4550, 9: 2700, 10: 3900]
+    let rows: [(HealthType, Int, [Int: Double])] = [
+      (.stepCount, 9, steps), (.stepCount, 18, steps),
+      (.heartRateVariability, 6, [5: 38, 6: 61, 7: 47, 8: 55, 9: 42]),
+      (.restingHeartRate, 8, [5: 58, 6: 60, 7: 57, 9: 59, 10: 61]),
+    ]
+    return rows.flatMap { type, hour, days in
+      days.map {
+        HealthSample(
+          type: type, date: dataWeekDay($0.key, hour: hour), sourceName: "Phone", value: $0.value)
+      }
+    }
+  }
+  static func sleep(scenario: String?) -> [SleepInterval] {
+    guard scenario == dataWeekScenario else { return [] }
+    let stages: [(SleepStage, Double, Double)] = [
+      (.inBed, -60, 420), (.asleepCore, -45, 180), (.asleepDeep, 180, 240),
+      (.asleepREM, 240, 330), (.awake, 330, 340), (.asleepCore, 340, 405),
+    ]
+    return [5, 6, 7, 9, 10].flatMap { day in
+      stages.map {
+        let midnight = dataWeekDay(day, hour: 0)
+        return (start: midnight + $0.1 * 60, end: midnight + $0.2 * 60, stage: $0.0)
+      }
+    }
+  }
+
   /// A day of January 2026 (0 and below roll back into December) in the device's calendar.
   private static func dataWeekDay(_ day: Int, hour: Int = 12) -> Date {
     let first = Calendar.current.date(

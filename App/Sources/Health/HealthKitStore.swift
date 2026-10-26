@@ -69,6 +69,47 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
       HKQuantitySample(type: HKQuantityType(.bodyMass), quantity: quantity, start: date, end: date))
   }
 
+  func dailyValues(of type: HealthType, in interval: DateInterval) async throws -> [Date: Double] {
+    guard let quantityType = type.sampleType as? HKQuantityType else { return [:] }
+    let predicate = HKQuery.predicateForSamples(withStart: interval.start, end: interval.end)
+    return try await withCheckedThrowingContinuation { continuation in
+      let query = HKStatisticsCollectionQuery(
+        quantityType: quantityType, quantitySamplePredicate: predicate,
+        options: type == .stepCount ? .cumulativeSum : .discreteAverage,
+        anchorDate: interval.start, intervalComponents: DateComponents(day: 1))
+      query.initialResultsHandler = { _, results, error in
+        guard let results, let unit = type.unit else {
+          return continuation.resume(throwing: error ?? CancellationError())
+        }
+        let days = results.statistics().reduce(into: [Date: Double]()) { days, day in
+          let value = day.sumQuantity() ?? day.averageQuantity()
+          days[day.startDate] = value?.doubleValue(for: unit)
+        }
+        continuation.resume(returning: days)
+      }
+      store.execute(query)
+    }
+  }
+
+  func sleepIntervals(since start: Date) async throws -> [SleepInterval] {
+    let predicate = HKQuery.predicateForSamples(withStart: start, end: nil)
+    let type = HKCategoryType(.sleepAnalysis)
+    return try await withCheckedThrowingContinuation { continuation in
+      let query = HKSampleQuery(
+        sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil
+      ) { _, results, error in
+        guard let results else {
+          return continuation.resume(throwing: error ?? CancellationError())
+        }
+        continuation.resume(
+          returning: results.compactMap { $0 as? HKCategorySample }.compactMap { sample in
+            SleepStage(rawValue: sample.value).map { (sample.startDate, sample.endDate, $0) }
+          })
+      }
+      store.execute(query)
+    }
+  }
+
   private func query(_ type: HealthType, predicate: NSPredicate?, limit: Int, newest: Bool)
     async throws -> [HealthSample]
   {
@@ -83,12 +124,12 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
         continuation.resume(
           returning: results.map {
             let source = $0.sourceRevision.source
-            let pounds = ($0 as? HKQuantitySample).flatMap {
-              type == .bodyMass ? $0.quantity.doubleValue(for: .pound()) : nil
+            let value = ($0 as? HKQuantitySample).flatMap { sample in
+              type.unit.map { sample.quantity.doubleValue(for: $0) }
             }
             return HealthSample(
               type: type, date: $0.endDate, sourceName: source.name,
-              sourceBundleID: source.bundleIdentifier, value: pounds)
+              sourceBundleID: source.bundleIdentifier, value: value)
           })
       }
       store.execute(query)
@@ -109,6 +150,17 @@ extension HealthType {
     case .dietaryEnergy: HKQuantityType(.dietaryEnergyConsumed)
     case .dietaryProtein: HKQuantityType(.dietaryProtein)
     case .workout: HKObjectType.workoutType()
+    }
+  }
+
+  /// The unit values are read in; nil where no story reads values.
+  var unit: HKUnit? {
+    switch self {
+    case .bodyMass: .pound()
+    case .stepCount: .count()
+    case .heartRate, .restingHeartRate: .count().unitDivided(by: .minute())
+    case .heartRateVariability: .secondUnit(with: .milli)
+    default: nil
     }
   }
 }

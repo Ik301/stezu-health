@@ -14,6 +14,7 @@ struct DataView: View {
     AreaScaffold(area: .data, title: "This week", goHome: goHome) {
       if connected ?? environment.healthConnection.isConnected {
         WeightRow()
+        WeeklyHealthRows()
         pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }
       } else {
         Text(
