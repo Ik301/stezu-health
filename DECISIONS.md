@@ -803,7 +803,37 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, SleepNightTests, AppUITests WeeklyHealthUITests (commit on wt/S-022).
 - Reverse if: Isaac's strap writes sleep as one asleepUnspecified block while another app writes stages; then pick one sleep source per night instead of the union.
 
-## D-059 History groups sessions into Monday-to-Sunday weeks when it opens, from the sessions themselves
+## D-059 The app is called Ingest on the home screen; identifiers keep the StezuHealth name
+
+- Status: decided by Isaac, 2026-10-25 (merged in PR #29; this record was dropped from that PR when it merged and is restored here).
+- Problem: the app had no icon, and "Stezu Health" is the project's name, not a name for the thing on the home screen.
+- Given: renaming the target, bundle ids or repo would break HealthKit authorization and the builds already installed on his phone.
+- Options:
+  - (a) Change only the display name and permission strings to Ingest; the target, bundle ids and repo stay StezuHealth; add a single 1024 px icon in an asset catalog.
+  - (b) Rename everything to Ingest now.
+  - (c) Keep "Stezu Health" until the name is final.
+- Decision: (a). The icon is the Home screen's three stacked cards with the middle one inverted, in DESIGN.md's monochrome tokens.
+- Evidence: project.yml (CFBundleDisplayName, usage strings), App/Sources/Assets.xcassets, design/AppIcon.svg, DESIGN.md; commit 7d02a7c.
+- Reverse if: the name changes again (edit the display strings only), or Ingest goes to the App Store, where the bundle ids would have to be renamed before the first release.
+
+## D-060 Metric detail reads its 8 weeks from Health when it opens and buckets per-day values into Monday-first weeks; a day without a key is absent
+
+- Status: proposed by night agent, 2026-10-25 (S-024).
+- Problem: every overview metric has to open one detail with 8 weekly values, their coverage and each week's 7 days, but each metric is built differently (weight from the trend, steps and resting heart rate from daily statistics, sleep from nights, HRV from raw readings), and an empty day or week must not turn into 0.
+- Given: `HealthStore.dailyValues`, `sleepIntervals` and `samples` (D-058), `TrendWeight.series` and Stezu-only weigh-ins (D-057), `WeeklyStat` with coverage and confidence, and Monday-to-Sunday weeks from `WeeklyStats.week`.
+- Constraints:
+  - A separate detail per metric breaks the story's one template and multiplies the code past the diff budget.
+  - Keeping 8 weeks in a local cache breaks the rule that Health is the store for read types, and goes stale when another app writes late.
+  - Filling missing days with 0 breaks rule 5 and the weekly means.
+- Options:
+  - (a) `MetricHistory.load` reads 8 weeks (plus the trend's 90-day lead-in for weight) when the sheet opens, turns them into a `[day start: value]` map, and one `history(...)` splits that into 8 weeks of 7 days, each week's value and coverage made by the metric's own `WeeklyStat` function. A day without a key is nil and shows "--".
+  - (b) Call the overview's `WeeklyHealth.load` 8 times, once per week, and add a separate per-day read.
+  - (c) A local cache of daily values filled in the background.
+- Decision: (a). Weight's week value is the trend at its last weigh-in that week, with weigh-in days as coverage; HRV's day value is that day's median. Sources are the app names on the read samples; sleep intervals carry none, so sleep shows "From: --".
+- Evidence: Packages/StezuCore/Sources/StezuCore/MetricHistory.swift, App/Sources/Data/MetricDetailView.swift, DataView.swift, MetricHistoryTests, AppUITests MetricDetailUITests (commit on wt/S-024).
+- Reverse if: opening a detail is slow on the device (8 weeks of raw step samples for the source names); then read sources from `HealthSources` once and pass them in.
+
+## D-061 History groups sessions into Monday-to-Sunday weeks when it opens, from the sessions themselves
 
 - Status: proposed by night agent, 2026-10-25 (S-010).
 - Problem: History must show weeks newest first with each week's sessions and working-set count, and a week with no session must not appear as a row of zeros, while sessions keep arriving from two places (seeded history and finished-workouts.json).

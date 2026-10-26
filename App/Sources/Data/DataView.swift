@@ -1,7 +1,7 @@
 import StezuCore
 import SwiftUI
 
-/// The Data area's root screen. The first open explains what Stezu reads and writes with one
+/// The Data area's root screen. The first open explains what Ingest reads and writes with one
 /// Connect button (S-020); once Health has asked, Data opens to the overview. Keep the
 /// "screen.data.title" id on its title so the smoke UI test still finds it.
 struct DataView: View {
@@ -9,16 +9,17 @@ struct DataView: View {
   @Environment(\.appEnvironment) private var environment
   @State private var connected: Bool?
   @State private var sourcesOpen = false
+  @State private var metric: Metric?
 
   var body: some View {
     AreaScaffold(area: .data, title: "This week", goHome: goHome) {
       if connected ?? environment.healthConnection.isConnected {
-        WeightRow()
-        WeeklyHealthRows()
+        WeightRow { metric = $0 }
+        WeeklyHealthRows { metric = $0 }
         pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }
       } else {
         Text(
-          "Stezu reads weight, steps, heart rate, HRV, resting heart rate, sleep, food and "
+          "Ingest reads weight, steps, heart rate, HRV, resting heart rate, sleep, food and "
             + "workouts to show your week. It writes weigh-ins, meals and strength workouts so "
             + "they sit in Health with everything else. Health asks once, for all of them."
         )
@@ -34,6 +35,7 @@ struct DataView: View {
     .sheet(isPresented: $sourcesOpen) {
       SourcesView(store: environment.healthStore).presentationDragIndicator(.visible)
     }
+    .sheet(item: $metric) { MetricDetailView(metric: $0).presentationDragIndicator(.visible) }
   }
 
   private func pill(_ title: String, id: String, inverted: Bool, action: @escaping () -> Void)
