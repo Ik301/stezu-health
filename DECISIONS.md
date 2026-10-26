@@ -933,3 +933,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a), a few lines in `FakeVMTransport.send`.
 - Evidence: Packages/StezuCore/Sources/StezuCore/VMTransport.swift, App/Sources/UITestFixtures.swift, FoodSearchClientTests/testTextEstimateIsRough (commit on wt/S-014).
 - Reverse if: a fixture needs two pairs at once; then switch to (b).
+## D-067 Health sync reads one anchored page at a time and saves it to an on-device queue with its anchor before sending
+
+- Status: proposed by night agent, 2026-10-25 (S-028).
+- Problem: every Health type the app reads has to reach POST /sync, first as a 90-day backfill and then only as changes (deletions included), in requests of about 2,000 items, without blocking the UI and without losing anything when there is no server, no network or a 5xx.
+- Given: the /sync contract (D-053): samples keyed by HealthKit UUID, deletions kept as tombstones, a replayed `batch_id` is safe, at most 5,000 items per request. `HealthStore` is the only way into HealthKit; `VMTransport` the only way to the server, and it throws `notConfigured` until Settings has a server.
+- Constraints:
+  - Moving an anchor before its batch is safely stored loses those samples if the app dies or the send fails.
+  - Reading the whole backfill into memory and the queue at once makes one very large state file that gets rewritten after every batch.
+  - Two passes at once (open, foreground, Finish, Sync now) could both send the head of the queue and then both drop it, which removes a batch that was never sent.
+  - Showing a sync time when the server never answered breaks "absent is not zero".
+- Options:
+  - (a) Per type, read one page of at most 2,000 changes from the stored anchor (`HealthStore.changes`, HKAnchoredObjectQueryDescriptor in the app); append it to `SyncState.pending` as a batch with a new UUID, store the new anchor, save the state (sync-state.json), then send the queue in order. A batch leaves the queue only on a 2xx, and the first failure ends the pass. The `HealthSync` actor runs one pass at a time.
+  - (b) Send straight from the query results and move the anchor only after a 2xx; nothing is queued.
+  - (c) Read everything first, queue all of it, then send.
+- Decision: (a). A batch and its anchor are saved together, so a crash or failure leaves either the old anchor (the page is read again) or the queued batch (resent with the same `batch_id`), never a gap. Since a pass stops at the first failure, the queue holds at most one page while offline. After the queue is empty, GET /sync/status gives `samples_total`; only a 200 there sets `lastSyncAt`. Settings shows "--" until then, and adds "n waiting" while batches are queued. Passes run on open and foreground (scenePhase active) and after Finish, detached at utility priority. `-uitest` syncs only on Sync now.
+- Evidence: Packages/StezuCore/Sources/StezuCore/HealthSync.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Settings/HermesSync.swift, HealthSyncTests (commit 531f56a on wt/S-028).
+- Reverse if: a 4xx other than 413 shows up in practice (a 400 batch would stay at the head of the queue for good, so it would need to be logged and dropped), or the first backfill takes so long that iOS suspends it often; then send pages from a background task.

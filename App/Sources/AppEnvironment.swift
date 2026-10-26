@@ -54,6 +54,7 @@ struct AppEnvironment: Sendable {
   var healthConnection = HealthConnection(defaults: nil)
   /// The time Data reads its week at: the clock, or a fixed synthetic Sunday in `-uitest`.
   var now: @Sendable () -> Date = { Date() }
+  var healthSync = HealthSync(state: SyncState())  // Health to the VM server (S-028)
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -64,7 +65,8 @@ struct AppEnvironment: Sendable {
       vmTransport: settings.load().transport(), photoSource: LiveCameraPhotoSource(),
       serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk),
       restAlerts: LiveRestAlerts(), programFilePicker: .files,
-      healthConnection: HealthConnection(defaults: .standard))
+      healthConnection: HealthConnection(defaults: .standard),
+      healthSync: HermesSyncFile.engine(storage: .disk))
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.
@@ -75,7 +77,8 @@ struct AppEnvironment: Sendable {
         samples: UITestFixtures.healthSamples(scenario: scenario)
           + UITestFixtures.weekHealthSamples(scenario: scenario)
           + UITestFixtures.strapSamples(scenario: scenario),
-        sleep: UITestFixtures.sleep(scenario: scenario)),
+        sleep: UITestFixtures.sleep(scenario: scenario),
+        changes: UITestFixtures.healthChanges(scenario: scenario)),
       vmTransport: FakeVMTransport(
         routes: UITestFixtures.vmRoutes, offline: offline,
         held: UITestFixtures.heldRoutes(scenario: scenario)),
