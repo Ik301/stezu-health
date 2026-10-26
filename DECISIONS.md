@@ -1204,7 +1204,18 @@ The research notes cited here are kept private, because they contain personal he
 - Reverses: D-052's upsert-only import, under its own Reverse-if.
 - Reverse if: Isaac wants to keep several programs side by side. Then programs become named sets, not a single list.
 
-## D-084 A replace is checked, confirmed, then written as one library value with a seed-stop flag and the removed templates' names
+## D-084 Optional blocks (Abs) are add-on templates appended to the current workout, not separate workouts
+
+- Status: decided 2026-10-26. Isaac wants an optional abs section that can follow any day. The mechanism is proposed (S-035).
+- What: a program file can mark a template `"addOn": true`. While a workout is running, the logger shows "+ <name>". Tapping it appends that template's exercises to the same workout.
+- Options considered:
+  - (a) Add-on templates appended in-session: chosen.
+  - (b) Abs as its own workout. It costs a second Start and Finish, and makes two Health workouts for one gym visit.
+  - (c) An "optional" flag on exercises inside each day. The same exercises would be copied into every day, and a change would have to be made in several places.
+- Why (a): one tap, one session, and the block is defined once.
+- Reverse if: add-ons need to run on their own (a home abs day). Then also allow starting an add-on as a workout.
+
+## D-085 A replace is checked, confirmed, then written as one library value with a seed-stop flag and the removed templates' names
 
 - Status: proposed by night agent, 2026-10-26 (S-034).
 - Problem: under D-083 an import removes templates, but past sessions name themselves only by template key, a newer bundled seed would add the removed days back at the next launch, and older library files must still load.
