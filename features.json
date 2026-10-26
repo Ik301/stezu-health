@@ -655,7 +655,7 @@
         "s016-product"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-017",

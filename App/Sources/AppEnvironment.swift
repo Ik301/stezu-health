@@ -57,6 +57,8 @@ struct AppEnvironment: Sendable {
   var healthSync = HealthSync(state: SyncState())  // Health to the VM server (S-028)
   /// Logged meals a scenario seeds (S-023); the live app's meals are in `mealCaptures`.
   var mealHistory: [LoggedMeal] = []
+  /// Barcode mode's codes (S-016): VisionKit's scanner, or a synthetic code in `-uitest`.
+  var barcodeSource = BarcodeSource.camera
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -92,7 +94,8 @@ struct AppEnvironment: Sendable {
       healthConnection: HealthConnection(
         defaults: nil, asked: UITestFixtures.isDataWeek(scenario)),
       now: UITestFixtures.clock(scenario: scenario),
-      mealHistory: UITestFixtures.loggedMeals(scenario: scenario))
+      mealHistory: UITestFixtures.loggedMeals(scenario: scenario),
+      barcodeSource: .fixture(UITestFixtures.barcode(scenario: scenario)))
   }
 
   /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.

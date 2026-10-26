@@ -1003,3 +1003,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Deleting a session leaves its Health copy in Health, where it then shows as a read-only Health workout.
 - Evidence: Packages/StezuCore/Sources/StezuCore/DayRecords.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/DayView.swift, DayRecordsTests (commit on wt/S-025).
 - Reverse if: sessions need deleting from Health too (add a workout delete by external id), or records gain stable ids from a shared store.
+
+## D-071 A scanned code is looked up once at a time, decodes like a packaged search pick, and "not found" is its own state
+
+- Status: proposed by night agent, 2026-10-26 (S-016).
+- Problem: in Barcode mode the scanner reports codes continuously while the camera points at a package, the reply for a known product must reach the same item list as a search pick, and an unknown code must not look like a product with no values.
+- Given: GET /barcode/{gtin} answers `{"status": "found", ...}` with the same product fields as a packaged search result (`per_serving`), or `{"status": "not_found", "gtin": ...}` with HTTP 200; errors are 400 or 502 (server/README.md, server/stezu_server/app.py). A search pick opens the item list at 1 serving with a range around its per-serving value (D-065). The photo camera runs its own AVCaptureSession (S-012).
+- Constraints:
+  - Looking up every report breaks the screen: the same code would open the list again and again, and replies could arrive out of order.
+  - A second decoder for the product fields breaks consistency: a barcode item and the same search item could show different ranges.
+  - Mapping "not found" to an empty item breaks absent-is-not-zero (it would show 0 or "--" kcal as if it were a product).
+  - Running the photo session and VisionKit's scanner at once breaks on the phone (one camera, two sessions).
+- Options:
+  - (a) The scanner passes only newly recognized codes (DataScanner's didAdd), the screen drops codes that are not 8 to 14 digits and any code while a lookup or a sheet is open, `BarcodeClient` decodes a found reply with the search result decoder and returns `.found(item)` or `.notFound(gtin)`; any other status or HTTP error throws and shows "Could not look up the code". Barcode mode stops the photo session and Photo mode restarts it.
+  - (b) Debounce codes by time and look up the last one.
+  - (c) Let the scanner stop after the first code and restart it when the sheet closes.
+- Decision: (a). In `-uitest` `BarcodeSource.fixture` delivers one synthetic code 8 seconds after the switch. A found product opens the existing pick sheet (`PickedItem`), so Log works as for a search pick.
+- Evidence: Packages/StezuCore/Sources/StezuCore/Barcode.swift, Packages/StezuCore/Sources/StezuCore/FoodSearch.swift, App/Sources/Food/BarcodeScanner.swift, App/Sources/Food/FoodView.swift, BarcodeClientTests, BarcodeUITests (commit on wt/S-016).
+- Reverse if: products with no per-serving values are common enough to need a per-100 g or per-package choice, or the scanner has to read several packages for one meal.

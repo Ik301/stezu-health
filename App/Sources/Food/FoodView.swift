@@ -19,6 +19,7 @@ struct FoodView: View {
   /// The meal just logged, while its undo toast shows.
   @State private var logged: UUID?
   @State private var logFailed = false
+  @State private var barcode = BarcodeState.scanning
   @FocusState private var searching: Bool
 
   var body: some View {
@@ -27,6 +28,12 @@ struct FoodView: View {
       searchBar.padding(.top, 10)
       if trimmedQuery.isEmpty {
         Spacer()
+        if mode == "Barcode" {
+          BarcodeStatusView(state: barcode) {
+            mode = "Photo"
+            searching = true
+          }
+        }
         if cameraAllowed == false { deniedMessage }
         if captureFailed {
           Text("Could not take the photo.").foregroundStyle(.white)
@@ -54,6 +61,7 @@ struct FoodView: View {
       await startCamera()
       await retryQueue()
     }
+    .task(id: mode) { await barcodeMode() }
     .onDisappear { (environment.photoSource as? LiveCameraPhotoSource)?.stop() }
     // Reading match and today here makes the body depend on them, so the sheet updates.
     .sheet(item: $captured) { [match, today] meal in
@@ -77,7 +85,11 @@ struct FoodView: View {
   }
 
   @ViewBuilder private var cameraImage: some View {
-    if let live = environment.photoSource as? LiveCameraPhotoSource, cameraAllowed == true {
+    if mode == "Barcode", case .camera = environment.barcodeSource, cameraAllowed == true,
+      BarcodeScannerView.available
+    {
+      BarcodeScannerView { code in Task { await scanned(code) } }
+    } else if let live = environment.photoSource as? LiveCameraPhotoSource, cameraAllowed == true {
       CameraPreview(session: live.session)
     } else if environment.isUITest, let plate = UIImage(data: FixturePhotoSource.plateJPEG()) {
       Image(uiImage: plate).resizable().scaledToFill()
@@ -202,6 +214,38 @@ struct FoodView: View {
       match = result
     } catch {
       captureFailed = true
+    }
+  }
+
+  /// Barcode mode hands the camera to the scanner (S-016); Photo mode takes it back. In `-uitest`
+  /// the fixture code arrives 8 seconds after the switch.
+  private func barcodeMode() async {
+    barcode = .scanning
+    let live = environment.photoSource as? LiveCameraPhotoSource
+    guard mode == "Barcode" else {
+      if cameraAllowed == true { live?.start() }
+      return
+    }
+    live?.stop()
+    guard case .fixture(let code) = environment.barcodeSource,
+      (try? await Task.sleep(nanoseconds: 8_000_000_000)) != nil
+    else { return }
+    await scanned(code)
+  }
+
+  /// GET /barcode for a scanned code; a product opens the item list at 1 serving, ready to Log.
+  private func scanned(_ code: String) async {
+    guard mode == "Barcode", barcode != .lookingUp, picked == nil, captured == nil,
+      BarcodeClient.isGTIN(code)
+    else { return }
+    barcode = .lookingUp
+    do {
+      switch try await BarcodeClient(transport: environment.vmTransport).lookup(code) {
+      case .found(let item): (barcode, picked) = (.scanning, PickedItem(item: item))
+      case .notFound: barcode = .notFound
+      }
+    } catch {
+      barcode = .failed
     }
   }
 
