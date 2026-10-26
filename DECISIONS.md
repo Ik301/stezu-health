@@ -786,11 +786,11 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyWeight.swift, HealthStore.swift, App/Sources/Data/WeightRow.swift, App/Sources/Health/HealthKitStore.swift, HealthStoreTests, WeighInTests, AppUITests WeightUITests (commit on wt/S-021).
 - Reverse if: Isaac weighs in on a smart scale that writes to Health; then the allowed bundle ids become a setting (`weighIns(_:bundleIDs:)` already takes the set).
 
-## D-057 Weekly context rows read per-day statistics and sleep stages from Health, keyed by day, and a day without data is a missing key
+## D-058 Weekly context rows read per-day statistics and sleep stages from Health, keyed by day, and a day without data is a missing key
 
 - Status: proposed by night agent, 2026-10-25 (S-022).
 - Problem: steps, resting heart rate, sleep and HRV each need one weekly number and a coverage count, but several apps can write the same type (phone and strap both count steps, two apps can record one night), and a week with no readings must stay distinguishable from a week of zeros.
-- Given: `HealthStore` is the only path to Health (FakeHealthStore in tests and -uitest). HealthKit's statistics collection query merges overlapping sources per bucket; raw sample queries do not. sleepAnalysis samples are stage intervals (in bed, awake, core, deep, REM, unspecified). The week runs Monday to Sunday (D-056).
+- Given: `HealthStore` is the only path to Health (FakeHealthStore in tests and -uitest). HealthKit's statistics collection query merges overlapping sources per bucket; raw sample queries do not. sleepAnalysis samples are stage intervals (in bed, awake, core, deep, REM, unspecified). The week runs Monday to Sunday (D-057).
 - Constraints:
   - Summing raw step samples breaks the total: a phone and a strap counting the same walk double it.
   - Dating a night by its start date breaks nights that cross midnight, and summing every stage counts time in bed and awake.
