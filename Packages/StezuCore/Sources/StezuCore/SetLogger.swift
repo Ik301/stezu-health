@@ -26,6 +26,8 @@ public struct SetLogger: Sendable, Equatable, Codable {
   /// Exercises swapped in from the library for this session only, by template slot. The
   /// template itself never changes.
   public private(set) var swaps: [Int: TemplateExercise] = [:]
+  /// Add-on blocks appended to this session (S-035); optional so loggers saved before decode.
+  private var appended: [WorkoutTemplate]?
 
   private struct LoggedSlot: Sendable, Equatable, Codable {
     let index: Int
@@ -59,11 +61,35 @@ public struct SetLogger: Sendable, Equatable, Codable {
   }
 
   public var exercise: TemplateExercise? {
-    template.exercises.indices.contains(exerciseIndex) ? exerciseInSlot(exerciseIndex) : nil
+    exercises.indices.contains(exerciseIndex) ? exerciseInSlot(exerciseIndex) : nil
   }
 
+  /// The add-ons appended so far, in the order they were added.
+  public var addOns: [WorkoutTemplate] { appended ?? [] }
+
+  /// The session's slots: the day's exercises, then each appended add-on's.
+  public var exercises: [TemplateExercise] { template.exercises + addOns.flatMap(\.exercises) }
+
   private func exerciseInSlot(_ index: Int) -> TemplateExercise {
-    swaps[index] ?? template.exercises[index]
+    swaps[index] ?? exercises[index]
+  }
+
+  /// Appends an add-on's exercises after the session's own (D-084), once per add-on. Their last
+  /// numbers come from the latest session with each exercise, whatever its template. When the
+  /// card's exercise has all its sets, the card moves to the first appended exercise.
+  public mutating func append(_ addOn: WorkoutTemplate, history: [WorkoutSession]) {
+    guard !addOns.contains(where: { $0.key == addOn.key }), !addOn.exercises.isEmpty else {
+      return
+    }
+    let first = exercises.count
+    appended = addOns + [addOn]
+    for added in addOn.exercises where last[added.name] == nil {
+      last[added.name] = WorkoutHistory.lastSession(
+        of: added.name, before: session.startedAt, in: history)
+    }
+    if let current = exercise, loggedSets.count < current.sets { return }
+    exerciseIndex = first
+    prefill(exerciseInSlot(first))
   }
 
   /// Puts a library exercise in the card's slot for this session only, keeping the slot's sets
@@ -101,7 +127,7 @@ public struct SetLogger: Sendable, Equatable, Codable {
     else { return nil }
     logOrder.append(LoggedSlot(index: exerciseIndex, name: exercise.name))
     let done = session.sets(for: exercise.name)?.count ?? 0
-    if done >= exercise.sets, exerciseIndex + 1 < template.exercises.count {
+    if done >= exercise.sets, exerciseIndex + 1 < exercises.count {
       exerciseIndex += 1
       prefill(exerciseInSlot(exerciseIndex))
     }
