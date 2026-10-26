@@ -933,3 +933,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a), a few lines in `FakeVMTransport.send`.
 - Evidence: Packages/StezuCore/Sources/StezuCore/VMTransport.swift, App/Sources/UITestFixtures.swift, FoodSearchClientTests/testTextEstimateIsRough (commit on wt/S-014).
 - Reverse if: a fixture needs two pairs at once; then switch to (b).
+
+## D-067 An edit rescales an item's own ranges by the new servings count, and Log writes the confirmed items as one file beside the meal photos
+
+- Status: proposed by night agent, 2026-10-26 (S-015).
+- Problem: before Log the item list changes (replace, half-serving steps, remove, add), the ranges and totals must follow each change without a server call, and the logged meal must be stored on the phone in a way that Undo can take back exactly.
+- Given: a matched item carries ranges for `servings` of `serving` (D-049), a search pick is an item at 1 serving (D-065), and captured meals live as files in one folder (`<id>.jpg`, `<id>.json`, `<id>.scan`, D-063).
+- Constraints:
+  - Recomputing ranges on the server breaks offline editing and costs a call per tap.
+  - Keeping a per-serving base and the count separately breaks nothing yet but adds a second item type the sheet and the store would both need.
+  - Storing logged meals inside the queue files breaks S-017's rule that nothing in the queue changes a meal's files, and Undo would have to rewrite a file instead of removing one.
+- Options:
+  - (a) `MatchedItem.withServings(n)` scales both ranges by n / servings (an item without a count is taken as 1); `MealEdit` holds the items and sums totals from them. Log writes `LoggedMeal` (status confirmed, the edited items) as `<id>.log` in the same folder; Undo deletes that file.
+  - (b) A per-serving base plus a count per line, a separate logged-meals store.
+  - (c) Send the edited list to the server and store what it returns.
+- Decision: (a). Steps are 0.5 and clamp at 0.5; a replacement keeps the servings counted for the item it replaces; an unknown range stays nil when scaled. A search pick is logged under the pick's id, a photo under the meal's id.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MealEdit.swift, App/Sources/Food/MealCapture.swift, App/Sources/Food/MealEditor.swift, MealEditTests, MealLogStoreTests (commit on wt/S-015).
+- Reverse if: logged meals have to sync to the server (/sync) or be edited after Log; then they need their own store with ids the server knows.

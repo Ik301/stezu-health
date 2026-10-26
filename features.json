@@ -627,7 +627,7 @@
         "s015-logged"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-016",
