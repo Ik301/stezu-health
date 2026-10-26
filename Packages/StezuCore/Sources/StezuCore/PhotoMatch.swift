@@ -67,6 +67,14 @@ public struct PhotoMatchClient: Sendable {
   public func scan(
     mealID: UUID, date: String, meal: MealPeriod, jpeg: Data, sha256: String
   ) async throws -> PhotoMatch {
+    try Self.decode(
+      await scanReply(mealID: mealID, date: date, meal: meal, jpeg: jpeg, sha256: sha256))
+  }
+
+  /// The raw 200 reply, so a queued meal can keep it on the phone and decode it again later.
+  public func scanReply(
+    mealID: UUID, date: String, meal: MealPeriod, jpeg: Data, sha256: String
+  ) async throws -> Data {
     let fields = [
       "meal_id": mealID.uuidString.lowercased(), "date": date, "meal": meal.rawValue,
       "mode": "dining", "image_base64": jpeg.base64EncodedString(), "photo_sha256": sha256,
@@ -75,7 +83,7 @@ public struct PhotoMatchClient: Sendable {
     let response = try await transport.send(
       VMRequest(method: "POST", path: "/scan", body: body, contentType: "application/json"))
     guard response.status == 200 else { throw PhotoMatchError.unexpectedStatus(response.status) }
-    return try Self.decode(response.body)
+    return response.body
   }
 
   public static func decode(_ body: Data) throws -> PhotoMatch {

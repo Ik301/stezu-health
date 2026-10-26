@@ -47,6 +47,63 @@ final class WeeklyHealthUITests: XCTestCase {
     XCTAssertTrue(empty.element("data.health.hint").exists, "no Sources hint")
   }
 
+  /// S-027: below the S-022 rows, blood oxygen, respiratory rate and temperature, each labelled
+  /// context with its coverage; Sources lists each new type with its app and sample count; with no
+  /// samples each value is "--" beside its coverage, never 0.
+  @MainActor
+  func testStrapContextRowsShowCoverage() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "data-week")
+
+    // Step 1: 0 taps past Data. Oxygen 6 readings, breathing 5 nights, temperature 4 nights.
+    let dataCard = app.element("home.card.data")
+    XCTAssertTrue(dataCard.waitForExistence(timeout: 30), "no Data card on Home")
+    dataCard.tap()
+    let oxygen = app.element("data.oxygen.coverage")
+    XCTAssertTrue(oxygen.waitForExistence(timeout: 10), "no Blood oxygen row")
+    XCTAssertTrue(waitForLabel(oxygen, "6 samples"), "oxygen coverage: \(oxygen.label)")
+    XCTAssertEqual(app.element("data.oxygen.value").label, "97%")
+    XCTAssertEqual(app.element("data.respiratory.value").label, "14.4 br/min")
+    XCTAssertEqual(app.element("data.respiratory.coverage").label, "5 of 7 nights")
+    XCTAssertEqual(app.element("data.temperature.value").label, "97.8 °F")
+    XCTAssertEqual(app.element("data.temperature.coverage").label, "4 of 7 nights")
+    for metric in ["oxygen", "respiratory", "temperature"] {
+      XCTAssertEqual(app.element("data.\(metric).context").label, "context", "\(metric) context")
+    }
+    XCTAssertEqual(app.element("data.steps.coverage").label, "6 of 7 days", "S-022 rows remain")
+    XCTAssertFalse(app.element("data.health.hint").exists, "hint shown with every metric present")
+    app.scrollViews.firstMatch.swipeUp()
+    saveScreenshot("s027-strap-rows", of: app)
+
+    // Step 3: Sources lists each new type with its app and sample count.
+    app.element("data.sources").tap()
+    let oxygenSource = app.element("sources.row.oxygenSaturation.recent")
+    XCTAssertTrue(oxygenSource.waitForExistence(timeout: 10), "no Blood oxygen on Sources")
+    XCTAssertTrue(waitForLabel(oxygenSource, "Last 7 days: 6 samples (Strap 6)"))
+    XCTAssertEqual(
+      app.element("sources.row.respiratoryRate.recent").label, "Last 7 days: 5 samples (Strap 5)")
+    XCTAssertEqual(
+      app.element("sources.row.bodyTemperature.recent").label, "Last 7 days: 4 samples (Strap 4)")
+    XCTAssertEqual(app.element("sources.row.wristTemperature.status").label, "--")
+
+    // Step 4: no samples this week: "--" beside the coverage, never 0.
+    app.terminate()
+    let empty = UITestApp.launch()
+    empty.element("home.card.data").tap()
+    let connect = empty.element("data.connect")
+    XCTAssertTrue(connect.waitForExistence(timeout: 10))
+    connect.tap()
+    let emptyOxygen = empty.element("data.oxygen.coverage")
+    XCTAssertTrue(emptyOxygen.waitForExistence(timeout: 10), "no Blood oxygen row")
+    XCTAssertTrue(waitForLabel(emptyOxygen, "0 samples"), "oxygen coverage: \(emptyOxygen.label)")
+    for metric in ["oxygen", "respiratory", "temperature"] {
+      XCTAssertEqual(empty.element("data.\(metric).value").label, "--", "\(metric) is not --")
+    }
+    XCTAssertEqual(empty.element("data.respiratory.coverage").label, "0 of 7 nights")
+    XCTAssertEqual(empty.element("data.temperature.coverage").label, "0 of 7 nights")
+    XCTAssertTrue(empty.element("data.health.hint").exists, "no Sources hint")
+  }
+
   @MainActor
   private func waitForLabel(_ element: XCUIElement, _ label: String) -> Bool {
     let match = NSPredicate(format: "label == %@", label)

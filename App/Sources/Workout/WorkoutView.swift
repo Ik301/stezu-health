@@ -18,6 +18,7 @@ struct WorkoutView: View {
   @State private var resumable: SetLogger?
   /// The saved logger the open logger was resumed from; nil for a new session.
   @State private var resuming: SetLogger?
+  @State private var showHistory = false  // the History sheet (S-010)
 
   private static let emptyWorkout = WorkoutTemplate(
     key: "empty", name: "Empty workout", exercises: [])
@@ -27,7 +28,7 @@ struct WorkoutView: View {
       if let active {
         WorkoutLoggerView(
           template: active, resuming: resuming,
-          history: environment.workoutHistory + (finished ?? []).map(\.session),
+          history: history,
           onFinish: finish)
       } else {
         ScrollView { today }
@@ -42,9 +43,20 @@ struct WorkoutView: View {
       }
       if active == nil { loadSaved() }
     }
+    .sheet(isPresented: $showHistory) {
+      WorkoutHistoryView(
+        sessions: history,
+        names: Dictionary(
+          (library?.templates ?? []).map { ($0.key, $0.name) }, uniquingKeysWith: { a, _ in a }))
+    }
     .fileImporter(isPresented: $picking, allowedContentTypes: [.json]) { result in
       importProgram((try? result.get()).flatMap(WorkoutTemplateStore.read))
     }
+  }
+
+  /// Past sessions: the seeded ones plus every finished session.
+  private var history: [WorkoutSession] {
+    environment.workoutHistory + (finished ?? []).map(\.session)
   }
 
   private func importProgram(_ data: Data?) {
@@ -119,6 +131,18 @@ struct WorkoutView: View {
           "Working sets", week.isEmpty ? nil : week.reduce(0) { $0 + $1.workingSets },
           id: "workout.week.sets")
       }
+      Button {
+        showHistory = true
+      } label: {
+        Text("History")
+          .font(.system(size: Theme.subtitleSize))
+          .foregroundStyle(Theme.text)
+          .padding(16)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .background(card(inverted: false))
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("workout.history")
       ForEach(Array(week.enumerated()), id: \.offset) { index, workout in
         sessionRow(workout, id: "workout.session.\(index)")
       }

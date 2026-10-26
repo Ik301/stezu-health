@@ -482,7 +482,7 @@
         "s010-session"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-011",
@@ -684,7 +684,7 @@
         "s017-matched-later"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-018",
@@ -965,7 +965,7 @@
         "s027-strap-rows"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-028",

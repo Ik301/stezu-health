@@ -833,7 +833,59 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/MetricHistory.swift, App/Sources/Data/MetricDetailView.swift, DataView.swift, MetricHistoryTests, AppUITests MetricDetailUITests (commit on wt/S-024).
 - Reverse if: opening a detail is slow on the device (8 weeks of raw step samples for the source names); then read sources from `HealthSources` once and pass them in.
 
-## D-061 The saved logger is the resume point; idle time runs from its last set, and an idle session is finished, not resumed
+## D-061 History groups sessions into Monday-to-Sunday weeks when it opens, from the sessions themselves
+
+- Status: proposed by night agent, 2026-10-25 (S-010).
+- Problem: History must show weeks newest first with each week's sessions and working-set count, and a week with no session must not appear as a row of zeros, while sessions keep arriving from two places (seeded history and finished-workouts.json).
+- Given: finished sessions live in finished-workouts.json (D-056) and the Workout screen already holds them with the seeded `workoutHistory`. The week runs Monday to Sunday (D-056, D-057). Every logged set counts as a working set (S-008).
+- Constraints:
+  - Storing weekly totals beside the sessions breaks when a session is added or a store is rewritten: the totals go stale.
+  - Walking calendar weeks from the oldest session to today breaks rule 5: gap weeks would need a row, and the easy row is 0.
+  - Using the calendar's own first weekday breaks the Monday start on a device set to Sunday.
+- Options:
+  - (a) `WeeklyHistory.weeks` buckets the sessions by the Monday of their week (`firstWeekday = 2`) each time History opens, so only weeks with a session exist; the exercise page filters the same sessions by name.
+  - (b) Keep a weekly index file updated on each Finish.
+  - (c) Enumerate every week back to the first session and hide the empty ones in the view.
+- Decision: (a). History is a read-only sheet over `environment.workoutHistory` plus the finished sessions; nothing new is stored.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHistory.swift, App/Sources/Workout/WorkoutHistoryView.swift, App/Sources/Workout/WorkoutView.swift, WeeklyHistoryTests, AppUITests WorkoutHistoryUITests (commit on wt/S-010).
+- Reverse if: history grows to thousands of sessions and opening History lags; then cache the weeks and rebuild them on Finish.
+
+## D-062 Strap context rows take the median of raw readings, and breathing and temperature are counted by night
+
+- Status: proposed by night agent, 2026-10-25 (S-027).
+- Problem: blood oxygen, respiratory rate and temperature need one weekly number and a coverage count each, but a strap writes them at night in uneven bursts, Health stores oxygen as a fraction, and an Apple Watch writes a different temperature type than a strap does.
+- Given: `HealthStore.samples(of:since:)` returns raw samples with values in each type's unit (fraction, count/min, °F). Sleep nights already belong to the day they end on, with anything after 18:00 counted toward the next day (D-058). The week runs Monday to Sunday.
+- Constraints:
+  - A mean of raw readings breaks on bursts: one night with many readings outweighs the rest, and a single spike moves it.
+  - Counting oxygen coverage in days breaks the strap's pattern of many readings a night; counting breathing and temperature by reading hides how many nights are covered.
+  - Mixing wrist temperature (Watch) with body temperature (strap) in one median breaks the number, because the two sit at different levels.
+  - Showing 0 with no samples breaks rule 5.
+- Options:
+  - (a) Median of every reading in the week; oxygen is scaled to percent and its coverage counts readings; respiratory rate and temperature are grouped into nights the same way as sleep and their coverage counts nights. Temperature uses body temperature, and wrist temperature only when no app wrote body temperature that week.
+  - (b) Per-day statistics queries (discrete average) as S-022 does for resting heart rate.
+  - (c) Pick one source app per type and average it.
+- Decision: (a). Read access for oxygenSaturation, respiratoryRate, bodyTemperature and appleSleepingWristTemperature joins the one Connect request, and all four appear on Sources. Every value is nil, shown as "--", when its coverage is 0.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthSources.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, AppUITests WeeklyHealthUITests (commit on wt/S-027).
+- Reverse if: Isaac's strap turns out to write only body temperature deviations, or a Watch and a strap both write temperature; then show the type in use beside the value, or let Sources pick one.
+
+## D-063 A meal is pending until its scan reply is saved beside the photo; opening Food retries pending meals oldest first and never deletes one
+
+- Status: proposed by night agent, 2026-10-25 (S-017).
+- Problem: a photo taken without a connection (or before a server is set) must survive relaunches, show as pending rather than 0 kcal, and get matched later in capture order, without the queue ever dropping a meal.
+- Given: the shutter already saves `<id>.jpg` and `<id>.json` before any network call (S-012), `PhotoMatchClient` sends POST /scan (S-013), and `VMTransport` throws `VMTransportError` when offline or unconfigured.
+- Constraints:
+  - A separate queue file or database breaks the single source of truth: it can disagree with the photos on disk after a crash.
+  - Re-encoding `PhotoMatch` needs Codable on every food model, which adds lines past the diff budget.
+  - A background retry timer or BGTask needs a capability (Info.plist key), ruled out on a card branch.
+- Options:
+  - (a) State from files: a meal with `<id>.scan` (the raw 200 reply) is matched, one without it is pending. `MealQueue.retry` walks pending meals oldest first; a `VMTransportError` ends the round, any other failure leaves that meal pending and moves on. Retries run when Food opens.
+  - (b) A queue.json list of pending ids, rewritten on each change.
+  - (c) Retry on a timer while the app is open.
+- Decision: (a). Nothing in the queue deletes files. The newest meal matched in a round opens in the sheet. Today's line counts pending meals for the day and shows logged kcal as "--" until meals can be logged (S-015), never 0.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MealQueue.swift, PhotoMatch.swift (`scanReply`), App/Sources/Food/MealCapture.swift, PhotoMatchSheet.swift, FoodView.swift, MealQueueTests, AppTests MealQueueStoreTests, AppUITests OfflineQueueUITests (commit on wt/S-017).
+- Reverse if: meals must match while Food stays closed (retry from the app's scene phase instead), or the queue grows large enough that reading every reply on open is slow.
+
+## D-064 The saved logger is the resume point; idle time runs from its last set, and an idle session is finished, not resumed
 
 - Status: proposed by night agent, 2026-10-25 (S-009).
 - Problem: a workout must survive the app being closed mid-session and reopen on the same exercise with its sets, while a session left open for hours must not stay open forever or end at the moment the app happens to be reopened.
