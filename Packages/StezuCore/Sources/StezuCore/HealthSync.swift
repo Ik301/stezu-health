@@ -67,7 +67,6 @@ public struct SyncState: Codable, Sendable, Equatable {
 /// before it is sent, and leaves the queue only on a 2xx. A failure ends the run, queue kept.
 public actor HealthSync {
   public static let batchSize = 2000
-  public static let backfillDays = 90
   public private(set) var state: SyncState
   private let save: @Sendable (SyncState) -> Void
   private var running = false
@@ -85,7 +84,7 @@ public actor HealthSync {
     running = true
     defer { running = false }
     guard await flush(transport) else { return state }
-    let since = now.addingTimeInterval(-Double(Self.backfillDays) * 86_400)
+    let since = now.addingTimeInterval(-90 * 86_400)  // the first sync backfills 90 days
     for type in HealthType.allCases {
       while let page = try? await health?.changes(
         of: type, after: state.anchors[type.rawValue], since: since, limit: Self.batchSize),
