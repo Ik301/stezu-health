@@ -1232,3 +1232,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The screen checks the picked file with `WorkoutTemplateStore.check` (no change), holds the templates in `pending` and shows an alert naming them; Replace applies and saves the library, Cancel drops `pending`. A refused file shows its message without the alert. Nothing is queued for the server and no session or sync file is written.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift, ProgramImport.swift, App/Sources/Workout/ProgramFilePicker.swift, App/Sources/Workout/WorkoutView.swift, Packages/StezuCore/Tests/StezuCoreTests/ProgramImportTests.swift (1fbff75).
 - Reverse if: programs become named sets (D-083's Reverse-if), or a template is renamed often enough that history should show the name it had at the time.
+
+## D-086 Appended add-ons live in the logger as extra slots after the day's, saved with it, with last numbers from any template
+
+- Status: proposed by night agent, 2026-10-26 (S-035).
+- Problem: under D-084 an add-on's exercises join a workout already running, and they must log, undo, swap, rest, survive a relaunch and finish as one session under the day's key, while add-ons follow different days and the logger's saved file predates them.
+- Given: D-046 (sessions carry `templateKey`; last numbers prefer the same template, by exercise name). D-055 (`SetLogger` is saved whole as active-workout.json after every change and resumed from it). D-083 (an import replaces the library's templates). Logging, undo and swap address exercises by slot index; the S-030 records take exercise keys from the templates by name.
+- Constraints:
+  - Changing `SetLogger.template` to a merged template breaks the session's day key and the resume card's name.
+  - A second session for the add-on breaks "one Finish, one Health workout, one workout_session".
+  - A new non-optional stored field breaks decoding of a logger saved before this card (keyNotFound), which loses the workout in progress.
+  - Same-template lookups for add-on exercises break their last numbers, since the add-on never appears as a session's template.
+- Options:
+  - (a) `WorkoutTemplate.addOn` (decodeIfPresent, default false); `TemplateLibrary.days` (rotation and list) and `addOns`. The logger stores appended add-on templates in an optional field; its slots are the day's exercises then each add-on's, and every slot lookup reads them, so log, undo, swap and rest work unchanged. `append` looks up each new exercise's last numbers with `WorkoutHistory.lastSession` (any template) unless the day already has that exercise, and moves the card to the first appended slot only when the card's exercise has all its sets.
+  - (b) Merge the add-on into a copy of the day's template inside the logger.
+  - (c) A second logger for the add-on, merged into one session at Finish.
+- Decision: (a). Sessions still hold exercises by name and only logged ones, so an unlogged appended exercise is never saved, and the session record finds add-on keys because `workoutNames` reads every library template.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift, WorkoutTemplate.swift; App/Sources/Workout/WorkoutLoggerView.swift; SetLoggerTests/testAppendAddOnKeepsOneSessionAndSkipsUnloggedExercises (commit on wt/S-035).
+- Reverse if: the logger gains free navigation between exercises; then the card need not wait for the day's current exercise before moving into the add-on.

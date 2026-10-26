@@ -11,6 +11,8 @@ struct WorkoutLoggerView: View {
   @State private var rest: RestActivityController?
   @State private var showLibrary = false  // the Exercises library sheet (S-007)
   private let history: [WorkoutSession]
+  /// The program's add-on blocks (S-035), each offered once as "+ <name>".
+  private let addOns: [WorkoutTemplate]
 
   /// Finish (S-008): hands the session to the Workout screen, which closes the logger.
   private let onFinish: (WorkoutSession) -> Void
@@ -18,9 +20,9 @@ struct WorkoutLoggerView: View {
   /// `resuming` (S-009) reopens a saved logger as it was; otherwise a new session starts now.
   init(
     template: WorkoutTemplate, resuming: SetLogger? = nil, history: [WorkoutSession] = [],
-    onFinish: @escaping (WorkoutSession) -> Void = { _ in }
+    addOns: [WorkoutTemplate] = [], onFinish: @escaping (WorkoutSession) -> Void = { _ in }
   ) {
-    self.history = history
+    (self.history, self.addOns) = (history, addOns)
     _logger = State(
       initialValue: resuming
         ?? SetLogger(template: template, startedAt: Date(), history: history))
@@ -62,6 +64,16 @@ struct WorkoutLoggerView: View {
           .disabled(!logger.canUndo)
           .opacity(logger.canUndo ? 1 : 0.4)
           .accessibilityIdentifier("workout.logger.undo")
+        // One tap appends the block to this workout; the button goes once it is added.
+        ForEach(addable, id: \.key) { addOn in
+          Button("+ \(addOn.name)") { logger.append(addOn, history: history) }
+            .font(.system(size: Theme.subtitleSize, weight: .semibold))
+            .foregroundStyle(Theme.text)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .overlay(Capsule().strokeBorder(Theme.text, lineWidth: 1))
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("workout.logger.addon.\(addOn.key)")
+        }
       }
     }
     .scrollIndicators(.hidden)
@@ -75,6 +87,11 @@ struct WorkoutLoggerView: View {
       }
       .environment(\.appEnvironment, environment)
     }
+  }
+
+  /// The add-ons not yet appended to this workout.
+  private var addable: [WorkoutTemplate] {
+    addOns.filter { addOn in !logger.addOns.contains { $0.key == addOn.key } }
   }
 
   private var logCard: some View {

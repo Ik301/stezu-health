@@ -60,8 +60,9 @@ extension WorkoutTemplateStore {
 extension UITestFixtures {
   /// The program the fixture picker returns: a generic two-template file, Push then Pull, with
   /// fewer templates than the seed (D-034). The "program-invalid" scenario returns one with a
-  /// broken rep range instead.
+  /// broken rep range instead, and "program-addon" two days plus an Abs add-on (S-035).
   static func programFile(scenario: String?) -> Data {
+    if scenario == "program-addon" { return addOnProgramFile }
     let repsHigh = scenario == "program-invalid" ? 6 : 12
     return Data(
       """
@@ -74,4 +75,17 @@ extension UITestFixtures {
         {"key": "biceps-curl", "name": "Biceps curl", "sets": 3, "repsLow": 10, "repsHigh": 15, "restSeconds": 60}]}]}
       """.utf8)
   }
+
+  /// Two one-exercise days and an Abs add-on with two exercises, all generic (D-034).
+  static let addOnProgramFile = Data(
+    """
+    {"seedVersion": 1, "templates": [
+    {"key": "push", "name": "Push", "exercises": [
+      {"key": "bench-press", "name": "Bench press", "sets": 1, "repsLow": 6, "repsHigh": 10, "restSeconds": 150, "startPounds": 45}]},
+    {"key": "pull", "name": "Pull", "exercises": [
+      {"key": "barbell-row", "name": "Barbell row", "sets": 1, "repsLow": 6, "repsHigh": 10, "restSeconds": 150, "startPounds": 45}]},
+    {"key": "abs", "name": "Abs", "addOn": true, "exercises": [
+      {"key": "cable-crunch", "name": "Cable crunch", "sets": 2, "repsLow": 10, "repsHigh": 15, "restSeconds": 45, "startPounds": 30},
+      {"key": "leg-raise", "name": "Hanging leg raise", "sets": 2, "repsLow": 8, "repsHigh": 12, "restSeconds": 45}]}]}
+    """.utf8)
 }

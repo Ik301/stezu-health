@@ -1214,7 +1214,7 @@
         "s035-addon-appended"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     }
   ]
 }

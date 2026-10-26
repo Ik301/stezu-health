@@ -131,4 +131,49 @@ final class ProgramImportTests: XCTestCase {
       XCTAssertFalse(failure.message.isEmpty)
     }
   }
+
+  func testAddOnFlagParsesAndOldFilesDecode() throws {
+    let data = Data(
+      """
+      {"seedVersion": 1, "templates": [
+      {"key": "a", "name": "A", "exercises": [
+        {"key": "x", "name": "X", "sets": 3, "repsLow": 8, "repsHigh": 12, "restSeconds": 60}]},
+      {"key": "abs", "name": "Abs", "addOn": true, "exercises": [
+        {"key": "crunch", "name": "Crunch", "sets": 2, "repsLow": 10, "repsHigh": 15, "restSeconds": 45}]},
+      {"key": "b", "name": "B", "addOn": false, "exercises": [
+        {"key": "y", "name": "Y", "sets": 3, "repsLow": 8, "repsHigh": 12, "restSeconds": 60}]}]}
+      """.utf8)
+    let templates = try ProgramImport.parse(data).get()
+    XCTAssertEqual(templates.map(\.addOn), [false, true, false])
+
+    // Add-ons pass the same checks: a broken rep range refuses the whole file.
+    let broken = Data(
+      String(decoding: data, as: UTF8.self).replacingOccurrences(
+        of: "\"repsLow\": 10, \"repsHigh\": 15", with: "\"repsLow\": 10, \"repsHigh\": 5"
+      ).utf8)
+    XCTAssertEqual(
+      ProgramImport.parse(broken), .failure(.invalid("Crunch in Abs has an invalid rep range.")))
+
+    // Add-ons are not days: never in the rotation, listed apart.
+    var library = TemplateLibrary()
+    XCTAssertEqual(library.importProgram(data), .success(3))
+    XCTAssertEqual(library.days.map(\.key), ["a", "b"])
+    XCTAssertEqual(library.addOns.map(\.key), ["abs"])
+    XCTAssertEqual(library.next(after: nil)?.key, "a")
+    XCTAssertEqual(library.next(after: "a")?.key, "b")
+    XCTAssertEqual(library.next(after: "b")?.key, "a")
+    let saved = try JSONDecoder().decode(
+      TemplateLibrary.self, from: JSONEncoder().encode(library))
+    XCTAssertEqual(saved, library)
+
+    // A library file from an older build has no flag: every template is a day.
+    let old = Data(
+      """
+      {"seedVersion": 1, "editedKeys": [], "templates": [
+      {"key": "a", "name": "A", "exercises": []}, {"key": "b", "name": "B", "exercises": []}]}
+      """.utf8)
+    let decoded = try JSONDecoder().decode(TemplateLibrary.self, from: old)
+    XCTAssertEqual(decoded.days.map(\.key), ["a", "b"])
+    XCTAssertTrue(decoded.addOns.isEmpty)
+  }
 }

@@ -30,7 +30,7 @@ struct WorkoutView: View {
       if let active {
         WorkoutLoggerView(
           template: active, resuming: resuming,
-          history: history,
+          history: history, addOns: library?.addOns ?? [],
           onFinish: finish)
       } else {
         ScrollView { today }.scrollIndicators(.hidden)
@@ -139,7 +139,7 @@ struct WorkoutView: View {
     // No session history is stored yet, so the rotation starts at the first template.
     let next = library?.next(after: nil)
     let others =
-      (library?.templates ?? []).filter { resumable != nil || $0.key != next?.key }
+      (library?.days ?? []).filter { resumable != nil || $0.key != next?.key }
       + [Self.emptyWorkout]
     let week = WorkoutFinish.week(containing: Date(), in: finished ?? [])
     VStack(alignment: .leading, spacing: 12) {
