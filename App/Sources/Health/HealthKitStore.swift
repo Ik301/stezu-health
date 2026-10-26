@@ -16,9 +16,12 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
     ]
   }
 
-  /// v1 reads for the Data area. HRV and sleep are context only.
+  /// v1 reads for the Data area. HRV, sleep and the strap's oxygen, breathing and temperature
+  /// are context only.
   static var readTypes: Set<HKObjectType> {
     [
+      HKQuantityType(.oxygenSaturation), HKQuantityType(.respiratoryRate),
+      HKQuantityType(.bodyTemperature), HKQuantityType(.appleSleepingWristTemperature),
       HKQuantityType(.bodyMass), HKQuantityType(.stepCount), HKQuantityType(.heartRate),
       HKQuantityType(.heartRateVariabilitySDNN), HKQuantityType(.restingHeartRate),
       HKQuantityType(.dietaryEnergyConsumed), HKQuantityType(.dietaryProtein),
@@ -195,6 +198,10 @@ extension HealthType {
     case .dietaryEnergy: HKQuantityType(.dietaryEnergyConsumed)
     case .dietaryProtein: HKQuantityType(.dietaryProtein)
     case .workout: HKObjectType.workoutType()
+    case .oxygenSaturation: HKQuantityType(.oxygenSaturation)
+    case .respiratoryRate: HKQuantityType(.respiratoryRate)
+    case .bodyTemperature: HKQuantityType(.bodyTemperature)
+    case .wristTemperature: HKQuantityType(.appleSleepingWristTemperature)
     }
   }
 
@@ -203,7 +210,9 @@ extension HealthType {
     switch self {
     case .bodyMass: .pound()
     case .stepCount: .count()
-    case .heartRate, .restingHeartRate: .count().unitDivided(by: .minute())
+    case .heartRate, .restingHeartRate, .respiratoryRate: .count().unitDivided(by: .minute())
+    case .oxygenSaturation: .percent()
+    case .bodyTemperature, .wristTemperature: .degreeFahrenheit()
     case .heartRateVariability: .secondUnit(with: .milli)
     case .dietaryEnergy: .kilocalorie()
     case .dietaryProtein: .gram()

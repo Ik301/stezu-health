@@ -65,13 +65,31 @@ public enum WeeklyStats {
     return WeeklyStat(value: mean(values), coverage: values.count, of: unit)
   }
 
-  /// HRV: the median of every reading this week; coverage counts the readings.
-  public static func median(_ samples: [HealthSample], in week: DateInterval) -> WeeklyStat {
-    let values = samples.filter { $0.date >= week.start && $0.date < week.end }
-      .compactMap(\.value).sorted()
-    let median =
-      values.isEmpty ? nil : (values[(values.count - 1) / 2] + values[values.count / 2]) / 2
-    return WeeklyStat(value: median, coverage: values.count, of: "samples this week")
+  /// HRV and blood oxygen: the median of every reading this week times `scale` (100 turns
+  /// Health's oxygen fractions into percent); coverage counts the readings.
+  public static func median(_ samples: [HealthSample], in week: DateInterval, scale: Double = 1)
+    -> WeeklyStat
+  {
+    let values = samples.filter { $0.date >= week.start && $0.date < week.end }.compactMap(\.value)
+    return WeeklyStat(
+      value: median(values).map { $0 * scale }, coverage: values.count, of: "samples this week")
+  }
+
+  /// Respiratory rate and temperature: the median of every reading of the nights that end this
+  /// week (after 18:00 counts toward the next day, as sleep does); coverage counts those nights.
+  public static func nightlyMedian(
+    _ samples: [HealthSample], in week: DateInterval, calendar: Calendar = .current
+  ) -> WeeklyStat {
+    let nights = Dictionary(grouping: samples.filter { $0.value != nil }) {
+      calendar.startOfDay(for: $0.date + 6 * 3600)
+    }.filter { $0.key >= week.start && $0.key < week.end }
+    let values = nights.values.flatMap { $0.compactMap(\.value) }
+    return WeeklyStat(value: median(values), coverage: nights.count, of: "of 7 nights with data")
+  }
+
+  static func median(_ values: [Double]) -> Double? {
+    let sorted = values.sorted()
+    return sorted.isEmpty ? nil : (sorted[(sorted.count - 1) / 2] + sorted[sorted.count / 2]) / 2
   }
 
   /// Sleep: the mean time asleep over the nights that end this week; coverage counts the nights.
@@ -87,10 +105,11 @@ public enum WeeklyStats {
   }
 }
 
-/// The overview's steps, sleep, HRV and resting heart rate for one week; sleep and HRV are
-/// context only.
+/// The overview's steps, sleep, HRV and resting heart rate for one week, plus the strap's blood
+/// oxygen, respiratory rate and temperature (S-027); all but steps and resting HR are context.
 public struct WeeklyHealth: Sendable, Equatable {
   public let steps, sleep, hrv, restingHeartRate: WeeklyStat
+  public let bloodOxygen, respiratoryRate, temperature: WeeklyStat
 
   /// Reads the week containing `now`. A read that throws (or is denied) is absent.
   public static func load(from store: any HealthStore, now: Date, calendar: Calendar = .current)
@@ -102,10 +121,24 @@ public struct WeeklyHealth: Sendable, Equatable {
     // A night ending Monday morning starts on Sunday.
     let sleep = (try? await store.sleepIntervals(since: week.start - 86_400)) ?? []
     let hrv = (try? await store.samples(of: .heartRateVariability, since: week.start)) ?? []
+    let oxygen = (try? await store.samples(of: .oxygenSaturation, since: week.start)) ?? []
+    var nightly: [HealthType: [HealthSample]] = [:]
+    for type in [HealthType.respiratoryRate, .bodyTemperature, .wristTemperature] {
+      nightly[type] = (try? await store.samples(of: type, since: week.start - 86_400)) ?? []
+    }
+    // Wrist temperature (Apple Watch) stands in only when no app wrote body temperature.
+    let body = WeeklyStats.nightlyMedian(
+      nightly[.bodyTemperature] ?? [], in: week, calendar: calendar)
+    let wrist = WeeklyStats.nightlyMedian(
+      nightly[.wristTemperature] ?? [], in: week, calendar: calendar)
     return WeeklyHealth(
       steps: WeeklyStats.meanPerDay(steps, in: week),
       sleep: WeeklyStats.sleep(sleep, in: week, calendar: calendar),
       hrv: WeeklyStats.median(hrv, in: week),
-      restingHeartRate: WeeklyStats.meanPerDay(resting, in: week))
+      restingHeartRate: WeeklyStats.meanPerDay(resting, in: week),
+      bloodOxygen: WeeklyStats.median(oxygen, in: week, scale: 100),
+      respiratoryRate: WeeklyStats.nightlyMedian(
+        nightly[.respiratoryRate] ?? [], in: week, calendar: calendar),
+      temperature: body.coverage > 0 ? body : wrist)
   }
 }

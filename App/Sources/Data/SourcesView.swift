@@ -8,6 +8,8 @@ struct SourcesView: View {
   let store: any HealthStore
   /// Writes Health refused. Nothing writes yet; the write stories append here.
   var failedWrites: [String] = []
+  /// The end of the 7-day window: the clock, or the scenario's synthetic Sunday.
+  var now = Date()
   @State private var rows: [HealthTypeSummary]?
   @Environment(\.dismiss) private var dismiss
 
@@ -34,7 +36,7 @@ struct SourcesView: View {
       .foregroundStyle(Theme.text)
     }
     .background(Theme.background.ignoresSafeArea())
-    .task { rows = await HealthSources.load(from: store) }
+    .task { rows = await HealthSources.load(from: store, now: now) }
   }
 
   private func row(_ summary: HealthTypeSummary) -> some View {
@@ -52,7 +54,8 @@ struct SourcesView: View {
       label("Last sample: \(summary.lastSampleDate?.formatted(.dateTime) ?? "--")")
       label(
         "Last 7 days: \(summary.recentSampleCount.map { "\($0) samples" } ?? "--")"
-          + (sources.isEmpty ? "" : " (\(sources.joined(separator: ", ")))"))
+          + (sources.isEmpty ? "" : " (\(sources.joined(separator: ", ")))")
+      ).accessibilityIdentifier("\(id).recent")
       if !summary.isPresent {
         label(HealthSources.deniedHint).accessibilityIdentifier("\(id).hint")
       }

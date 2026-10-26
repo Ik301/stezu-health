@@ -113,6 +113,25 @@ enum UITestFixtures {
     }
   }
 
+  /// "data-week" strap context (S-027), all made up: blood oxygen on 6 days (fractions, median
+  /// 97%), respiratory rate on 5 nights (median 14.4 br/min), body temperature on 4 nights
+  /// (median 97.8 °F), all from a strap; no wrist temperature.
+  static func strapSamples(scenario: String?) -> [HealthSample] {
+    guard scenario == dataWeekScenario else { return [] }
+    let rows: [(HealthType, Int, [Int: Double])] = [
+      (.oxygenSaturation, 4, [5: 0.97, 6: 0.95, 7: 0.98, 8: 0.96, 9: 0.97, 10: 0.99]),
+      (.respiratoryRate, 3, [5: 14.2, 6: 15.0, 7: 14.6, 9: 13.8, 10: 14.4]),
+      (.bodyTemperature, 3, [5: 97.7, 6: 97.9, 8: 98.1, 10: 97.5]),
+    ]
+    return rows.flatMap { type, hour, days in
+      days.map {
+        HealthSample(
+          type: type, date: dataWeekDay($0.key, hour: hour), sourceName: "Strap",
+          sourceBundleID: "example.strap", value: $0.value)
+      }
+    }
+  }
+
   /// A day of January 2026 (0 and below roll back into December) in the device's calendar.
   private static func dataWeekDay(_ day: Int, hour: Int = 12) -> Date {
     let first = Calendar.current.date(
