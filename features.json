@@ -1150,6 +1150,71 @@
       ],
       "needs_server": true,
       "passes": false
+    },
+    {
+      "id": "S-034",
+      "kind": "story",
+      "area": "workout",
+      "title": "Importing a program file replaces the whole program, and workout history is kept",
+      "steps": [
+        "After a valid file is picked, a confirmation shows the file's template names: \"Replace your program with Push, Pull? Your workout history is kept.\" with Replace and Cancel. Cancel changes nothing.",
+        "Replace leaves the template list holding exactly the file's templates, in the file's order. Templates the file lacks are removed from the list. This reverses D-052's upsert-only import, as its Reverse-if allows.",
+        "History is kept. Finished sessions of removed templates stay in History under their own names, and their records on the server are untouched (no deletions are queued).",
+        "An unfinished workout started from a removed template can still be logged and finished. Its logger keeps its own copy of the exercises (D-046).",
+        "The bundled seed never brings removed templates back. Once a program has been imported, the library records it (a `programImported` flag that decodes as false from older files), and later seed upserts are skipped.",
+        "An invalid file still leaves the library exactly as it was, with the same messages as before (D-052).",
+        "Launch with -uitest, open Workout and import the generic two-template fixture over the default seed, which has more templates. The confirmation names both, and Replace leaves exactly those two in file order. A finished session from a removed template is still listed in History."
+      ],
+      "tap_budget": "Import, pick the file, Replace (1 more tap than before)",
+      "depends_on": [
+        "S-011"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ProgramImportTests/testImportReplacesWholeProgramInFileOrder",
+        "StezuCoreTests.ProgramImportTests/testSeedNeverRestoresRemovedTemplates",
+        "StezuCoreTests.ProgramImportTests/testOldLibraryFileDecodesWithoutFlag"
+      ],
+      "ui_tests": [
+        "AppUITests.ProgramImportUITests/testImportReplacesProgramAndKeepsHistory"
+      ],
+      "screenshots": [
+        "s034-replace-confirm",
+        "s034-program-replaced"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-035",
+      "kind": "story",
+      "area": "workout",
+      "title": "An optional add-on block (like Abs) can be added to the end of any workout with one tap",
+      "steps": [
+        "A template in a program file may carry \"addOn\": true. Add-ons pass the same validation as other templates. Library files from older builds decode with no add-ons. Add-ons are not listed as days on the Workout screen.",
+        "While any workout is running, the logger shows one button per add-on below the day's exercises, named after it (\"+ Abs\"). Tapping it appends the add-on's exercises to the current workout, after the day's own, and the button goes away. The appended exercises behave like any other: logging, undo, swap, and the rest timer with each exercise's rest.",
+        "It stays one workout: one Finish, one Apple Health workout, one workout_session record. The session keeps the day's template key and lists the add-on's exercises with their sets. Set records carry the add-on exercise keys. An appended exercise with no logged sets is left out of the saved session.",
+        "Last numbers for an add-on exercise come from the most recent session that had that exercise key, whatever its template, because add-ons follow different days. This extends D-046 for add-ons only.",
+        "Quitting and relaunching mid-workout keeps the appended exercises and their sets (the logger's saved state includes them).",
+        "Launch with -uitest and import a generic fixture with two days and one add-on. The Workout screen lists only the two days. Start a day, tap the add-on button, log one set of its first exercise, and Finish. History shows one session containing the add-on exercise."
+      ],
+      "tap_budget": "1 tap to add the block",
+      "depends_on": [
+        "S-034"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ProgramImportTests/testAddOnFlagParsesAndOldFilesDecode",
+        "StezuCoreTests.SetLoggerTests/testAppendAddOnKeepsOneSessionAndSkipsUnloggedExercises",
+        "StezuCoreTests.SetLoggerTests/testAddOnLastNumbersComeFromAnyTemplate"
+      ],
+      "ui_tests": [
+        "AppUITests.WorkoutLoggerUITests/testAddOnAppendsToCurrentWorkout"
+      ],
+      "screenshots": [
+        "s035-addon-button",
+        "s035-addon-appended"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }
