@@ -1182,7 +1182,7 @@
         "s034-program-replaced"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-035",

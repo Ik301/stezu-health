@@ -1214,3 +1214,21 @@ The research notes cited here are kept private, because they contain personal he
   - (c) An "optional" flag on exercises inside each day. The same exercises would be copied into every day, and a change would have to be made in several places.
 - Why (a): one tap, one session, and the block is defined once.
 - Reverse if: add-ons need to run on their own (a home abs day). Then also allow starting an add-on as a workout.
+
+## D-085 A replace is checked, confirmed, then written as one library value with a seed-stop flag and the removed templates' names
+
+- Status: proposed by night agent, 2026-10-26 (S-034).
+- Problem: under D-083 an import removes templates, but past sessions name themselves only by template key, a newer bundled seed would add the removed days back at the next launch, and older library files must still load.
+- Given: D-042 (one workout-templates.json holding `TemplateLibrary`; the seed upserts at launch when its version is newer). D-046 (sessions carry `templateKey`; the logger keeps its own copy of the template). D-052 (`ProgramImport.parse` checks the whole file first). History and the S-030 sync queue live in other files. History rows looked names up in the current templates, else showed "Workout".
+- Constraints:
+  - Storing the template name in each session breaks sessions saved before this card, which have none, and changes the finished-workout and sync formats.
+  - Bumping or clearing `seedVersion` to stop the seed breaks "an import is not a seed" and is undone by the next seed with a higher version.
+  - Synthesized decoding of a new non-optional field breaks every library file saved before this card (keyNotFound).
+  - Applying the file before Cancel can be chosen breaks "Cancel changes nothing".
+- Options:
+  - (a) The library gains `programImported` and `removedNames` (key to name), both read with `decodeIfPresent`; `replaceProgram(with:)` records the names of templates the file lacks, sets the templates to the file's in order, adds the file's keys to `editedKeys` and sets the flag; `upsert` returns false while the flag is set; History reads `names` (current templates over removed ones).
+  - (b) Names in each `WorkoutSession` and a seed opt-out in UserDefaults.
+  - (c) Keep removed templates in the library with a hidden flag.
+- Decision: (a). The screen checks the picked file with `WorkoutTemplateStore.check` (no change), holds the templates in `pending` and shows an alert naming them; Replace applies and saves the library, Cancel drops `pending`. A refused file shows its message without the alert. Nothing is queued for the server and no session or sync file is written.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift, ProgramImport.swift, App/Sources/Workout/ProgramFilePicker.swift, App/Sources/Workout/WorkoutView.swift, Packages/StezuCore/Tests/StezuCoreTests/ProgramImportTests.swift (1fbff75).
+- Reverse if: programs become named sets (D-083's Reverse-if), or a template is renamed often enough that history should show the name it had at the time.
