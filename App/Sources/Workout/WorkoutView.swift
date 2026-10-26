@@ -14,6 +14,10 @@ struct WorkoutView: View {
   @State private var importMessage: String?
   /// Finished sessions (S-008), oldest first; loaded once, appended on each Finish.
   @State private var finished: [FinishedWorkout]?
+  /// The saved workout in progress (S-009), offered as Resume in place of the black card.
+  @State private var resumable: SetLogger?
+  /// The saved logger the open logger was resumed from; nil for a new session.
+  @State private var resuming: SetLogger?
   @State private var showHistory = false  // the History sheet (S-010)
 
   private static let emptyWorkout = WorkoutTemplate(
@@ -23,7 +27,7 @@ struct WorkoutView: View {
     AreaScaffold(area: .workout, title: "Workout", goHome: goHome) {
       if let active {
         WorkoutLoggerView(
-          template: active,
+          template: active, resuming: resuming,
           history: history,
           onFinish: finish)
       } else {
@@ -37,6 +41,7 @@ struct WorkoutView: View {
       if finished == nil {
         finished = FinishedWorkoutStore(storage: environment.storage).load()
       }
+      if active == nil { loadSaved() }
     }
     .sheet(isPresented: $showHistory) {
       WorkoutHistoryView(
@@ -64,11 +69,39 @@ struct WorkoutView: View {
   /// Closes the logger at once, then writes the session to Health and keeps it either way.
   /// A session with no sets is discarded.
   private func finish(_ session: WorkoutSession) {
-    active = nil
+    (active, resuming) = (nil, nil)
     WorkoutSessionStore(storage: environment.storage).clear()
+    keep(session, endedAt: Date())
+  }
+
+  /// The saved workout in progress: offered as Resume, or, idle too long, finished at its last
+  /// set (an idle one with no sets is dropped). Runs when the Workout screen loads.
+  private func loadSaved() {
+    let store = WorkoutSessionStore(storage: environment.storage)
+    let outcome = SessionResume.atLaunch(store.load(), now: Date())
+    if case .resume(let logger) = outcome {
+      resumable = logger
+      return
+    }
+    store.clear()
+    if case .close(let session, let end) = outcome { keep(session, endedAt: end) }
+  }
+
+  /// Opens the logger on a new session. A workout still offered as Resume is finished at its
+  /// last set first, so the new session never overwrites it.
+  private func start(_ template: WorkoutTemplate) {
+    if let old = resumable, let end = SessionResume.lastSet(of: old.session) {
+      keep(old.session, endedAt: end)
+    }
+    if resumable != nil { WorkoutSessionStore(storage: environment.storage).clear() }
+    (resumable, resuming, active) = (nil, nil, template)
+  }
+
+  /// Writes the session to Health and keeps it either way; a session with no sets is dropped.
+  private func keep(_ session: WorkoutSession, endedAt end: Date) {
     let (health, storage) = (environment.healthStore, environment.storage)
     Task {
-      guard let done = await WorkoutFinish.finish(session, at: Date(), health: health) else {
+      guard let done = await WorkoutFinish.finish(session, at: end, health: health) else {
         return
       }
       var updated = finished ?? FinishedWorkoutStore(storage: storage).load()
@@ -83,10 +116,16 @@ struct WorkoutView: View {
   private var today: some View {
     // No session history is stored yet, so the rotation starts at the first template.
     let next = library?.next(after: nil)
-    let others = (library?.templates ?? []).filter { $0.key != next?.key } + [Self.emptyWorkout]
+    let others =
+      (library?.templates ?? []).filter { resumable != nil || $0.key != next?.key }
+      + [Self.emptyWorkout]
     let week = WorkoutFinish.week(containing: Date(), in: finished ?? [])
     VStack(alignment: .leading, spacing: 12) {
-      if let next { nextCard(next) }
+      if let resumable {
+        resumeCard(resumable)
+      } else if let next {
+        nextCard(next)
+      }
       HStack(spacing: 12) {
         stat("Sessions this week", week.isEmpty ? nil : week.count, id: "workout.week.sessions")
         stat(
@@ -110,7 +149,7 @@ struct WorkoutView: View {
       }
       ForEach(others, id: \.key) { template in
         Button {
-          active = template
+          start(template)
         } label: {
           Text(template.name)
             .font(.system(size: Theme.subtitleSize))
@@ -156,7 +195,7 @@ struct WorkoutView: View {
           .accessibilityIdentifier("workout.today.exercise.\(index)")
       }
       Button {
-        active = template
+        start(template)
       } label: {
         Text("Start")
           .font(.system(size: 17, weight: .semibold))
@@ -166,6 +205,34 @@ struct WorkoutView: View {
       }
       .buttonStyle(.plain)
       .accessibilityIdentifier("workout.today.start")
+    }
+    .foregroundStyle(Theme.invertedText)
+    .padding(18)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(card(inverted: true))
+  }
+
+  /// The black card while a workout is in progress: its template, sets so far, and Resume.
+  private func resumeCard(_ logger: SetLogger) -> some View {
+    let sets = logger.session.exercises.reduce(0) { $0 + $1.sets.count }
+    return VStack(alignment: .leading, spacing: 8) {
+      Text(logger.template.name)
+        .font(.system(size: 28, weight: .semibold))
+        .accessibilityIdentifier("workout.resume.name")
+      Text("\(sets) \(sets == 1 ? "set" : "sets") logged")
+        .font(.system(size: Theme.subtitleSize))
+        .accessibilityIdentifier("workout.resume.sets")
+      Button {
+        (resuming, active, resumable) = (logger, logger.template, nil)
+      } label: {
+        Text("Resume")
+          .font(.system(size: 17, weight: .semibold))
+          .foregroundStyle(Theme.text)
+          .frame(maxWidth: .infinity, minHeight: 48)
+          .background(Capsule().fill(Theme.invertedText))
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("workout.resume")
     }
     .foregroundStyle(Theme.invertedText)
     .padding(18)
