@@ -19,6 +19,7 @@ struct DataView: View {
             WeightRow { metric = $0 }
             WeeklyHealthRows { metric = $0 }
             WeeklyFoodWorkoutRows()
+            PlacesRow()
           }
         }
         .scrollIndicators(.hidden)

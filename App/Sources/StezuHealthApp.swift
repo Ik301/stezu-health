@@ -10,6 +10,7 @@ struct StezuHealthApp: App {
   init() {
     let environment = AppEnvironment.fromLaunch()
     _environment = State(initialValue: environment)
+    environment.startLocation()  // S-032: also on a background relaunch for a location event
     if environment.isUITest {
       UIView.setAnimationsEnabled(false)
     }

@@ -59,6 +59,9 @@ struct AppEnvironment: Sendable {
   var mealHistory: [LoggedMeal] = []
   /// Barcode mode's codes (S-016): VisionKit's scanner, or a synthetic code in `-uitest`.
   var barcodeSource = BarcodeSource.camera
+  /// S-032: CoreLocation or a scenario's events, and the log they are saved to (D-076).
+  var locationSource: any LocationSource = FixtureLocationSource(events: [])
+  var places = LocationRecorder { _ in }
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -70,7 +73,8 @@ struct AppEnvironment: Sendable {
       serverSettings: settings, mealCaptures: MealCaptureStore(storage: .disk),
       restAlerts: LiveRestAlerts(), programFilePicker: .files,
       healthConnection: HealthConnection(defaults: .standard),
-      healthSync: HermesSyncFile.engine(storage: .disk))
+      healthSync: HermesSyncFile.engine(storage: .disk), locationSource: CoreLocationSource(),
+      places: AppEnvironment.placesFile(storage: .disk))
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.
@@ -93,10 +97,12 @@ struct AppEnvironment: Sendable {
       workoutHistory: UITestFixtures.workoutHistory(scenario: scenario),
       programFilePicker: .fixture(UITestFixtures.programFile(scenario: scenario)),
       healthConnection: HealthConnection(
-        defaults: nil, asked: UITestFixtures.isDataWeek(scenario)),
+        defaults: nil,
+        asked: UITestFixtures.isDataWeek(scenario) || scenario == "location"),
       now: UITestFixtures.clock(scenario: scenario),
       mealHistory: UITestFixtures.loggedMeals(scenario: scenario),
-      barcodeSource: .fixture(UITestFixtures.barcode(scenario: scenario)))
+      barcodeSource: .fixture(UITestFixtures.barcode(scenario: scenario)),
+      locationSource: FixtureLocationSource(events: UITestFixtures.locations(scenario: scenario)))
   }
 
   /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.
