@@ -752,3 +752,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The swapped exercise is prefilled from its last session of any template, else with no weight ("--"). A key starting with "custom-" is what marks an exercise custom.
 - Evidence: Packages/StezuCore/Sources/StezuCore/ExerciseLibrary.swift, Packages/StezuCore/Sources/StezuCore/SetLogger.swift, App/Sources/Workout/ExerciseLibraryView.swift, App/Sources/Workout/WorkoutLoggerView.swift (wt/S-007).
 - Reverse if: a swap should be offered as a template change too ("always use this"), or custom exercises must sync between devices; then add an explicit template edit and a UUID beside the slug key.
+
+## D-056 Finish keeps the session on the phone first-class and writes Health once per external id
+
+- Status: proposed by night agent, 2026-10-25 (S-008).
+- Problem: Finish must close the logger in one tap, write the session to Apple Health as a strength workout, keep the session when that write is denied or fails, and never write an empty workout or the same workout twice.
+- Given: `SetLogger` (D-045) holds the session and is saved to active-workout.json after every change. `HealthStore` is the only way to HealthKit; `-uitest` uses `FakeHealthStore`. No finished sessions were stored before this card.
+- Constraints:
+  - Making the saved session depend on the Health write breaks "the session still saves" whenever Health is denied.
+  - A random id per write breaks retry safety: a second attempt would add a second workout.
+  - Showing 0 for a week without sessions breaks "absent is not zero".
+- Options:
+  - (a) `WorkoutFinish.finish` (core) discards a session with no sets (nil, no write), otherwise calls `saveStrengthWorkout(start:end:externalID:)` with an id derived from the start time and returns a `FinishedWorkout` with `inHealth` true or false; the app appends it to finished-workouts.json either way.
+  - (b) Queue the Health write and keep a pending state until it lands.
+  - (c) Store sessions only in Health and read them back.
+- Decision: (a). The external id is "stezu.workout.<start in ms>", so the same session always maps to one id; `HealthKitStore` asks for permission if it was never asked, skips the write when a workout with that `HKMetadataKeyExternalUUID` exists, and builds it with `HKWorkoutBuilder` (traditional strength training, no energy samples). The Workout screen closes the logger at once, clears active-workout.json, and adds the row after the write returns; the week (Monday to Sunday) shows sessions and working sets, "--" when there are none. Finished sessions also feed last-session numbers.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutFinish.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Workout/FinishedWorkoutStore.swift, App/Sources/Workout/WorkoutView.swift (3c38ef7).
+- Reverse if: a "Not in Health" session must be retried automatically, or the app is killed between Finish and the write often enough to lose sessions; then save first with a pending state (b).
