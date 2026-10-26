@@ -13,6 +13,7 @@ struct SettingsView: View {
   @State private var address = ""
   @State private var token = ""
   @State private var status = ServerConnection.untested.text
+  @State private var syncText = "--"
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -36,6 +37,14 @@ struct SettingsView: View {
       Text(status)
         .font(.system(size: Theme.subtitleSize))
         .accessibilityIdentifier("settings.status")
+      HStack {
+        label("Hermes sync")  // S-028
+        Spacer()
+        Text(syncText).accessibilityIdentifier("settings.sync.status")
+      }
+      pill("Sync now", id: "settings.sync.now") {
+        Task { syncText = HermesSyncFile.text(await environment.syncHermes()) }
+      }
       Spacer(minLength: 0)
     }
     .foregroundStyle(Theme.text)
@@ -45,6 +54,7 @@ struct SettingsView: View {
     .onAppear {
       stored = environment.serverSettings.load()
       address = stored.address
+      Task { syncText = HermesSyncFile.text(await environment.healthSync.state) }
     }
   }
 

@@ -63,6 +63,7 @@ struct WorkoutView: View {
       updated.append(done)
       finished = updated
       FinishedWorkoutStore(storage: storage).save(updated)
+      environment.syncHermesInBackground()
     }
   }
 
