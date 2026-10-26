@@ -30,6 +30,7 @@ struct FoodHistory: View {
       }
       .padding(16)
     }
+    .scrollIndicators(.hidden)
     .foregroundStyle(Theme.text).background(Theme.background)
     .task { await load() }
     .sheet(item: $editing) { meal in

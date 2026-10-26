@@ -35,6 +35,7 @@ struct FoodSearchPanel: View {
           }
         }
       }
+      .scrollIndicators(.hidden)
     }
     .font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
     .padding(12)
