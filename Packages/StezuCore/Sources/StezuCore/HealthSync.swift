@@ -65,12 +65,16 @@ public struct SyncState: Codable, Sendable, Equatable {
   public var recordsTotal: Int?
   /// True once the sessions and sets stored before S-030 were queued as records (never twice).
   public var workoutsBackfilled: Bool?
+  /// S-033: the last background pass the server answered; nil before one, kept apart from
+  /// `lastSyncAt`, which only foreground passes set.
+  public var lastBackgroundSyncAt: Date?
 
   public init(deviceID: String = UUID().uuidString) { self.deviceID = deviceID }
 }
 
 /// Reads each type in pages from its anchor; a page is queued and saved with its new anchor
 /// before it is sent, and leaves the queue only on a 2xx. A failure ends the run, queue kept.
+/// A cancelled task (S-033: iOS expiring a background run) stops at the next page or batch.
 public actor HealthSync {
   public static let batchSize = 2000
   public private(set) var state: SyncState
@@ -102,9 +106,10 @@ public actor HealthSync {
 
   /// The queue, each type (none if `health` is nil), then GET /sync/status. Never two at once.
   @discardableResult
-  public func run(health: (any HealthStore)?, transport: any VMTransport, now: Date = Date())
-    async -> SyncState
-  {
+  public func run(
+    health: (any HealthStore)?, transport: any VMTransport, now: Date = Date(),
+    background: Bool = false
+  ) async -> SyncState {
     guard !running else {
       again = true
       return state
@@ -114,8 +119,9 @@ public actor HealthSync {
     guard await flush(transport) else { return state }
     let since = now.addingTimeInterval(-90 * 86_400)  // the first sync backfills 90 days
     for type in HealthType.allCases {
-      while let page = try? await health?.changes(
-        of: type, after: state.anchors[type.rawValue], since: since, limit: Self.batchSize),
+      while !Task.isCancelled,
+        let page = try? await health?.changes(
+          of: type, after: state.anchors[type.rawValue], since: since, limit: Self.batchSize),
         !(page.samples.isEmpty && page.deleted.isEmpty)
       {
         state.pending.append(
@@ -128,22 +134,25 @@ public actor HealthSync {
       }
     }
     guard await flush(transport) else { return state }  // records queued during the run
-    if let reply = try? await transport.send(VMRequest(path: "/sync/status")), reply.status == 200 {
+    if !Task.isCancelled, let reply = try? await transport.send(VMRequest(path: "/sync/status")),
+      reply.status == 200
+    {
       let server = try? JSONSerialization.jsonObject(with: reply.body) as? [String: Any]
       state.samplesTotal = server?["samples_total"] as? Int
       state.recordsTotal = server?["records_total"] as? Int
-      state.lastSyncAt = now  // only once the server answered, never for an unconfigured app
+      // only once the server answered, never for an unconfigured app
+      if background { state.lastBackgroundSyncAt = now } else { state.lastSyncAt = now }
     }
     save(state)
-    guard again else { return state }
+    guard again, !Task.isCancelled else { return state }
     (again, running) = (false, false)  // a record queued after the last flush goes now
-    return await run(health: health, transport: transport, now: now)
+    return await run(health: health, transport: transport, now: now, background: background)
   }
 
   /// Sends the queue in order; false at the first failure (offline, not configured, non-2xx).
   private func flush(_ transport: any VMTransport) async -> Bool {
     while let batch = state.pending.first {
-      guard let body = try? JSONEncoder().encode(batch),
+      guard !Task.isCancelled, let body = try? JSONEncoder().encode(batch),
         let reply = try? await transport.send(
           VMRequest(method: "POST", path: "/sync", body: body, contentType: "application/json")),
         (200..<300).contains(reply.status)

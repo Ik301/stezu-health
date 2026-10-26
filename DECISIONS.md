@@ -1267,3 +1267,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). No `beginBackgroundTask`: the pass runs in the time iOS gives a location wake, and anything not sent stays queued for the next pass.
 - Evidence: Packages/StezuCore/Sources/StezuCore/LocationRecord.swift, SyncRecord.swift, App/Sources/Data/LocationService.swift, SourcesView.swift, PlacesRow.swift, LocationRecordTests (3), AppUITests LocationUITests/testVisitsAppearAndSync (commit on wt/S-032).
 - Reverse if: the server starts needing the explicit `null` keys, a visit's arrival date changes between its two reports (then match an open visit by place), or background passes are cut off before the queue is sent (then add a background task assertion).
+
+## D-088 A background pass is the foreground pass run from a BGAppRefreshTask, cancelled at 25 s or on expiration, and it skips Health while the phone is locked
+
+- Status: proposed by night agent, 2026-10-26 (S-033).
+- Problem: on days the app is never opened, Health changes and queued records (meals, visits, weigh-ins) must still reach the server. iOS gives an app refresh about 30 seconds, may end it at any point, and refuses Health reads while the phone is locked. An interrupted run must lose nothing and must not show as a sync.
+- Given: `HealthSync.run` already queues each page and saves it together with its new anchor before sending, and a batch leaves the queue only on a 2xx (D-067); BGTaskSchedulerPermittedIdentifiers lists `com.ik301.stezuhealth.sync` (D-078, D-079); HealthKit throws while the phone is locked.
+- Constraints:
+  - A second, background-only engine would need its own anchors and queue and could send a page twice or skip one.
+  - Ignoring the expiration handler gets the app's background time cut by iOS.
+  - Sharing `lastSyncAt` would make a background pass look like a foreground one, and Settings could not show either.
+- Options:
+  - (a) Register one handler at launch. It runs `syncHermes(background: true)` in a detached task; the expiration handler and a 25 s timer cancel that task. `run` checks `Task.isCancelled` before each page read, before each batch send and before GET /sync/status, so it stops between steps with the queue and anchors as last saved. `UIApplication.isProtectedDataAvailable` false means Health is passed as nil, so a locked run sends only the queue. A completed background pass sets `lastBackgroundSyncAt`, not `lastSyncAt`. Every pass, foreground or background, submits the next request (earliest in 1 hour), as does launch.
+  - (b) A separate background engine with its own state file.
+  - (c) HealthKit background delivery (`enableBackgroundDelivery`) instead of app refresh.
+- Decision: (a). (c) needs an entitlement that may not sign on a free account (D-078).
+- Evidence: Packages/StezuCore/Sources/StezuCore/HealthSync.swift, App/Sources/Settings/BackgroundSync.swift, HermesSync.swift, SettingsView.swift, BackgroundSyncTests (2), AppUITests HermesSyncUITests/testBackgroundSyncUpdatesStatus (commit on wt/S-033).
+- Reverse if: iOS runs the task so rarely that data waits for days (then try background delivery once its signing is checked), or a cancelled send turns out to have reached the server and duplicates show up (batch ids already make a resend idempotent).

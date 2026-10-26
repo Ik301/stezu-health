@@ -31,7 +31,7 @@ enum UITestFixtures {
 
   /// "sync": three made-up heart-rate readings to send; the fake status above counts three.
   static func healthChanges(scenario: String?) -> [HealthType: [HealthChange]] {
-    guard scenario == "sync" else { return [:] }
+    guard scenario == "sync" || scenario == BackgroundSync.scenario else { return [:] }
     let time = SyncSample.timestamp(Date())
     let type = "HKQuantityTypeIdentifierHeartRate"
     let sample = { (n: Int) -> HealthChange in
@@ -244,6 +244,11 @@ enum UITestFixtures {
       .fix(at: at(3), latitude: 10.5, longitude: -30.25, accuracy: 500, speed: nil),
       .visit(arrival: at(4), departure: at(5), latitude: 10.75, longitude: -30, accuracy: 50),
     ]
+  }
+
+  /// "background-sync" (S-033): a visit queued as if recorded while the app was closed.
+  static func backgroundVisit(now: Date = Date()) -> LocationEvent {
+    .visit(arrival: now - 1800, departure: nil, latitude: 10.25, longitude: -30.5, accuracy: 40)
   }
 
   /// A day of January 2026 (0 and below roll back into December) in the device's calendar.

@@ -11,6 +11,7 @@ struct StezuHealthApp: App {
     let environment = AppEnvironment.fromLaunch()
     _environment = State(initialValue: environment)
     environment.startLocation()  // S-032: also on a background relaunch for a location event
+    environment.registerBackgroundSync()  // S-033: before launch ends, as BGTaskScheduler needs
     if environment.isUITest {
       UIView.setAnimationsEnabled(false)
     }

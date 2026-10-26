@@ -1149,7 +1149,7 @@
         "s033-background-sync"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-034",
