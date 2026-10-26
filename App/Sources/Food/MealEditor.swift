@@ -5,6 +5,8 @@ import SwiftUI
 /// servings, Remove, + Add item, and the single Log button. Totals follow every edit (D-049).
 struct MealEditor: View {
   let log: ([MatchedItem]) -> Void
+  /// The button's title: "Log" after a photo or pick, "Save" for a meal from history (S-019).
+  let action: String
   @State private var edit: MealEdit
   @State private var searching: SearchTarget?
   @State private var query = ""
@@ -17,8 +19,9 @@ struct MealEditor: View {
     case add
   }
 
-  init(match: PhotoMatch, log: @escaping ([MatchedItem]) -> Void) {
+  init(match: PhotoMatch, action: String = "Log", log: @escaping ([MatchedItem]) -> Void) {
     self.log = log
+    self.action = action
     _edit = State(initialValue: MealEdit(match))
   }
 
@@ -54,7 +57,7 @@ struct MealEditor: View {
         HStack {
           pill("+ Add item", id: "food.edit.add", inverted: false) { searching = .add }
           Spacer()
-          pill("Log", id: "food.edit.log", inverted: true) { log(edit.items) }
+          pill(action, id: "food.edit.\(action.lowercased())", inverted: true) { log(edit.items) }
             .disabled(edit.items.isEmpty)
         }
       }

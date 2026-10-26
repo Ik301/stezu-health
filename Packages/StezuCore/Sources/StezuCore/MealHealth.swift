@@ -54,4 +54,22 @@ public enum MealHealth {
     try? await save(written)
     return written
   }
+
+  /// An edit (S-019): saved on the phone, old Health entry deleted, then written as `log` does.
+  public static func replace(
+    _ meal: LoggedMeal, health: any HealthStore,
+    save: @Sendable (LoggedMeal) async throws -> Void
+  ) async throws -> LoggedMeal {
+    try await save(meal)
+    try? await health.deleteFood(syncIdentifier: meal.id.uuidString)
+    return try await log(meal, health: health, save: save)
+  }
+
+  /// A delete: the meal leaves the phone, then Health. False when Health kept its entry.
+  public static func delete(
+    _ id: UUID, health: any HealthStore, remove: @Sendable (UUID) async -> Void
+  ) async -> Bool {
+    await remove(id)
+    return (try? await health.deleteFood(syncIdentifier: id.uuidString)) != nil
+  }
 }

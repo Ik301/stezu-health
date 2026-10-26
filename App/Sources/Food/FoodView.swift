@@ -22,11 +22,15 @@ struct FoodView: View {
   @State private var loggedInHealth: Bool?
   @State private var logFailed = false
   @State private var barcode = BarcodeState.scanning
+  /// Today's logged food for the top strip (S-019); nil until loaded.
+  @State private var day: FoodDay?
+  @State private var showingHistory = false
   @FocusState private var searching: Bool
 
   var body: some View {
     VStack(spacing: 0) {
       topBar
+      todayStrip.padding(.top, 10)
       searchBar.padding(.top, 10)
       if trimmedQuery.isEmpty {
         Spacer()
@@ -60,6 +64,10 @@ struct FoodView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.black.overlay { cameraImage }.clipped().ignoresSafeArea(edges: .top))
     .task {
+      if environment.isUITest {
+        await environment.mealCaptures.seedPhotos(FixturePhotoSource.plateJPEG())
+      }
+      await loadToday()
       await startCamera()
       await retryQueue()
     }
@@ -129,10 +137,11 @@ struct FoodView: View {
 
   private var bottomBar: some View {
     HStack {
-      Button("History") {}
+      Button("History") { showingHistory = true }
         .font(.system(size: Theme.labelSize, weight: .medium)).foregroundStyle(Theme.text)
         .frame(width: 64, height: 44).background(Capsule().fill(Theme.card))
         .accessibilityIdentifier("food.history")
+        .sheet(isPresented: $showingHistory) { FoodHistory { Task { await loadToday() } } }
       Spacer()
       if mode == "Photo" {
         Button {
@@ -147,6 +156,27 @@ struct FoodView: View {
       Spacer()
       Color.clear.frame(width: 64, height: 44)
     }
+  }
+
+  /// Today's kcal and protein ranges and meal count, "--" with none; no target (D-032).
+  private var todayStrip: some View {
+    HStack(spacing: 12) {
+      Text("Today").fontWeight(.semibold)
+      Text(PhotoMatchSheet.range(day?.kcal, unit: "kcal")).accessibilityIdentifier(
+        "food.strip.kcal")
+      Text(PhotoMatchSheet.range(day?.proteinG, unit: "g protein"))
+        .accessibilityIdentifier("food.strip.protein")
+      Spacer(minLength: 0)
+      Text(day?.mealCount.map { "\($0) meal\($0 == 1 ? "" : "s")" } ?? "-- meals")
+        .accessibilityIdentifier("food.strip.meals")
+    }
+    .font(.system(size: Theme.labelSize, weight: .medium)).foregroundStyle(Theme.text)
+    .padding(.horizontal, 14).frame(height: 32).background(Capsule().fill(Theme.card))
+  }
+
+  private func loadToday() async {
+    let meals = await environment.mealCaptures.logged()
+    day = FoodDay.on(environment.now(), meals: meals)
   }
 
   private var deniedMessage: some View {
@@ -176,6 +206,7 @@ struct FoodView: View {
         Task {
           await environment.mealCaptures.unlog(id)
           try? await environment.healthStore.deleteFood(syncIdentifier: id.uuidString)
+          await loadToday()
         }
       }
       .fontWeight(.semibold).accessibilityIdentifier("food.logged.undo")
@@ -201,6 +232,7 @@ struct FoodView: View {
           try await store.log($0)
         }
         (logged, loggedInHealth, logFailed) = (meal.id, written.inHealth, false)
+        await loadToday()
       } catch {
         logFailed = true
       }

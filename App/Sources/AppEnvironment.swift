@@ -88,7 +88,8 @@ struct AppEnvironment: Sendable {
         routes: UITestFixtures.vmRoutes, offline: offline,
         held: UITestFixtures.heldRoutes(scenario: scenario)),
       photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore(),
-      mealCaptures: MealCaptureStore(storage: .memory),
+      mealCaptures: MealCaptureStore(
+        storage: .memory, seed: UITestFixtures.foodHistory(scenario: scenario)),
       workoutHistory: UITestFixtures.workoutHistory(scenario: scenario),
       programFilePicker: .fixture(UITestFixtures.programFile(scenario: scenario)),
       healthConnection: HealthConnection(
