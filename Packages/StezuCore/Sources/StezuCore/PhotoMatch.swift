@@ -15,7 +15,7 @@ public enum MealPeriod: String, Sendable, Equatable {
 
 /// One item the server found in the photo (server/README.md). Ranges are for `servings` of
 /// `serving`; a range with a null end is nil (unknown), never 0.
-public struct MatchedItem: Sendable, Equatable, Decodable {
+public struct MatchedItem: Sendable, Equatable, Codable {
   public let itemId: String
   public let name: String
   /// The first hall serving it; nil for an item on no menu.
