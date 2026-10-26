@@ -56,7 +56,7 @@ struct WorkoutLoggerView: View {
           .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
           .accessibilityIdentifier("workout.logger.logged.\(index)")
         }
-        Button("Undo") { logger.undo() }
+        Button("Undo") { undo() }
           .font(.system(size: 17, weight: .semibold))
           .foregroundStyle(Theme.text)
           .disabled(!logger.canUndo)
@@ -148,10 +148,24 @@ struct WorkoutLoggerView: View {
   private func logSet() {
     guard let exercise = logger.exercise else { return }
     let setLabel = "Set \(logger.setNumber) of \(exercise.sets)"
-    guard logger.log(at: Date()) != nil else { return }
+    guard let set = logger.log(at: Date()) else { return }
+    saveThenSync(
+      .set(set, exercise: exercise.name, key: exercise.key, in: logger.session, at: Date()))
     var controller = rest ?? RestActivityController(alerts: environment.restAlerts)
     controller.setLogged(exercise, setLabel: setLabel)
     rest = controller
+  }
+
+  /// Takes back the last set; the server gets the same set id as deleted (S-030).
+  private func undo() {
+    guard let set = logger.undo() else { return }
+    saveThenSync(.deletedSet(set, in: logger.session, at: Date()))
+  }
+
+  /// The phone first (D-076): the logger is saved, then the record joins the sync queue.
+  private func saveThenSync(_ record: SyncRecord) {
+    WorkoutSessionStore(storage: environment.storage).save(logger)
+    Task { await environment.syncRecords([record]) }
   }
 
   /// The countdown with -15 s, +15 s and Skip, while a rest runs. The countdown's value is the

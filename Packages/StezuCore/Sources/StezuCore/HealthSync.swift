@@ -63,6 +63,8 @@ public struct SyncState: Codable, Sendable, Equatable {
   public var samplesTotal: Int?
   /// The server's `records_total`; nil until it answers with one.
   public var recordsTotal: Int?
+  /// True once the sessions and sets stored before S-030 were queued as records (never twice).
+  public var workoutsBackfilled: Bool?
 
   public init(deviceID: String = UUID().uuidString) { self.deviceID = deviceID }
 }
@@ -74,6 +76,7 @@ public actor HealthSync {
   public private(set) var state: SyncState
   private let save: @Sendable (SyncState) -> Void
   private var running = false
+  private var again = false  // a pass was asked for while one ran: run once more at the end
 
   public init(state: SyncState, save: @escaping @Sendable (SyncState) -> Void = { _ in }) {
     (self.state, self.save) = (state, save)
@@ -89,12 +92,23 @@ public actor HealthSync {
     save(state)
   }
 
+  /// Queues `records` once per install (S-030's backfill); later calls only return.
+  public func backfillWorkouts(_ records: [SyncRecord]) {
+    guard state.workoutsBackfilled != true else { return }
+    state.workoutsBackfilled = true
+    enqueue(records)
+    save(state)
+  }
+
   /// The queue, each type (none if `health` is nil), then GET /sync/status. Never two at once.
   @discardableResult
   public func run(health: (any HealthStore)?, transport: any VMTransport, now: Date = Date())
     async -> SyncState
   {
-    guard !running else { return state }
+    guard !running else {
+      again = true
+      return state
+    }
     running = true
     defer { running = false }
     guard await flush(transport) else { return state }
@@ -121,7 +135,9 @@ public actor HealthSync {
       state.lastSyncAt = now  // only once the server answered, never for an unconfigured app
     }
     save(state)
-    return state
+    guard again else { return state }
+    (again, running) = (false, false)  // a record queued after the last flush goes now
+    return await run(health: health, transport: transport, now: now)
   }
 
   /// Sends the queue in order; false at the first failure (offline, not configured, non-2xx).

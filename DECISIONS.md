@@ -1097,3 +1097,20 @@ The research notes cited here are kept private, because they contain personal he
 - Why: these records are entered in the app itself, so the app is their source of truth. Routing them through Health loses detail (sets, reps and exercise names don't fit a Health workout) and makes the VM depend on a Health write that can be denied.
 - Changes: D-057 (weigh-ins live only in Health) is reversed by S-031. S-030 sends sets and sessions. Meals already work this way (D-068, D-075).
 - Reverse if: never for app-entered data. Health remains the source only for what other devices record (the strap and the phone's sensors).
+
+## D-077 Sets and sessions become `/sync` records with ids derived from their times, queued after the phone's save, and stored workouts are backfilled once behind a flag in the sync state
+
+- Status: proposed by night agent, 2026-10-26 (S-030).
+- Problem: every logged and undone set and every finished session must reach the server's records with ids that stay the same across an undo, a backfill and a replay, the phone's own save must come before both the record and the Health copy, and the workouts stored before this build must be sent once, never twice.
+- Given: `WorkoutSet` has no id; a session's Health external id is `stezu.workout.<start ms>` (D-056); the logger is saved to active-workout.json after each change (D-045) and finished sessions to finished-workouts.json; meal records already ride `HealthSync.enqueue` (D-075); sessions store exercise names only, while templates and the library (swaps, custom exercises) hold the keys.
+- Constraints:
+  - Adding a stored id to `WorkoutSet` breaks every saved logger and finished file (they would decode with fresh random ids, so a backfill would not match what was sent).
+  - Writing to Health before the phone's save (the old `WorkoutFinish.finish` order) breaks D-076: a slow or denied Health write would hold up the session and its record.
+  - A pass already running when the last record is queued would leave that record waiting until the next launch, since `run` refused a second pass.
+- Options:
+  - (a) Set id `<session id>.set.<logged-at ms>`, session id = the Health external id. `SyncRecord.set/.deletedSet/.session` build `SetRecord` and `SessionRecord` payloads under the one `payload` key (decoded by kind). Log and Undo save the logger, then `syncRecords`; Finish `close`s the session, saves finished-workouts.json, queues the record, then writes Health and saves `inHealth`. `SyncState.workoutsBackfilled` gates `HealthSync.backfillWorkouts`, run from the launch/foreground hook. `run` asked for while running sets a flag, and the running pass goes once more.
+  - (b) Store a UUID per set and migrate the old files on first launch.
+  - (c) Rebuild all sets and sessions from the files on every pass and send them all.
+- Decision: (a). Exercise keys come from the library first and the templates second (templates win on a shared name); an unknown name sends a null key. `pounds` is always present, null for bodyweight.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutRecord.swift, SyncRecord.swift, HealthSync.swift, WorkoutFinish.swift, App/Sources/Settings/HermesSync.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/Workout/WorkoutView.swift, WorkoutRecordTests (3), HermesSyncUITests/testLoggedSetsAndFinishedWorkoutAreSynced (commit on wt/S-030).
+- Reverse if: two sets can be logged in the same millisecond of one session (then store an id per set), or the server starts treating an equal record replayed by the backfill as a conflict.

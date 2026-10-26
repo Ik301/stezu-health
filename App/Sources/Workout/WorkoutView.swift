@@ -97,17 +97,20 @@ struct WorkoutView: View {
     (resumable, resuming, active) = (nil, nil, template)
   }
 
-  /// Writes the session to Health and keeps it either way; a session with no sets is dropped.
+  /// Saves the session on the phone, queues its record, then copies it to Health (D-076); the
+  /// row shows once Health answered. A session with no sets is dropped.
   private func keep(_ session: WorkoutSession, endedAt end: Date) {
-    let (health, storage) = (environment.healthStore, environment.storage)
+    guard let done = WorkoutFinish.close(session, at: end) else { return }
+    let store = FinishedWorkoutStore(storage: environment.storage)
+    let saved = (finished ?? store.load()) + [done]
+    store.save(saved)
     Task {
-      guard let done = await WorkoutFinish.finish(session, at: end, health: health) else {
-        return
-      }
-      var updated = finished ?? FinishedWorkoutStore(storage: storage).load()
-      updated.append(done)
+      await environment.syncWorkout(done)
+      var copied = done
+      copied.inHealth = await WorkoutFinish.write(done, to: environment.healthStore)
+      let updated = Array(saved.dropLast()) + [copied]
       finished = updated
-      FinishedWorkoutStore(storage: storage).save(updated)
+      store.save(updated)
       environment.syncHermesInBackground()
     }
   }

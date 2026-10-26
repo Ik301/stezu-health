@@ -7,6 +7,10 @@ public struct SyncRecord: Codable, Sendable, Equatable {
   public var deleted: Bool
   /// The meal as logged (S-029); nil only for a tombstone. Other kinds add their payloads here.
   public var payload: MealRecord?
+  /// A `set` record's payload (S-030); nil for other kinds and tombstones.
+  public var setPayload: SetRecord? = nil
+  /// A `workout_session` record's payload (S-030).
+  public var sessionPayload: SessionRecord? = nil
 
   enum CodingKeys: String, CodingKey {
     case kind, id, deleted, payload
@@ -35,6 +39,34 @@ public struct SyncRecord: Codable, Sendable, Equatable {
     ISO8601DateFormatter.string(
       from: date, timeZone: calendar.timeZone,
       formatOptions: [.withInternetDateTime, .withFractionalSeconds])
+  }
+}
+
+/// One `payload` key for every kind: the kind picks the type it decodes as.
+extension SyncRecord {
+  public init(from decoder: any Decoder) throws {
+    let box = try decoder.container(keyedBy: CodingKeys.self)
+    kind = try box.decode(String.self, forKey: .kind)
+    id = try box.decode(String.self, forKey: .id)
+    updatedAt = try box.decode(String.self, forKey: .updatedAt)
+    deleted = try box.decode(Bool.self, forKey: .deleted)
+    switch kind {
+    case "set": setPayload = try box.decodeIfPresent(SetRecord.self, forKey: .payload)
+    case "workout_session":
+      sessionPayload = try box.decodeIfPresent(SessionRecord.self, forKey: .payload)
+    default: payload = try box.decodeIfPresent(MealRecord.self, forKey: .payload)
+    }
+  }
+
+  public func encode(to encoder: any Encoder) throws {
+    var box = encoder.container(keyedBy: CodingKeys.self)
+    try box.encode(kind, forKey: .kind)
+    try box.encode(id, forKey: .id)
+    try box.encode(updatedAt, forKey: .updatedAt)
+    try box.encode(deleted, forKey: .deleted)
+    try box.encodeIfPresent(setPayload, forKey: .payload)
+    try box.encodeIfPresent(sessionPayload, forKey: .payload)
+    try box.encodeIfPresent(payload, forKey: .payload)
   }
 }
 

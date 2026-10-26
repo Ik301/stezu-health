@@ -32,16 +32,29 @@ public enum WorkoutFinish {
   public static func finish(
     _ session: WorkoutSession, at date: Date, health: any HealthStore
   ) async -> FinishedWorkout? {
+    guard var done = close(session, at: date) else { return nil }
+    done.inHealth = await write(done, to: health)
+    return done
+  }
+
+  /// The session ended at `date`, not yet in Health, ready to save on the phone first (D-076);
+  /// nil for a session with no sets.
+  public static func close(_ session: WorkoutSession, at date: Date) -> FinishedWorkout? {
     guard session.exercises.contains(where: { !$0.sets.isEmpty }) else { return nil }
     let end = max(date, session.startedAt)
-    let id = externalID(for: session)
-    var inHealth = true
+    return FinishedWorkout(
+      session: session, endedAt: end, externalID: externalID(for: session), inHealth: false)
+  }
+
+  /// Copies a saved session to Health; false when the write was denied or failed.
+  public static func write(_ done: FinishedWorkout, to health: any HealthStore) async -> Bool {
     do {
-      try await health.saveStrengthWorkout(start: session.startedAt, end: end, externalID: id)
+      try await health.saveStrengthWorkout(
+        start: done.session.startedAt, end: done.endedAt, externalID: done.externalID)
+      return true
     } catch {
-      inHealth = false
+      return false
     }
-    return FinishedWorkout(session: session, endedAt: end, externalID: id, inHealth: inHealth)
   }
 
   /// The finished sessions in the Monday-to-Sunday week holding `date`, newest first.

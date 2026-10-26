@@ -37,16 +37,55 @@ extension AppEnvironment {
   }
 
   /// Open, foreground and Finish, off the main actor. `-uitest` syncs only on Sync now.
+  /// S-030: also queues the workouts stored before this build, once (`-uitest` too).
   func syncHermesInBackground() {
-    guard !isUITest else { return }
-    Task.detached(priority: .utility) { await self.syncHermes() }
+    Task.detached(priority: .utility) {
+      await self.backfillWorkouts()
+      if !self.isUITest { await self.syncHermes() }
+    }
   }
 
   /// S-029: a logged or edited meal, or a tombstone when `meal` is nil, joins the sync queue
   /// (saved before this returns), then a pass runs off the main actor, under `-uitest` too.
   func syncMeal(_ meal: LoggedMeal?, id: UUID, edited: Bool = false) async {
     let record = meal.map { SyncRecord.meal($0, edited: edited, at: Date()) }
-    await healthSync.enqueue([record ?? .deletedMeal(id, at: Date())])
+    await syncRecords([record ?? .deletedMeal(id, at: Date())])
+  }
+
+  /// Records join the sync queue (saved before this returns), then a pass runs in the background.
+  func syncRecords(_ records: [SyncRecord]) async {
+    await healthSync.enqueue(records)
     Task.detached(priority: .utility) { await self.syncHermes() }
+  }
+
+  /// S-030: a finished session, after Finish saved it on the phone.
+  func syncWorkout(_ workout: FinishedWorkout) async {
+    let (templates, keys) = workoutNames()
+    let name = workout.session.templateKey.flatMap { templates[$0] }
+    await syncRecords([.session(workout, templateName: name, keys: keys, at: Date())])
+  }
+
+  /// Template names by key, and exercise keys by name: the library (swaps, custom exercises)
+  /// first, then the templates' own exercises, which win.
+  func workoutNames() -> (templates: [String: String], exercises: [String: String]) {
+    let templates = WorkoutTemplateStore(storage: storage).load().templates
+    let pairs =
+      ExerciseLibraryStore(storage: storage).load().exercises.map { ($0.name, $0.key) }
+      + templates.flatMap { $0.exercises.map { ($0.name, $0.key) } }
+    return (
+      Dictionary(templates.map { ($0.key, $0.name) }, uniquingKeysWith: { a, _ in a }),
+      Dictionary(pairs, uniquingKeysWith: { _, b in b })
+    )
+  }
+
+  /// The first launch with S-030 queues every finished session and the open logger's sets.
+  func backfillWorkouts() async {
+    guard await healthSync.state.workoutsBackfilled != true else { return }
+    let (templates, keys) = workoutNames()
+    await healthSync.backfillWorkouts(
+      WorkoutRecords.backfill(
+        finished: FinishedWorkoutStore(storage: storage).load(),
+        active: WorkoutSessionStore(storage: storage).load()?.session, templates: templates,
+        keys: keys, at: Date()))
   }
 }
