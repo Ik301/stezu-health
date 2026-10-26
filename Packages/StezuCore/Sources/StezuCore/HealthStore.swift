@@ -23,6 +23,13 @@ public protocol HealthStore: Sendable {
 
   /// Writes one body-mass sample. Health records Stezu as its source.
   func saveBodyMass(pounds: Double, at date: Date) async throws
+
+  /// Per-day statistics keyed by day start, merged across apps by Health: totals for steps,
+  /// means for discrete types such as resting heart rate. A day without data has no key.
+  func dailyValues(of type: HealthType, in interval: DateInterval) async throws -> [Date: Double]
+
+  /// sleepAnalysis stages that end from `start` on.
+  func sleepIntervals(since start: Date) async throws -> [SleepInterval]
 }
 
 /// An in-memory HealthStore for tests and `-uitest` launches. It records what was asked of it.
@@ -33,9 +40,14 @@ public actor FakeHealthStore: HealthStore {
   /// Synthetic samples the reads return.
   public private(set) var storedSamples: [HealthSample]
 
-  public init(isAvailable: Bool = true, samples: [HealthSample] = []) {
+  public private(set) var storedSleep: [SleepInterval]
+
+  public init(
+    isAvailable: Bool = true, samples: [HealthSample] = [], sleep: [SleepInterval] = []
+  ) {
     self.isAvailable = isAvailable
     self.storedSamples = samples
+    self.storedSleep = sleep
   }
 
   public func requestAuthorization() async throws {
@@ -71,6 +83,22 @@ public actor FakeHealthStore: HealthStore {
       HealthSample(
         type: .bodyMass, date: date, sourceName: "Stezu",
         sourceBundleID: WeeklyWeight.stezuBundleID, value: pounds))
+  }
+
+  /// Per day of the current calendar; unlike Health it keeps overlap between apps.
+  public func dailyValues(of type: HealthType, in interval: DateInterval) async throws
+    -> [Date: Double]
+  {
+    let inside = storedSamples.filter { $0.type == type && interval.contains($0.date) }
+    return Dictionary(grouping: inside) { Calendar.current.startOfDay(for: $0.date) }
+      .mapValues { day in
+        let sum = day.compactMap(\.value).reduce(0, +)
+        return type == .stepCount ? sum : sum / Double(day.count)
+      }
+  }
+
+  public func sleepIntervals(since start: Date) async throws -> [SleepInterval] {
+    storedSleep.filter { $0.end >= start }.sorted { $0.start < $1.start }
   }
 }
 

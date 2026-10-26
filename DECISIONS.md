@@ -785,3 +785,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The week runs Monday to Sunday in the device calendar; with no Stezu weigh-in this week the trend, change and coverage are nil and show "--". The change is the trend now minus the trend at the end of last week (or this week's first weigh-in if there is none before).
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyWeight.swift, HealthStore.swift, App/Sources/Data/WeightRow.swift, App/Sources/Health/HealthKitStore.swift, HealthStoreTests, WeighInTests, AppUITests WeightUITests (commit on wt/S-021).
 - Reverse if: Isaac weighs in on a smart scale that writes to Health; then the allowed bundle ids become a setting (`weighIns(_:bundleIDs:)` already takes the set).
+
+## D-058 Weekly context rows read per-day statistics and sleep stages from Health, keyed by day, and a day without data is a missing key
+
+- Status: proposed by night agent, 2026-10-25 (S-022).
+- Problem: steps, resting heart rate, sleep and HRV each need one weekly number and a coverage count, but several apps can write the same type (phone and strap both count steps, two apps can record one night), and a week with no readings must stay distinguishable from a week of zeros.
+- Given: `HealthStore` is the only path to Health (FakeHealthStore in tests and -uitest). HealthKit's statistics collection query merges overlapping sources per bucket; raw sample queries do not. sleepAnalysis samples are stage intervals (in bed, awake, core, deep, REM, unspecified). The week runs Monday to Sunday (D-057).
+- Constraints:
+  - Summing raw step samples breaks the total: a phone and a strap counting the same walk double it.
+  - Dating a night by its start date breaks nights that cross midnight, and summing every stage counts time in bed and awake.
+  - Returning 0 for a day or week without data breaks rule 5, and HealthKit hides denied reads, so no data and no access must look the same.
+- Options:
+  - (a) `HealthStore.dailyValues` runs one statistics collection query in day buckets (sum for steps, discrete average for resting heart rate) and returns only days that have a value; `sleepIntervals` returns the stages; core turns them into `WeeklyStat`s (value nil when coverage is 0, confidence from coverage).
+  - (b) Read raw samples for every type and dedupe sources in core by picking one app per type.
+  - (c) Keep a local daily cache in the app, filled from Health in the background.
+- Decision: (a). A night belongs to the day its stages end on, with anything ending after 18:00 counted toward the next day; asleep stages are merged as a union so two apps recording one night count once. HRV stays a median of raw readings, with the reading count as coverage. FakeHealthStore buckets by the current calendar and does not remove overlap.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, SleepNightTests, AppUITests WeeklyHealthUITests (commit on wt/S-022).
+- Reverse if: Isaac's strap writes sleep as one asleepUnspecified block while another app writes stages; then pick one sleep source per night instead of the union.
