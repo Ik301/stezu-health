@@ -20,11 +20,13 @@ enum HomePlaceholder {
 
 struct HomeView: View {
   var model = HomeViewModel()
-  var inputs = HomeInputs()
   /// Opens the area behind a tapped card.
   var open: (Area) -> Void = { _ in }
   /// Opens Settings from the gear.
   var openSettings: () -> Void = {}
+  @Environment(\.appEnvironment) private var environment
+  /// Read each time Home appears, so a card shows what an area just recorded.
+  @State private var inputs = HomeInputs()
 
   var body: some View {
     // Re-read the clock every minute so the inverted card follows the time of day.
@@ -56,6 +58,7 @@ struct HomeView: View {
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .background(Theme.background.ignoresSafeArea())
     }
+    .task { inputs = await HomeInputs.load(from: environment) }
   }
 }
 
@@ -88,7 +91,8 @@ struct HomeCardView: View {
       RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
         .strokeBorder(Theme.cardBorder, lineWidth: inverted ? 0 : 1 / displayScale)
     )
-    .accessibilityElement(children: .combine)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("\(card.label), \(card.subtitle), \(card.value)")
   }
 }
 

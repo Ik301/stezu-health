@@ -938,7 +938,7 @@
         "s026-home-empty"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-027",

@@ -1055,3 +1055,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Every reader (strip, History, Data) sees the same files, so an edit or delete shows everywhere on the next read. A failed Health delete leaves the meal deleted on the phone; the result is returned, not shown.
 - Evidence: Packages/StezuCore/Sources/StezuCore/FoodDay.swift, Packages/StezuCore/Sources/StezuCore/MealHealth.swift, App/Sources/Food/MealCapture.swift, App/Sources/Food/FoodHistory.swift, App/Sources/Food/FoodView.swift, FoodDayTests, MealHistoryUITests (commit on wt/S-019).
 - Reverse if: S-029 needs tombstones for /sync (then (c) on top of (a)), or HealthKit's sync-version replace is shown on a device to remove the old samples, so the delete before the rewrite can go.
+
+## D-074 Home reads each card's numbers from the same stores as its area, every time Home appears
+
+- Status: proposed by night agent, 2026-10-26 (S-026).
+- Problem: the Home cards must show, with 0 taps, the numbers Data, Food and Workout record (trend weight and weigh-in days, today's food ranges and meal count, this week's sessions and the next template), agree with those areas, and show "--" for anything not recorded. They showed only "--", and their model still carried the target, protein-floor and last-top-set inputs D-032 took out of v1.
+- Given: Data's Weight row reads `WeeklyWeight.load` from Health (D-057); Data's Workouts row merges seeded and finished Stezu sessions with Health workouts through `WeeklyIntake.workouts` (S-023); today's food is `FoodDay.on(now)` over the meal files (D-073) plus a scenario's `mealHistory`; Workout offers `TemplateLibrary.next(after: nil)`; AppShell rebuilds HomeView each time an area closes.
+- Constraints:
+  - A separate Home cache or summary file breaks agreement: it goes stale after a weigh-in, a Log or a Finish until something rewrites it.
+  - Counting only finished Stezu sessions (Workout's own row) breaks agreement with Data, which also counts Health workouts.
+  - Keeping the target fields in `HomeInputs` breaks D-032 (no target anywhere); dropping them changes two existing HomeViewModelTests, which were rewritten to the new inputs with the same checks (order, labels, values, confidence, "--").
+- Options:
+  - (a) `HomeInputs.load(from: AppEnvironment)` runs in HomeView's `.task` on every appear and reads the same calls the areas make: `WeekWeight`, `FoodDay`, `[WeekWorkout]` and the next template's name. `HomeViewModel` stays pure and formats them; a nil or empty input is "--" with a nil confidence.
+  - (b) Each area writes a small summary to the store when it changes, and Home reads the summaries.
+  - (c) One shared observable model the areas mutate.
+- Decision: (a). The workout card's confidence is high, with "n from Stezu, m from Health" as its reason. A failed Health read is absent. New scenario `home-week` is data-food-week plus two meals today.
+- Evidence: App/Sources/HomeViewModel.swift, App/Sources/HomeView.swift, App/Sources/UITestFixtures.swift, App/Tests/HomeViewModelTests.swift, App/UITests/HomeCardsUITests.swift (commit on wt/S-026).
+- Reverse if: the reads make Home visibly slow to fill on a device (then (b)), or the target loop returns after D-032 is reversed.

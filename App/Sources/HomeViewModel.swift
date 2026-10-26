@@ -1,14 +1,31 @@
 import Foundation
 import StezuCore
 
-/// Core results the home screen shows. Each one is nil until it exists (absent, not zero).
+/// What the Home cards track (S-026): this week's weight, today's food, this week's sessions and
+/// the next template. Each is nil until it exists (absent, not zero). No targets (D-032).
 struct HomeInputs: Sendable, Equatable {
-  var trend: TrendEstimate?
-  var target: WeeklyTargetDecision?
-  /// Today's logged intake in kcal, nil when nothing is logged yet.
-  var intakeTodayKcal: Double?
-  var protein: ProteinFloor.Outcome?
-  var lastSession: LastSessionNumbers?
+  var weight: WeekWeight?
+  var food: FoodDay?
+  /// This week's sessions, Stezu and Health merged as on Data (S-023).
+  var workouts: [WeekWorkout]?
+  /// The name of the template the Workout area offers next.
+  var nextTemplate: String?
+
+  /// Reads every input from the launch's services; a read that fails is absent.
+  static func load(from environment: AppEnvironment) async -> HomeInputs {
+    let now = environment.now()
+    let week = WeeklyStats.week(containing: now)
+    let meals = await environment.mealCaptures.logged() + environment.mealHistory
+    let finished = FinishedWorkoutStore(storage: environment.storage).load().map(\.session)
+    let health = (try? await environment.healthStore.samples(of: .workout, since: week.start)) ?? []
+    let library = WorkoutTemplateStore(storage: environment.storage).load()
+    return HomeInputs(
+      weight: await WeeklyWeight.load(from: environment.healthStore, now: now).week,
+      food: FoodDay.on(now, meals: meals),
+      workouts: WeeklyIntake.workouts(
+        stezu: environment.workoutHistory + finished, health: health, in: week),
+      nextTemplate: library.next(after: nil)?.name)
+  }
 }
 
 /// Builds the Data, Food and Workout cards and picks the inverted one from an injected clock.
@@ -36,48 +53,43 @@ struct HomeViewModel: Sendable {
     return (sorted.last { $0.hour <= hour } ?? sorted.last)?.cardID
   }
 
+  /// The trend weight as the number, weigh-in days this week out of 7 below it.
   private func dataCard(_ inputs: HomeInputs) -> HomeCard {
-    HomeCard(
-      id: "data", label: "Data", subtitle: "Trend weight, lb",
-      value: inputs.trend.map { String(format: "%.1f", $0.trend) } ?? Self.missing,
-      confidence: inputs.trend?.confidence)
+    let week = inputs.weight
+    let days = week?.daysWeighed.map { "\($0) of 7" } ?? Self.missing
+    return HomeCard(
+      id: "data", label: "Data", subtitle: "Trend weight, lb. Weigh-ins \(days)",
+      value: week?.trend.map { String(format: "%.1f", $0) } ?? Self.missing,
+      confidence: week?.trend == nil ? nil : week?.confidence)
   }
 
+  /// Today's kcal range as the number, the protein range and meal count below it.
   private func foodCard(_ inputs: HomeInputs) -> HomeCard {
-    let intake = inputs.intakeTodayKcal.map { Self.number($0, digits: 0) }
-    let target = inputs.target.map { Self.number($0.newTarget, digits: 0) }
-    let value =
-      intake == nil && target == nil
-      ? Self.missing : "\(intake ?? Self.missing) / \(target ?? Self.missing)"
-    var subtitle = "Today, kcal of target"
-    if case .evaluated(let check) = inputs.protein, check.isUnderFloor {
-      subtitle += ", protein low"
-    }
+    let day = inputs.food
+    let protein = day?.proteinG.map(Self.range) ?? Self.missing
+    let meals = day?.mealCount.map { "\($0) meal\($0 == 1 ? "" : "s")" } ?? "\(Self.missing) meals"
     return HomeCard(
-      id: "food", label: "Food", subtitle: subtitle, value: value,
-      confidence: inputs.target?.confidence)
+      id: "food", label: "Food", subtitle: "Today, kcal. \(protein) g protein, \(meals)",
+      value: day?.kcal.map(Self.range) ?? Self.missing,
+      confidence: day?.kcal == nil ? nil : day?.confidence)
   }
 
+  /// Sessions this week as the number, the next template below it.
   private func workoutCard(_ inputs: HomeInputs) -> HomeCard {
-    guard let last = inputs.lastSession, let top = Self.topSet(last.sets) else {
-      return HomeCard(
-        id: "workout", label: "Workout", subtitle: "Last session", value: Self.missing)
+    let sessions = inputs.workouts.flatMap { $0.isEmpty ? nil : $0 }
+    let confidence = sessions.map { all in
+      let stezu = all.filter { $0.source == .stezu }.count
+      return Confidence(
+        level: .high, reason: "\(stezu) from Stezu, \(all.count - stezu) from Health")
     }
-    let value =
-      top.pounds.map { "\(Self.number($0, digits: 1)) x \(top.reps)" } ?? "\(top.reps) reps"
     return HomeCard(
-      id: "workout", label: "Workout", subtitle: "\(last.exercise), \(last.daysAgo)d ago",
-      value: value, confidence: last.confidence)
+      id: "workout", label: "Workout",
+      subtitle: "Sessions this week. Next: \(inputs.nextTemplate ?? Self.missing)",
+      value: sessions.map { String($0.count) } ?? Self.missing, confidence: confidence)
   }
 
-  /// The heaviest set, then the most reps. Bodyweight sets (nil pounds) rank below loaded ones.
-  private static func topSet(_ sets: [WorkoutSet]) -> WorkoutSet? {
-    sets.max { ($0.pounds ?? -1, $0.reps) < ($1.pounds ?? -1, $1.reps) }
-  }
-
-  /// Fixed-point text that drops a trailing ".0", independent of the device locale.
-  private static func number(_ value: Double, digits: Int) -> String {
-    let text = String(format: "%.\(digits)f", value)
-    return text.hasSuffix(".0") ? String(text.dropLast(2)) : text
+  /// "330-450": a range in whole numbers, independent of the device locale.
+  private static func range(_ range: FoodRange) -> String {
+    "\(Int(range.low.rounded()))-\(Int(range.high.rounded()))"
   }
 }
