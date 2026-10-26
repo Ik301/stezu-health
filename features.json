@@ -482,7 +482,7 @@
         "s010-session"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-011",
