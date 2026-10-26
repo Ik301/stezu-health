@@ -233,6 +233,19 @@ enum UITestFixtures {
     )
   }
 
+  /// "location" (S-032): two visits, one arriving then departing, and a fix; synthetic (D-034).
+  static func locations(scenario: String?, now: Date = Date()) -> [LocationEvent] {
+    guard scenario == "location" else { return [] }
+    let base = max(Calendar.current.startOfDay(for: now), now - 3600)
+    let at = { (n: Double) in base + n * now.timeIntervalSince(base) / 6 }
+    return [
+      .visit(arrival: at(1), departure: nil, latitude: 10.25, longitude: -30.5, accuracy: 40),
+      .visit(arrival: at(1), departure: at(2), latitude: 10.25, longitude: -30.5, accuracy: 35),
+      .fix(at: at(3), latitude: 10.5, longitude: -30.25, accuracy: 500, speed: nil),
+      .visit(arrival: at(4), departure: at(5), latitude: 10.75, longitude: -30, accuracy: 50),
+    ]
+  }
+
   /// A day of January 2026 (0 and below roll back into December) in the device's calendar.
   private static func dataWeekDay(_ day: Int, hour: Int = 12) -> Date {
     let first = Calendar.current.date(

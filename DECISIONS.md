@@ -1250,3 +1250,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Sessions still hold exercises by name and only logged ones, so an unlogged appended exercise is never saved, and the session record finds add-on keys because `workoutNames` reads every library template.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift, WorkoutTemplate.swift; App/Sources/Workout/WorkoutLoggerView.swift; SetLoggerTests/testAppendAddOnKeepsOneSessionAndSkipsUnloggedExercises (commit on wt/S-035).
 - Reverse if: the logger gains free navigation between exercises; then the card need not wait for the day's current exercise before moving into the add-on.
+
+## D-087 Each location event is saved to location-log.json first, then queued as a `visit` or `location` record whose id comes from its time, and sent by one pass of the existing queue
+
+- Status: proposed by night agent, 2026-10-26 (S-032).
+- Problem: visits and significant location changes arrive while the app is in the background or was just relaunched for them, often with the phone locked and only seconds of run time. Each one must be kept on the phone before anything else, reach the server once, and a visit reported first on arrival and again on departure must stay one visit.
+- Given: CLVisit has no identifier, and its arrival date is the same in both reports; an unknown end is `distantPast` or `distantFuture`; the sync queue in sync-state.json resends batches until a 2xx (D-067, D-075); the server keeps the newest `updated_at` per `(kind, id)` and reads a missing payload field as NULL (server/README.md).
+- Constraints:
+  - Keeping the events only in the sync queue would lose them as soon as a batch is accepted, so Data's Places row and Sources' last time could not be shown.
+  - A random id per event would turn the departure into a second visit, on the phone and on the server.
+  - Starting monitoring before the delivery closure is set would drop an event that arrives during a relaunch.
+- Options:
+  - (a) `LocationRecorder` (an actor) applies the event to `LocationLog`, saves location-log.json, then `HealthSync.enqueue`s one record; then the app runs one `syncHermes` pass, which sends the queue before reading Health. Ids are `visit.<arrival ms>` (departure if no arrival) and `location.<time ms>`; a later event with the same id replaces the stored one and is sent with a newer `updated_at`. Unknown ends and speeds are nil and left out of the payload. Monitoring starts only from `start`, after the closure is set.
+  - (b) Write location records straight to the queue and keep no local log.
+  - (c) Keep the log in sync-state.json next to the queue.
+- Decision: (a). No `beginBackgroundTask`: the pass runs in the time iOS gives a location wake, and anything not sent stays queued for the next pass.
+- Evidence: Packages/StezuCore/Sources/StezuCore/LocationRecord.swift, SyncRecord.swift, App/Sources/Data/LocationService.swift, SourcesView.swift, PlacesRow.swift, LocationRecordTests (3), AppUITests LocationUITests/testVisitsAppearAndSync (commit on wt/S-032).
+- Reverse if: the server starts needing the explicit `null` keys, a visit's arrival date changes between its two reports (then match an open visit by place), or background passes are cut off before the queue is sent (then add a background task assertion).

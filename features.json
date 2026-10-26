@@ -1119,7 +1119,7 @@
         "s032-sources-location"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-033",

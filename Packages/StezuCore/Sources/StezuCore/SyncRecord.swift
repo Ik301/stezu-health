@@ -13,6 +13,7 @@ public struct SyncRecord: Codable, Sendable, Equatable {
   public var sessionPayload: SessionRecord? = nil
   /// A `weigh_in` record's payload (S-031).
   public var weighInPayload: WeighInRecord? = nil
+  public var placePayload: PlaceRecord? = nil
 
   enum CodingKeys: String, CodingKey {
     case kind, id, deleted, payload
@@ -57,6 +58,8 @@ extension SyncRecord {
     case "workout_session":
       sessionPayload = try box.decodeIfPresent(SessionRecord.self, forKey: .payload)
     case "weigh_in": weighInPayload = try box.decodeIfPresent(WeighInRecord.self, forKey: .payload)
+    case "visit", "location":
+      placePayload = try box.decodeIfPresent(PlaceRecord.self, forKey: .payload)
     default: payload = try box.decodeIfPresent(MealRecord.self, forKey: .payload)
     }
   }
@@ -71,6 +74,7 @@ extension SyncRecord {
     try box.encodeIfPresent(sessionPayload, forKey: .payload)
     try box.encodeIfPresent(weighInPayload, forKey: .payload)
     try box.encodeIfPresent(payload, forKey: .payload)
+    try box.encodeIfPresent(placePayload, forKey: .payload)
   }
 }
 
