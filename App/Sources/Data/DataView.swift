@@ -13,14 +13,19 @@ struct DataView: View {
   var body: some View {
     AreaScaffold(area: .data, title: "This week", goHome: goHome) {
       if connected ?? environment.healthConnection.isConnected {
-        WeightRow()
-        WeeklyHealthRows()
+        ScrollView {
+          VStack(spacing: 12) {
+            WeightRow()
+            WeeklyHealthRows()
+          }
+        }
         pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }
       } else {
         Text(
-          "Ingest reads weight, steps, heart rate, HRV, resting heart rate, sleep, food and "
-            + "workouts to show your week. It writes weigh-ins, meals and strength workouts so "
-            + "they sit in Health with everything else. Health asks once, for all of them."
+          "Ingest reads weight, steps, heart rate, HRV, resting heart rate, sleep, blood oxygen, "
+            + "respiratory rate, temperature, food and workouts to show your week. It writes "
+            + "weigh-ins, meals and strength workouts so they sit in Health with everything else. "
+            + "Health asks once, for all of them."
         )
         .font(.system(size: Theme.subtitleSize)).foregroundStyle(Theme.text)
         pill("Connect Apple Health", id: "data.connect", inverted: true) {
@@ -32,7 +37,8 @@ struct DataView: View {
       }
     }
     .sheet(isPresented: $sourcesOpen) {
-      SourcesView(store: environment.healthStore).presentationDragIndicator(.visible)
+      SourcesView(store: environment.healthStore, now: environment.now())
+        .presentationDragIndicator(.visible)
     }
   }
 
