@@ -35,6 +35,7 @@ struct SourcesView: View {
       .padding(16)
       .foregroundStyle(Theme.text)
     }
+    .scrollIndicators(.hidden)
     .background(Theme.background.ignoresSafeArea())
     .task { rows = await HealthSources.load(from: store, now: now) }
   }

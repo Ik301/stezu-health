@@ -43,3 +43,7 @@ Tokens for every screen. All text uses the system font (SF Pro). Colors are sRGB
 - Weekly numbers by default. Daily numbers only for today's intake against the target.
 - No composite daily score.
 - HRV and sleep are context only.
+
+## Scrolling
+
+No scroll bars anywhere. Every `ScrollView` uses `.scrollIndicators(.hidden)`, and the app root sets it too, so new screens inherit it.

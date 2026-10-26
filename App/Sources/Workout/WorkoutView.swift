@@ -31,7 +31,7 @@ struct WorkoutView: View {
           history: history,
           onFinish: finish)
       } else {
-        ScrollView { today }
+        ScrollView { today }.scrollIndicators(.hidden)
       }
     }
     .onAppear {

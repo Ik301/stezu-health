@@ -21,6 +21,7 @@ struct DataView: View {
             WeeklyFoodWorkoutRows()
           }
         }
+        .scrollIndicators(.hidden)
         pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }
       } else {
         Text(
