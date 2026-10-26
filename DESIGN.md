@@ -2,6 +2,13 @@
 
 Tokens for every screen. All text uses the system font (SF Pro). Colors are sRGB hex. The app defines these tokens in one place, App/Sources/Theme.swift.
 
+## App icon
+
+- Name on the home screen: Ingest.
+- Icon: the Home screen itself. Three stacked cards on a #D6D6D6 ground, the middle one #0B0B0B (the inverted "log this now" card), the other two #F6F6F6 with a white border. Cards 600 x 168 on the 1024 canvas, radius 46, 34 apart.
+- The ground is one step darker than the app background (#E6E6E6) so the light cards still read at 29 pt.
+- Source: design/AppIcon.svg. Built asset: App/Sources/Assets.xcassets/AppIcon.appiconset (one 1024 px RGB PNG, no alpha; iOS makes the smaller sizes).
+
 ## Surfaces
 
 - Background: #E6E6E6.

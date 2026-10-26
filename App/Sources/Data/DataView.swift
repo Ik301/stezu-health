@@ -1,7 +1,7 @@
 import StezuCore
 import SwiftUI
 
-/// The Data area's root screen. The first open explains what Stezu reads and writes with one
+/// The Data area's root screen. The first open explains what Ingest reads and writes with one
 /// Connect button (S-020); once Health has asked, Data opens to the overview. Keep the
 /// "screen.data.title" id on its title so the smoke UI test still finds it.
 struct DataView: View {
@@ -18,7 +18,7 @@ struct DataView: View {
         pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }
       } else {
         Text(
-          "Stezu reads weight, steps, heart rate, HRV, resting heart rate, sleep, food and "
+          "Ingest reads weight, steps, heart rate, HRV, resting heart rate, sleep, food and "
             + "workouts to show your week. It writes weigh-ins, meals and strength workouts so "
             + "they sit in Health with everything else. Health asks once, for all of them."
         )
