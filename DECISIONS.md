@@ -1284,3 +1284,28 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). (c) needs an entitlement that may not sign on a free account (D-078).
 - Evidence: Packages/StezuCore/Sources/StezuCore/HealthSync.swift, App/Sources/Settings/BackgroundSync.swift, HermesSync.swift, SettingsView.swift, BackgroundSyncTests (2), AppUITests HermesSyncUITests/testBackgroundSyncUpdatesStatus (commit on wt/S-033).
 - Reverse if: iOS runs the task so rarely that data waits for days (then try background delivery once its signing is checked), or a cancelled send turns out to have reached the server and duplicates show up (batch ids already make a resend idempotent).
+
+## D-089 Next workout is the day after the last one finished, by order, never by date
+
+- Status: decided by Isaac, 2026-10-26 (after a trial Day 1 left Next on Day 1). The mechanism is proposed (S-036).
+- What: Next is the day after the template of the most recently finished Stezu session, including an off-schedule one. With none, the first day. Rotation is by order. It ignores dates and weekdays, so a missed day doesn't skip anything.
+- Bug fixed: Home and Workout called `next(after: nil)`, which always returns the first day.
+- Reverse if: Isaac wants a weekday schedule (Push on Mondays).
+
+## D-090 A finished session can be continued for 12 hours; the same session is replaced, not duplicated
+
+- Status: decided by Isaac, 2026-10-26 ("manually resume an old session"). The mechanism is proposed (S-036).
+- What: Continue reopens a finished session that started under 12 hours ago. Finish keeps its id, replaces its Health workout (delete by session id, then save), and re-sends its record with a newer updated_at.
+- Why 12 hours: it covers "I hit Finish too early" and coming back later the same day. Continuing an older session would stretch one workout across days in Health.
+- Reverse if: he wants to append to older sessions. Then a continuation becomes its own session linked to the first.
+
+## D-091 Home's Data card shows last night's sleep, not weight
+
+- Status: decided by Isaac, 2026-10-26 (S-037).
+- What: the number is time asleep for the night that ended this morning, with in-bed time below it. No score (D-032). Weight stays on the Data screen.
+- Why: sleep changes every day and is recorded passively by the strap. Weight is entered at the gym, a few times a week.
+
+## D-092 Every sheet uses one header: large title left, plain Done right
+
+- Status: decided 2026-10-26 after Isaac said the Done button was "very off" (S-038).
+- What: one SheetHeader view, and no toolbar items in sheets. iOS 26 draws toolbar buttons as floating glass pills, which is where the shadowed Done in Workout History came from.

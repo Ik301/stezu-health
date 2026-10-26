@@ -1215,6 +1215,103 @@
       ],
       "needs_server": false,
       "passes": true
+    },
+    {
+      "id": "S-036",
+      "kind": "story",
+      "area": "workout",
+      "title": "Next workout follows the last one you did; any day can be started off schedule, and today's finished workout can be continued",
+      "steps": [
+        "Bug: Home and Workout both call TemplateLibrary.next(after: nil), so Next is always the first day. Next is now the day after the template of the most recently finished Stezu session (by end time), whatever day it was, including one started off schedule. Rotation is by order, never by date or weekday. With no finished session, or the last template no longer in the program, Next is the first day.",
+        "Home's Workout card subtitle and the Workout screen's black card show the same Next, computed by one StezuCore function from the library and finished sessions.",
+        "Off schedule: the Workout screen lists every other day below the black card with its own Start, plus Empty workout (these exist; keep them reachable in one tap). Starting one doesn't change the program; it moves Next to the day after it once finished.",
+        "Continue: a finished session that started less than 12 hours ago shows Continue in History's session view and on the Workout screen (\"Continue Push, 4 sets\" as a row under the black card). Continue reopens the logger on that session: same session id, its logged sets shown, and new sets append. Older sessions show no Continue.",
+        "Finishing a continued session saves it under the same id (replacing, not duplicating, in History). It replaces its Apple Health workout: delete the old one this app wrote, matched by the session id in metadata, then save a new one from the first to the last set. It re-sends the workout_session record with the same id and a newer updated_at. New sets go out as set records as usual.",
+        "A workout in progress still shows Resume in place of the black card (S-009). Continue is only for finished sessions.",
+        "Launch with -uitest and a fixture whose last finished session is day 1. The black card and Home say day 2. Start day 3 off schedule, log a set and Finish; Next becomes the day after day 3. Continue that session, log one more set, Finish; History shows one session with both sets."
+      ],
+      "tap_budget": "Continue: 1 tap; off-schedule start: 1 tap",
+      "depends_on": [
+        "S-009",
+        "S-010",
+        "S-030"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WorkoutRotationTests/testNextFollowsMostRecentFinishedSession",
+        "StezuCoreTests.WorkoutRotationTests/testOffScheduleSessionMovesRotation",
+        "StezuCoreTests.WorkoutRotationTests/testContinueWindowIsTwelveHours",
+        "StezuCoreTests.WorkoutRotationTests/testContinuedSessionKeepsIdAndAppendsSets"
+      ],
+      "ui_tests": [
+        "AppUITests.WorkoutRotationUITests/testNextAdvancesAndOffScheduleAndContinue"
+      ],
+      "screenshots": [
+        "s036-next-advanced",
+        "s036-continue-row"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-037",
+      "kind": "story",
+      "area": "data",
+      "title": "Home's Data card shows last night's sleep instead of weight",
+      "steps": [
+        "The Data card's number is last night's time asleep (\"9h 14m\"): the night that ended this morning, using the same night boundaries and stage handling as the Data screen's Sleep row (SleepNights). Asleep means core, deep, REM and unspecified asleep; awake and in-bed are not counted.",
+        "The subtitle reads \"Asleep last night. In bed 10h 9m\", where in bed runs from the first to the last sleep interval of that night. With no sleep recorded for last night, the number is \"--\" and the subtitle \"Asleep last night\". Never 0.",
+        "No score, target, color or judgment (D-032). Apple's Sleep Score is not reproduced.",
+        "Weight leaves the Home card only. The Data screen keeps the weight row, the weigh-in button and its detail unchanged.",
+        "Launch with -uitest and the sleep fixture. Home's Data card shows the fixture night's time asleep and in-bed time; with the empty scenario it shows \"--\"."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-026",
+        "S-022"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SleepNightTests/testLastNightAsleepExcludesAwakeAndInBed",
+        "StezuCoreTests.SleepNightTests/testInBedSpansFirstToLastInterval",
+        "StezuCoreTests.SleepNightTests/testNoNightIsAbsentNotZero"
+      ],
+      "ui_tests": [
+        "AppUITests.HomeUITests/testDataCardShowsLastNightSleep"
+      ],
+      "screenshots": [
+        "s037-home-sleep"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-038",
+      "kind": "story",
+      "area": "shell",
+      "title": "Every sheet closes the same way: one header, Done in the same place",
+      "steps": [
+        "Today four sheets put Done in four different places: Food History (small title, Done right), Workout History (Done in a floating pill with a shadow, top left), the metric detail (plain Done top left above a large title) and Sources (large title, Done right). The pill comes from iOS 26's toolbar styling.",
+        "Add one shared SheetHeader view: the large title on the left and Done on the right, on the same row, vertically centered on the title. Done is plain text in the app's font, with no capsule, glass, background or shadow. The same horizontal padding as the sheet's content. No toolbar items in sheets.",
+        "Use it on every sheet in the app: find them all (`.sheet`, `.fullScreenCover`), including History (food and workout), metric detail, Sources, Day view, Settings, the exercise library and the meal editor if they are sheets. Keep each Done's accessibility identifier.",
+        "Swipe down still closes every sheet, except where a sheet already blocks it on purpose (unsaved edits).",
+        "Add the rule to DESIGN.md: sheets use SheetHeader; no toolbar buttons in sheets.",
+        "UI test: open each sheet in turn and assert its Done is hittable at the top right (its frame's maxX is within 40 points of the screen's width) and closes the sheet."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-036"
+      ],
+      "core_tests": [],
+      "ui_tests": [
+        "AppUITests.SheetHeaderUITests/testEverySheetHasDoneTopRight"
+      ],
+      "screenshots": [
+        "s038-workout-history",
+        "s038-food-history",
+        "s038-metric",
+        "s038-sources"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }
