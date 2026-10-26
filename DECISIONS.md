@@ -833,7 +833,24 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/MetricHistory.swift, App/Sources/Data/MetricDetailView.swift, DataView.swift, MetricHistoryTests, AppUITests MetricDetailUITests (commit on wt/S-024).
 - Reverse if: opening a detail is slow on the device (8 weeks of raw step samples for the source names); then read sources from `HealthSources` once and pass them in.
 
-## D-061 A search result becomes an item at 1 serving with a range around its one per-serving value; a text estimate keeps the server's rough range
+## D-061 History groups sessions into Monday-to-Sunday weeks when it opens, from the sessions themselves
+
+- Status: proposed by night agent, 2026-10-25 (S-010).
+- Problem: History must show weeks newest first with each week's sessions and working-set count, and a week with no session must not appear as a row of zeros, while sessions keep arriving from two places (seeded history and finished-workouts.json).
+- Given: finished sessions live in finished-workouts.json (D-056) and the Workout screen already holds them with the seeded `workoutHistory`. The week runs Monday to Sunday (D-056, D-057). Every logged set counts as a working set (S-008).
+- Constraints:
+  - Storing weekly totals beside the sessions breaks when a session is added or a store is rewritten: the totals go stale.
+  - Walking calendar weeks from the oldest session to today breaks rule 5: gap weeks would need a row, and the easy row is 0.
+  - Using the calendar's own first weekday breaks the Monday start on a device set to Sunday.
+- Options:
+  - (a) `WeeklyHistory.weeks` buckets the sessions by the Monday of their week (`firstWeekday = 2`) each time History opens, so only weeks with a session exist; the exercise page filters the same sessions by name.
+  - (b) Keep a weekly index file updated on each Finish.
+  - (c) Enumerate every week back to the first session and hide the empty ones in the view.
+- Decision: (a). History is a read-only sheet over `environment.workoutHistory` plus the finished sessions; nothing new is stored.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHistory.swift, App/Sources/Workout/WorkoutHistoryView.swift, App/Sources/Workout/WorkoutView.swift, WeeklyHistoryTests, AppUITests WorkoutHistoryUITests (commit on wt/S-010).
+- Reverse if: history grows to thousands of sessions and opening History lags; then cache the weeks and rebuild them on Finish.
+
+## D-062 A search result becomes an item at 1 serving with a range around its one per-serving value; a text estimate keeps the server's rough range
 
 - Status: proposed by night agent, 2026-10-25 (S-014).
 - Problem: GET /search gives dining and packaged results as one kcal and protein number per serving, while the item list (S-013) shows only ranges and its totals sum ranges. The text estimate already comes as a range, and the list must still tell it apart as rough.
@@ -850,7 +867,7 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/FoodSearch.swift, App/Sources/Food/FoodSearchPanel.swift, FoodSearchClientTests, AppUITests FoodSearchUITests (commit on wt/S-014).
 - Reverse if: weighed portions show packaged picks are much tighter than 25%; then give packaged labels their own spread.
 
-## D-062 The fake transport answers a route narrowed by one query pair before the bare route
+## D-063 The fake transport answers a route narrowed by one query pair before the bare route
 
 - Status: proposed by night agent, 2026-10-25 (S-014).
 - Problem: search and text estimate share one route (GET /search), but `-uitest` needs a different synthetic reply for each, and FakeVMTransport keyed only by method and path.
