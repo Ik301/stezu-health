@@ -48,7 +48,13 @@ final class HermesSyncUITests: XCTestCase {
     app.element("settings.sync.now").tap()
     wait(for: "label CONTAINS '0 records'", on: row)
     let settings = app.element("screen.settings.title")
-    settings.swipeDown(velocity: .fast)
+    // A swipe on the title leaves the large sheet open, so drag it down from its grabber.
+    for _ in 0..<3 where settings.exists {
+      app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).press(
+        forDuration: 0.1,
+        thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+      sleep(2)
+    }
     wait(for: "exists == false", on: settings)
 
     // Log the fixture match; nothing else is tapped for the sync.
