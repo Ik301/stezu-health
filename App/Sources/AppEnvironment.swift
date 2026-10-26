@@ -52,6 +52,8 @@ struct AppEnvironment: Sendable {
   var programFilePicker: ProgramFilePicker
   /// Whether Data has shown the Health sheet (S-020). Memory unless the live app passes defaults.
   var healthConnection = HealthConnection(defaults: nil)
+  /// The time Data reads its week at: the clock, or a fixed synthetic Sunday in `-uitest`.
+  var now: @Sendable () -> Date = { Date() }
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -68,14 +70,18 @@ struct AppEnvironment: Sendable {
   /// Fakes only, for `-uitest` launches and SwiftUI previews.
   static func fakes(scenario: String? = nil, offline: Bool = false) -> AppEnvironment {
     AppEnvironment(
-      isUITest: true, storage: .memory, scenario: scenario, healthStore: FakeHealthStore(),
+      isUITest: true, storage: .memory, scenario: scenario,
+      healthStore: FakeHealthStore(samples: UITestFixtures.healthSamples(scenario: scenario)),
       vmTransport: FakeVMTransport(
         routes: UITestFixtures.vmRoutes, offline: offline,
         held: UITestFixtures.heldRoutes(scenario: scenario)),
       photoSource: FixturePhotoSource(), serverSettings: MemoryServerSettingsStore(),
       mealCaptures: MealCaptureStore(storage: .memory),
       workoutHistory: UITestFixtures.workoutHistory(scenario: scenario),
-      programFilePicker: .fixture(UITestFixtures.programFile(scenario: scenario)))
+      programFilePicker: .fixture(UITestFixtures.programFile(scenario: scenario)),
+      healthConnection: HealthConnection(
+        defaults: nil, asked: scenario == UITestFixtures.dataWeekScenario),
+      now: UITestFixtures.clock(scenario: scenario))
   }
 
   /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.

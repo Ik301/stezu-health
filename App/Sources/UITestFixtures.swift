@@ -39,6 +39,38 @@ enum UITestFixtures {
     scenario == photoMatchScenario ? [] : ["POST /scan"]
   }
 
+  /// "data-week": Data is already connected and the clock is Sunday 2026-01-11, noon. Stezu
+  /// weighed in on 5 of the week's 7 days (Mon, Tue, Wed, Fri, Sat) and 3 days the week before;
+  /// a strap's profile weight on Thursday must not count. All weights are made up.
+  static let dataWeekScenario = "data-week"
+  static func clock(scenario: String?) -> @Sendable () -> Date {
+    guard scenario == dataWeekScenario else { return { Date() } }
+    let sunday = dataWeekDay(11)
+    return { sunday }
+  }
+  static func healthSamples(scenario: String?) -> [HealthSample] {
+    guard scenario == dataWeekScenario else { return [] }
+    let stezu: [(Int, Double)] = [
+      (-3, 171.2), (-1, 171.0), (2, 170.8), (5, 170.6), (6, 170.4), (7, 170.5), (9, 170.0),
+      (10, 169.8),
+    ]
+    return stezu.map {
+      HealthSample(
+        type: .bodyMass, date: dataWeekDay($0.0, hour: 7), sourceName: "Stezu",
+        sourceBundleID: WeeklyWeight.stezuBundleID, value: $0.1)
+    } + [
+      HealthSample(
+        type: .bodyMass, date: dataWeekDay(8, hour: 7), sourceName: "Strap",
+        sourceBundleID: "example.strap", value: 150.0)
+    ]
+  }
+  /// A day of January 2026 (0 and below roll back into December) in the device's calendar.
+  private static func dataWeekDay(_ day: Int, hour: Int = 12) -> Date {
+    let first = Calendar.current.date(
+      from: DateComponents(year: 2026, month: 1, day: 1, hour: hour))!
+    return Calendar.current.date(byAdding: .day, value: day - 1, to: first)!
+  }
+
   /// Two dishes from two made-up halls and one item on no menu (rough, wider range).
   static let scanReply = #"""
     {"meal_id": "fixture", "items": [

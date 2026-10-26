@@ -8,7 +8,11 @@ final class HealthConnection: @unchecked Sendable {
   private let lock = NSLock()
   private var asked = false
 
-  init(defaults: UserDefaults?) { self.defaults = defaults }
+  /// `asked` starts a `-uitest` scenario already connected.
+  init(defaults: UserDefaults?, asked: Bool = false) {
+    self.defaults = defaults
+    self.asked = asked
+  }
 
   var isConnected: Bool { lock.withLock { defaults?.bool(forKey: "health.connected") ?? asked } }
 

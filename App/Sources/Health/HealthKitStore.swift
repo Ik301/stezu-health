@@ -63,6 +63,12 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
     guard try await builder.finishWorkout() != nil else { throw HKError(.errorInvalidArgument) }
   }
 
+  func saveBodyMass(pounds: Double, at date: Date) async throws {
+    let quantity = HKQuantity(unit: .pound(), doubleValue: pounds)
+    try await store.save(
+      HKQuantitySample(type: HKQuantityType(.bodyMass), quantity: quantity, start: date, end: date))
+  }
+
   private func query(_ type: HealthType, predicate: NSPredicate?, limit: Int, newest: Bool)
     async throws -> [HealthSample]
   {
@@ -77,9 +83,12 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
         continuation.resume(
           returning: results.map {
             let source = $0.sourceRevision.source
+            let pounds = ($0 as? HKQuantitySample).flatMap {
+              type == .bodyMass ? $0.quantity.doubleValue(for: .pound()) : nil
+            }
             return HealthSample(
               type: type, date: $0.endDate, sourceName: source.name,
-              sourceBundleID: source.bundleIdentifier)
+              sourceBundleID: source.bundleIdentifier, value: pounds)
           })
       }
       store.execute(query)

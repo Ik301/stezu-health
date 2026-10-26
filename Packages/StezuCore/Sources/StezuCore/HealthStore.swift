@@ -20,6 +20,9 @@ public protocol HealthStore: Sendable {
   /// Writes one traditional strength training workout with no energy samples. A workout with
   /// the same `externalID` already in Health is not written again, so a retry is safe.
   func saveStrengthWorkout(start: Date, end: Date, externalID: String) async throws
+
+  /// Writes one body-mass sample. Health records Stezu as its source.
+  func saveBodyMass(pounds: Double, at date: Date) async throws
 }
 
 /// An in-memory HealthStore for tests and `-uitest` launches. It records what was asked of it.
@@ -60,6 +63,14 @@ public actor FakeHealthStore: HealthStore {
     if failsWrites { throw FakeHealthStoreError.writeFailed }
     guard !savedWorkouts.contains(where: { $0.externalID == externalID }) else { return }
     savedWorkouts.append(SavedWorkout(start: start, end: end, externalID: externalID))
+  }
+
+  public func saveBodyMass(pounds: Double, at date: Date) async throws {
+    if failsWrites { throw FakeHealthStoreError.writeFailed }
+    storedSamples.append(
+      HealthSample(
+        type: .bodyMass, date: date, sourceName: "Stezu",
+        sourceBundleID: WeeklyWeight.stezuBundleID, value: pounds))
   }
 }
 
