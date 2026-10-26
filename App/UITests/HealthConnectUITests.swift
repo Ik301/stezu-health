@@ -17,8 +17,8 @@ final class HealthConnectUITests: XCTestCase {
     let connect = app.element("data.connect")
     XCTAssertTrue(connect.waitForExistence(timeout: 10), "no Connect Apple Health button")
     XCTAssertTrue(
-      app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Stezu reads'")).firstMatch
-        .exists, "the empty state does not say what Stezu reads")
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Ingest reads'")).firstMatch
+        .exists, "the empty state does not say what Ingest reads")
     XCTAssertFalse(app.element("data.sources").exists, "the overview shows before Connect")
     saveScreenshot("s020-connect", of: app)
 

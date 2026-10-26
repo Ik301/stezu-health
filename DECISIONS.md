@@ -802,7 +802,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A night belongs to the day its stages end on, with anything ending after 18:00 counted toward the next day; asleep stages are merged as a union so two apps recording one night count once. HRV stays a median of raw readings, with the reading count as coverage. FakeHealthStore buckets by the current calendar and does not remove overlap.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, SleepNightTests, AppUITests WeeklyHealthUITests (commit on wt/S-022).
 - Reverse if: Isaac's strap writes sleep as one asleepUnspecified block while another app writes stages; then pick one sleep source per night instead of the union.
-## D-059 Health sync reads one anchored page at a time and saves it to an on-device queue with its anchor before sending
+
+## D-059 The app is called Ingest on the home screen; identifiers keep the StezuHealth name
+
+- Status: decided by Isaac, 2026-10-25 (merged in PR #29; this record was dropped from that PR when it merged and is restored here).
+- Problem: the app had no icon, and "Stezu Health" is the project's name, not a name for the thing on the home screen.
+- Given: renaming the target, bundle ids or repo would break HealthKit authorization and the builds already installed on his phone.
+- Options:
+  - (a) Change only the display name and permission strings to Ingest; the target, bundle ids and repo stay StezuHealth; add a single 1024 px icon in an asset catalog.
+  - (b) Rename everything to Ingest now.
+  - (c) Keep "Stezu Health" until the name is final.
+- Decision: (a). The icon is the Home screen's three stacked cards with the middle one inverted, in DESIGN.md's monochrome tokens.
+- Evidence: project.yml (CFBundleDisplayName, usage strings), App/Sources/Assets.xcassets, design/AppIcon.svg, DESIGN.md; commit 7d02a7c.
+- Reverse if: the name changes again (edit the display strings only), or Ingest goes to the App Store, where the bundle ids would have to be renamed before the first release.
+
+## D-060 Health sync reads one anchored page at a time and saves it to an on-device queue with its anchor before sending
 
 - Status: proposed by night agent, 2026-10-25 (S-028).
 - Problem: every Health type the app reads has to reach POST /sync, first as a 90-day backfill and then only as changes (deletions included), in requests of about 2,000 items, without blocking the UI and without losing anything when there is no server, no network or a 5xx.
