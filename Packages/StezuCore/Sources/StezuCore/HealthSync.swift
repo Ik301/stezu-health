@@ -43,9 +43,11 @@ public struct SyncBatch: Codable, Sendable, Equatable {
   public var deviceID, batchID: String
   public var samples: [SyncSample]
   public var deleted: [SyncDeletion]
+  /// Stezu's records (S-029); optional, so a queue saved before them still loads.
+  public var records: [SyncRecord]? = nil
 
   enum CodingKeys: String, CodingKey {
-    case samples, deleted
+    case samples, deleted, records
     case deviceID = "device_id"
     case batchID = "batch_id"
   }
@@ -59,6 +61,8 @@ public struct SyncState: Codable, Sendable, Equatable {
   /// Nil before the first full sync, never 0.
   public var lastSyncAt: Date?
   public var samplesTotal: Int?
+  /// The server's `records_total`; nil until it answers with one.
+  public var recordsTotal: Int?
 
   public init(deviceID: String = UUID().uuidString) { self.deviceID = deviceID }
 }
@@ -73,6 +77,16 @@ public actor HealthSync {
 
   public init(state: SyncState, save: @escaping @Sendable (SyncState) -> Void = { _ in }) {
     (self.state, self.save) = (state, save)
+  }
+
+  /// Queues records as one batch and saves it; the next `run` sends it, retried like samples.
+  public func enqueue(_ records: [SyncRecord]) {
+    guard !records.isEmpty else { return }
+    state.pending.append(
+      SyncBatch(
+        deviceID: state.deviceID, batchID: UUID().uuidString, samples: [], deleted: [],
+        records: records))
+    save(state)
   }
 
   /// The queue, each type (none if `health` is nil), then GET /sync/status. Never two at once.
@@ -99,9 +113,11 @@ public actor HealthSync {
         guard await flush(transport) else { return state }
       }
     }
+    guard await flush(transport) else { return state }  // records queued during the run
     if let reply = try? await transport.send(VMRequest(path: "/sync/status")), reply.status == 200 {
       let server = try? JSONSerialization.jsonObject(with: reply.body) as? [String: Any]
       state.samplesTotal = server?["samples_total"] as? Int
+      state.recordsTotal = server?["records_total"] as? Int
       state.lastSyncAt = now  // only once the server answered, never for an unconfigured app
     }
     save(state)

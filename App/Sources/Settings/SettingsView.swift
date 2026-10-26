@@ -54,7 +54,12 @@ struct SettingsView: View {
     .onAppear {
       stored = environment.serverSettings.load()
       address = stored.address
-      Task { syncText = HermesSyncFile.text(await environment.healthSync.state) }
+    }
+    .task {  // live while open, so a meal synced in the background shows (S-029)
+      while !Task.isCancelled {
+        syncText = HermesSyncFile.text(await environment.healthSync.state)
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+      }
     }
   }
 

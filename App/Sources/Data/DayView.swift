@@ -81,6 +81,7 @@ struct DayView: View {
       guard (try? await environment.healthStore.deleteBodyMass(at: date)) != nil else { return }
     case .meal(let id):
       await environment.mealCaptures.unlog(id)
+      await environment.syncMeal(nil, id: id)
     case .session(let start):
       let store = FinishedWorkoutStore(storage: environment.storage)
       store.save(store.load().filter { $0.session.startedAt != start })
@@ -93,7 +94,9 @@ struct DayView: View {
 
   private func save(_ meal: LoggedMeal) async {
     editing = nil
-    try? await environment.mealCaptures.log(meal)
+    if (try? await environment.mealCaptures.log(meal)) != nil {
+      await environment.syncMeal(meal, id: meal.id, edited: true)
+    }
     await load()
   }
 }

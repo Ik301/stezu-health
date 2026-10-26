@@ -1072,3 +1072,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The workout card's confidence is high, with "n from Stezu, m from Health" as its reason. A failed Health read is absent. New scenario `home-week` is data-food-week plus two meals today.
 - Evidence: App/Sources/HomeViewModel.swift, App/Sources/HomeView.swift, App/Sources/UITestFixtures.swift, App/Tests/HomeViewModelTests.swift, App/UITests/HomeCardsUITests.swift (commit on wt/S-026).
 - Reverse if: the reads make Home visibly slow to fill on a device (then (b)), or the target loop returns after D-032 is reversed.
+
+## D-075 A meal change is queued as a `/sync` record batch in the Health sync queue, saved before the screen goes on, and sent by the next pass
+
+- Status: proposed by night agent, 2026-10-26 (S-029).
+- Problem: every logged, edited, undone or deleted meal must reach the server's records, survive being offline or a relaunch, never block the screen, and keep a deleted meal deleted on the server even though the phone keeps no tombstone file.
+- Given: `HealthSync` keeps a persisted queue of `SyncBatch`es (sync-state.json, D-067) that leave only on a 2xx and are resent with the same `batch_id`; the server keys records by `(kind, id)` and keeps only a newer `updated_at` (server/README.md); meal changes happen in FoodView (Log, Undo), FoodHistory (save, delete) and DayView (save, delete) (D-073).
+- Constraints:
+  - A second queue for records breaks "the same queue and retry" and lets records and samples race.
+  - Sending straight from the view breaks offline: a failed send would be lost, and the screen would wait on the network.
+  - A timestamp at seconds resolution breaks edits made within a second of Log: the server counts them as duplicates.
+- Options:
+  - (a) `SyncRecord.meal`/`.deletedMeal` build one record (`MealRecord` payload: id, eaten_at, day, status, edited, in_health, items with item_id, source, halls, serving, servings, confidence, rough, kcal and protein_g ranges; no photo). `AppEnvironment.syncMeal` awaits `HealthSync.enqueue` (a records-only batch appended and saved), then starts a detached pass. `run` flushes again before GET /sync/status so a record queued mid-run goes too, and reads `records_total` for the Settings row.
+  - (b) Keep a separate records outbox file and its own retry.
+  - (c) Rebuild all meals from the meal files on every pass and diff against what was sent.
+- Decision: (a). `updated_at` carries milliseconds. `SyncBatch.records` is optional, so a queue saved by S-028 still loads. The `-uitest` fake counts the live records it has received in its GET /sync/status answer (`FakeVMTransport(countsRecords:)`), and a meal change starts a pass under `-uitest` too.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SyncRecord.swift, Packages/StezuCore/Sources/StezuCore/HealthSync.swift, Packages/StezuCore/Sources/StezuCore/VMTransport.swift, App/Sources/Settings/HermesSync.swift, App/Sources/Food/FoodView.swift, App/Sources/Food/FoodHistory.swift, App/Sources/Data/DayView.swift, HealthSyncTests/testMealRecordCarriesRangesAndSource, HermesSyncUITests/testLoggedMealIsSynced (commit on wt/S-029).
+- Reverse if: the queue grows big enough that one batch per meal change crowds the 5,000-item limit's spirit (then coalesce pending records by id), or the server starts rejecting records without a payload key.

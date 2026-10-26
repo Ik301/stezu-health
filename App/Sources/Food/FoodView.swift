@@ -206,6 +206,7 @@ struct FoodView: View {
         Task {
           await environment.mealCaptures.unlog(id)
           try? await environment.healthStore.deleteFood(syncIdentifier: id.uuidString)
+          await environment.syncMeal(nil, id: id)
           await loadToday()
         }
       }
@@ -233,6 +234,7 @@ struct FoodView: View {
         }
         (logged, loggedInHealth, logFailed) = (meal.id, written.inHealth, false)
         await loadToday()
+        await environment.syncMeal(written, id: meal.id)
       } catch {
         logFailed = true
       }
