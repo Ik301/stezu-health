@@ -995,7 +995,7 @@
         "s028-sync-row"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-029",
