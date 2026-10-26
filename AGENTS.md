@@ -52,6 +52,7 @@ Night cards use wt/F-xxx or wt/S-xxx, in a worktree under .worktrees/<id>/. infr
 - G3: `scripts/diff-budget.sh origin/main`, counting uncommitted and untracked files. Card branches: at most 300 changed non-test lines in 12 files (*.md and Tests/ excluded), and no change to *.entitlements, project.yml, scripts/, .github/, Package.swift, Info.plist or *.xcodeproj. infra/* may change those and has no size limit. Every branch: no signing team, identity or profile in project.yml, and no test file loses a `func test`.
 - G4: `swift format lint --strict` over all Swift files. Fix with `swift format -i -r <paths>`.
 - G5: `server/run_tests.sh` when it exists; skipped with a notice otherwise.
+- G6: `mac/screentime/run_tests.sh` (the Mac Screen Time uploader's stdlib tests) when it exists.
 
 CI: `linux-core` runs the gates; `ios` builds the app and the extension, runs AppTests and AppUITests on a simulator, and uploads the xcresult and the screenshots. Both checks are required to merge.
 

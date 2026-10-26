@@ -1159,3 +1159,22 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Exercise keys come from the library first and the templates second (templates win on a shared name); an unknown name sends a null key. `pounds` is always present, null for bodyweight.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutRecord.swift, SyncRecord.swift, HealthSync.swift, WorkoutFinish.swift, App/Sources/Settings/HermesSync.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/Workout/WorkoutView.swift, WorkoutRecordTests (3), HermesSyncUITests/testLoggedSetsAndFinishedWorkoutAreSynced (commit on wt/S-030).
 - Reverse if: two sets can be logged in the same millisecond of one session (then store an id per set), or the server starts treating an equal record replayed by the backfill as a conflict.
+
+## D-081 iPhone Screen Time reaches the server through the Mac: a daily launchd job reads Biome App.InFocus and posts `app_usage` records
+
+- Status: proposed (infra/mac-screentime-uploader, daytime session), 2026-10-26.
+- Problem: D-078 wants the iPhone's per-app Screen Time on the server, but on the free Apple account no app code can read it: Family Controls needs the paid program, and before iOS 26.4 iOS never exports usage numbers at all (research note 11).
+- Given: Isaac's MacBook has Share Across Devices on and holds the iPhone's App.InFocus events in Biome (remote streams, SEGB files, device list in sync.db); the Mac is always on the tailnet and reaches the server at the app's base URL with a device token; POST /sync stores records by (kind, id) with the newest updated_at winning; ActivityWatch already covers the Mac itself; Biome keeps about four weeks.
+- Constraints:
+  - Biome is private and undocumented; its format changed in 2025, so a parser can break with a macOS update.
+  - Reading it needs Full Disk Access for the binary that opens the files; a launchd job through /usr/bin/python3 (a shim) gets no grant of its own, and the grant breaks when the interpreter path moves.
+  - The iPhone's events reach the Mac late and out of order, so a strict "last event uploaded" cursor skips data; a run before midnight sees apps still in focus.
+  - The repo is public (D-034): no device ids, names, usage or server URLs in code, tests or PRs.
+  - No new dependencies on the Mac beyond the Command Line Tools python.
+- Options:
+  - (a) A stdlib Python script with its own SEGB and protobuf reader, run daily at 20:00 by a launchd agent that starts the real interpreter binary (the one granted Full Disk Access); it re-sends the trailing 7 days every run and holds back intervals still open.
+  - (b) Install nichtlegacy/screentime or aw-import-screentime on the Mac and forward from its database or ActivityWatch buckets.
+  - (c) Pay for the Apple Developer Program and use iOS 26.4's DeviceActivityData export in the app.
+- Decision: (a). It is free, adds no dependency, and posts the same record contract the app uses. Default devices are only remote peers whose sync.db model is an iPhone; otherwise the run sends nothing and asks for STEZU_DEVICES. Intervals end at focus loss or the next app's focus gain, drop at zero length, and are capped at 4 hours (marked capped). The record id hashes device, bundle id and start, and updated_at is the run's time, so a re-send or a corrected end replaces the row. The state file only records the last run and its counts, plus how far back the window reaches after a gap. Server views stezu_app_usage and screen_time_daily read the records (server PR).
+- Evidence: mac/screentime/ (stezu_screentime.py, install.sh, uninstall.sh, com.ik301.stezu.screentime.plist, README.md, Tests/), scripts/gate-linux.sh G6. Tested on Linux with synthetic SEGB v1/v2 files and a synthetic sync.db only; not yet run on a Mac (macOS 26.6.2 layout assumed from 26.1 and 27 reports).
+- Reverse if: a macOS update changes the Biome layout beyond a parser fix, Share Across Devices stops carrying iPhone events, or the paid program is bought and the in-app export (c) gives Apple's own totals.
