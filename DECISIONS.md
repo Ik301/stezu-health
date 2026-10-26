@@ -1309,3 +1309,23 @@ The research notes cited here are kept private, because they contain personal he
 
 - Status: decided 2026-10-26 after Isaac said the Done button was "very off" (S-038).
 - What: one SheetHeader view, and no toolbar items in sheets. iOS 26 draws toolbar buttons as floating glass pills, which is where the shadowed Done in Workout History came from.
+
+## D-093 Data rows show a 7-day sparkline; Blood oxygen and Temperature leave the UI
+
+- Status: decided by Isaac, 2026-10-26, after the clickable mock (S-039).
+- What: each metric row gets a small week series (bars for counts and sleep, lines for rates), with gaps for missing days. Blood oxygen and Temperature rows are removed. Their Health data is still read and synced if it ever appears.
+- Why: he compared sparklines on and off in the mock and kept them. Neither the oxygen row nor the temperature row has received a sample from his phone.
+- Reverse if: the rows read as busy on the phone. Then keep the sparkline only on Sleep.
+
+## D-094 Sleep gets its own screen: the sleep window over 7/14/30 nights first, then stages and overnight heart
+
+- Status: decided by Isaac, 2026-10-26 ("i like this UI"). The mechanism is proposed (S-040).
+- What: a pushed Sleep screen with last night's numbers, a hypnogram, a one-line overnight heart and breathing range, a 7/14/30 sleep window chart with median bedtime and wake lines, and per-night heart and breathing range bars. Tapping a night selects it.
+- Why: the window chart shows duration, timing and consistency in one picture. On his data, bedtime is steady and wake time is scattered, which an average hides. "Usual" is a median, stated as a description, never a target (D-032).
+
+## D-095 The Day view gains a 24-hour timeline across sleep, food, workouts, places and steps
+
+- Status: decided by Isaac, 2026-10-26, from the mock. The mechanism is proposed (S-041).
+- What: a timeline above the existing list. It shows recorded data only, with no placeholders.
+- Why: it is the one view that connects the domains, which Apple Health cannot show.
+- Reverse if: it stays mostly empty once meals and places are logging.

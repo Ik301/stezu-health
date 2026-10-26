@@ -1312,6 +1312,110 @@
       ],
       "needs_server": false,
       "passes": false
+    },
+    {
+      "id": "S-039",
+      "kind": "story",
+      "area": "data",
+      "title": "Data rows carry a 7-day sparkline; Blood oxygen and Temperature are gone",
+      "steps": [
+        "Remove the Blood oxygen and Temperature rows from the Data screen and their rows from Sources. Health reading and /sync of those types stay as they are (passive, no UI).",
+        "Every remaining metric row on Data shows a small 7-day sparkline between the label and the number, for the same Mon-Sun week the row summarizes: Sleep as bars (hours asleep per night, labeled by the wake-up day), Steps as bars (per day), HRV, Resting HR and Respiratory rate as lines with dots (daily or nightly mean), Weight as the trend line with weigh-in dots, Food as bars (midpoint kcal per day), Workouts as bars (sessions per day), Places as bars (visits per day).",
+        "A day without data is a gap, never a zero-height bar or a line dropped to 0. Today's bar or dot is drawn darker (the mock's black end mark). Grayscale only, no axis, no labels, about 46 x 18 points, vertically centered on the row's number.",
+        "Rows keep one line for their label; the sparkline yields width before the label wraps.",
+        "Use Swift Charts (a system framework, allowed) or Canvas; no packages.",
+        "Launch with -uitest and the strap fixture. The Data screen shows no Blood oxygen or Temperature row, and every metric row has a sparkline element (identifier data.spark.<row id>). A fixture day without sleep shows a gap."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-022",
+        "S-027",
+        "S-038"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SparklineTests/testWeekSeriesKeepsGapsAsNil",
+        "StezuCoreTests.SparklineTests/testSleepNightsLabeledByWakeDay"
+      ],
+      "ui_tests": [
+        "AppUITests.DataUITests/testRowsHaveSparklinesAndNoOxygenOrTemperature"
+      ],
+      "screenshots": [
+        "s039-data-sparklines"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-040",
+      "kind": "story",
+      "area": "data",
+      "title": "Tapping Sleep opens a sleep screen: last night, the sleep window over 7/14/30 nights, and overnight heart and breathing",
+      "steps": [
+        "Tapping the Sleep row on Data pushes a Sleep screen inside the Data area, with a back control labeled \"This week\" and the bottom nav still visible, as in the mock. HRV and Resting HR keep their existing detail sheets.",
+        "Top: \"Sleep, night of <weekday day month>\", the time asleep in the big number style, \"Asleep. In bed HH:MM to HH:MM, Xh Ym\", and \"Usual Xh Ym (median of the N nights recorded)\", median over up to 30 nights. Descriptive only: no score, target or color (D-032).",
+        "Hypnogram card: four lanes (Awake, REM, Core, Deep) over the night with hour ticks, and a legend with each stage's total. Unspecified asleep counts as Core.",
+        "A one-line card: heart rate low-high (bpm) and respiratory rate low-high (br/min) while asleep that night.",
+        "A 7 / 14 / 30 nights segmented control (default 14) drives the next three cards.",
+        "Sleep window card: one horizontal bar per night from in-bed start to final wake, on a shared clock axis; dashed vertical lines at the median bedtime and wake time; the duration at the right; a night with no data shows \"--\". The selected night is black, others gray. \"12 of 14 nights\" in the header. Tapping a night selects it: the top section, hypnogram and one-line card switch to that night.",
+        "Heart rate while asleep, and Respiratory rate while asleep: one vertical low-to-high bar per night with a light y-axis; the selected night is black.",
+        "A \"<date> as a day\" row at the bottom opens the Day view for the selected night's wake-up date.",
+        "Footer: \"Source: <source names>. Tracking only, no scores. Nights are labeled by the day you woke up.\"",
+        "Night boundaries and stage handling reuse SleepNights (the same code as the Data row and Home's card, S-037).",
+        "Launch with -uitest and a generic multi-night sleep fixture (synthetic). Tap Sleep: the screen shows the fixture's last night, 14 window bars with one missing night as \"--\", and switching to 7 shows 7. Tapping an earlier night changes the top number to that night's time asleep."
+      ],
+      "tap_budget": "1 tap from Data",
+      "depends_on": [
+        "S-039",
+        "S-037"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SleepDetailTests/testWindowBarsSpanInBedToFinalWake",
+        "StezuCoreTests.SleepDetailTests/testUsualIsMedianOfRecordedNights",
+        "StezuCoreTests.SleepDetailTests/testStageTotalsCountUnspecifiedAsCore",
+        "StezuCoreTests.SleepDetailTests/testOvernightHeartRangeUsesAsleepIntervalsOnly"
+      ],
+      "ui_tests": [
+        "AppUITests.SleepDetailUITests/testSleepScreenWindowAndNightSelection"
+      ],
+      "screenshots": [
+        "s040-sleep-top",
+        "s040-sleep-window",
+        "s040-sleep-heart"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-041",
+      "kind": "story",
+      "area": "data",
+      "title": "The Day view opens with a 24-hour timeline of sleep, meals, workouts, places and steps",
+      "steps": [
+        "Above the Day view's existing list (which keeps Edit and Delete), add a 24-hour vertical timeline as in the mock: hour labels every 3 hours on the left; a Places column (visits from S-032 as tall boxes, labeled with arrival-departure times, since places have no names yet); a main column with sleep (black block: start-end, time asleep), meals (time, name, kcal range) and workouts (time, template name, set count or duration); a narrow Steps column with one bar per hour.",
+        "Blocks are positioned by time; overlapping blocks in the main column stack side by side rather than covering each other.",
+        "Tapping a meal or workout block scrolls to its row in the list below; nothing is edited on the timeline.",
+        "Nothing is invented: a column with no data that day is empty. Never placeholders.",
+        "Launch with -uitest and a fixture day with a night, two meals, one workout, two visits and hourly steps. The timeline shows each block, and tapping a meal scrolls to its row."
+      ],
+      "tap_budget": "0 taps (it is the top of the Day view)",
+      "depends_on": [
+        "S-025",
+        "S-032",
+        "S-040"
+      ],
+      "core_tests": [
+        "StezuCoreTests.DayTimelineTests/testBlocksPositionedByTimeAndClippedToDay",
+        "StezuCoreTests.DayTimelineTests/testOverlappingBlocksGetSeparateLanes",
+        "StezuCoreTests.DayTimelineTests/testStepsBucketedByHour"
+      ],
+      "ui_tests": [
+        "AppUITests.DayUITests/testTimelineShowsBlocksAndScrollsToMeal"
+      ],
+      "screenshots": [
+        "s041-day-timeline"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }
