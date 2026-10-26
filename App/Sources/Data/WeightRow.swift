@@ -7,7 +7,6 @@ import SwiftUI
 struct WeightRow: View {
   @Environment(\.appEnvironment) private var environment
   @State private var loaded: (week: WeekWeight, prefill: Double?)?
-  @State private var pounds = 0.0
   @State private var weighing = false
   @State private var reloads = 0
 
@@ -31,13 +30,9 @@ struct WeightRow: View {
       label(week?.confidence.reason ?? "--").accessibilityIdentifier("data.weight.reason")
       label("From: " + (sources.isEmpty ? "--" : sources)).accessibilityIdentifier(
         "data.weight.sources")
-      Button("Weigh in") {
-        // With nothing in Health the stepper needs some start; 150 is a generic default.
-        pounds = loaded?.prefill ?? 150
-        weighing = true
-      }
-      .font(.system(size: 17, weight: .semibold))
-      .accessibilityIdentifier("data.weighIn")
+      Button("Weigh in") { weighing = true }
+        .font(.system(size: 17, weight: .semibold))
+        .accessibilityIdentifier("data.weighIn")
     }
     .foregroundStyle(Theme.text)
     .padding(16)
@@ -46,32 +41,11 @@ struct WeightRow: View {
     .task(id: reloads) {
       loaded = await WeeklyWeight.load(from: environment.healthStore, now: environment.now())
     }
-    .sheet(isPresented: $weighing) { weighInSheet.presentationDetents([.medium]) }
-  }
-
-  private var weighInSheet: some View {
-    VStack(spacing: 24) {
-      Text(String(format: "%.1f lb", pounds))
-        .font(.system(size: Theme.heroNumberSize, weight: .medium))
-        .accessibilityIdentifier("data.weighIn.value")
-      Stepper("Weight", value: $pounds, in: 50...700, step: 0.1).labelsHidden()
-        .accessibilityIdentifier("data.weighIn.stepper")
-      Button {
-        Task {
-          let health = environment.healthStore
-          try? await WeeklyWeight.weighIn(pounds: pounds, at: environment.now(), to: health)
-          weighing = false
-          reloads += 1
-        }
-      } label: {
-        Text("Save").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.invertedText)
-          .frame(maxWidth: .infinity, minHeight: 50)
-          .background(Theme.invertedCard, in: Capsule())
-      }
-      .accessibilityIdentifier("data.weighIn.save")
+    .sheet(isPresented: $weighing) {
+      // With nothing in Health the stepper needs some start; 150 is a generic default.
+      WeighInSheet(pounds: loaded?.prefill ?? 150) { reloads += 1 }
+        .presentationDetents([.medium])
     }
-    .padding(24)
-    .foregroundStyle(Theme.text)
   }
 
   private func weekRange(_ start: Date) -> String {
@@ -82,5 +56,43 @@ struct WeightRow: View {
 
   private func label(_ text: String) -> some View {
     Text(text).font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+  }
+}
+
+/// The weigh-in stepper: starts at the prefill, 0.1 lb steps, no keyboard. Save writes one sample.
+private struct WeighInSheet: View {
+  @State private var pounds: Double
+  private let saved: () -> Void
+  @Environment(\.appEnvironment) private var environment
+  @Environment(\.dismiss) private var dismiss
+
+  init(pounds: Double, saved: @escaping () -> Void) {
+    _pounds = State(initialValue: pounds)
+    self.saved = saved
+  }
+
+  var body: some View {
+    VStack(spacing: 24) {
+      Text(String(format: "%.1f lb", pounds))
+        .font(.system(size: Theme.heroNumberSize, weight: .medium))
+        .accessibilityIdentifier("data.weighIn.value")
+      Stepper("Weight", value: $pounds, in: 50...700, step: 0.1).labelsHidden()
+        .accessibilityIdentifier("data.weighIn.stepper")
+      Button {
+        Task {
+          let health = environment.healthStore
+          try? await WeeklyWeight.weighIn(pounds: pounds, at: environment.now(), to: health)
+          dismiss()
+          saved()
+        }
+      } label: {
+        Text("Save").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.invertedText)
+          .frame(maxWidth: .infinity, minHeight: 50)
+          .background(Theme.invertedCard, in: Capsule())
+      }
+      .accessibilityIdentifier("data.weighIn.save")
+    }
+    .padding(24)
+    .foregroundStyle(Theme.text)
   }
 }
