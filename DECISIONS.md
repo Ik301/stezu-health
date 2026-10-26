@@ -985,3 +985,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Food: each logged day's total is its meals' lows summed and highs summed; the week is the mean of the lows and the mean of the highs over logged days; a day with an unknown item counts as logged but is left out of that mean, and the confidence reason says so.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyIntake.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyFoodWorkoutRows.swift, WeeklyStatTests (commit on wt/S-023).
 - Reverse if: two real sessions start within a minute of each other, or Health workouts need their end date on Sources; then match on the external id instead.
+
+## D-070 The Day view tags each record with its owner, and only Stezu-owned records get Delete, each removed where it is stored
+
+- Status: proposed by night agent, 2026-10-26 (S-025).
+- Problem: a day mixes Stezu's own records (weigh-ins written to Health, logged meals, finished sessions) with other apps' Health samples, and the Day view must let Isaac change only Stezu's, with each change landing in the store the record came from.
+- Given: Stezu weigh-ins live only in Health, as body-mass samples from Stezu's bundle (D-057); logged meals are `<id>.log` files (D-068); finished sessions are entries in finished-workouts.json; a Health workout within 60 s of a Stezu session is that session (D-069); `-uitest` scenarios seed meals and sessions in memory only.
+- Constraints:
+  - Deciding ownership from the source name alone breaks when another app is also called "Stezu" and lets the view delete samples it did not write.
+  - A HealthKit delete by type and date alone would remove other apps' weigh-ins at that instant.
+  - Deleting the Health copy of a finished session needs a workout delete in `HealthStore` that no story has asked for yet.
+  - Seeded scenario records cannot be deleted from a store, so a reload would bring them back.
+- Options:
+  - (a) `DayRecord.Owner`: `.weighIn(date)` only for Stezu's bundle id, `.meal(id)`, `.session(start)`, else `.health`. Delete: `HealthStore.deleteBodyMass(at:)` (HealthKit predicate: this app's source and that instant), `MealCaptureStore.unlog`, or rewriting finished-workouts.json without the session; the view also remembers what it deleted this visit. A meal edit rewrites its `.log` with the same id.
+  - (b) Show Edit and Delete on every record and let HealthKit refuse other apps' samples.
+  - (c) Read-only Day view now, editing later.
+- Decision: (a). Deleting a session leaves its Health copy in Health, where it then shows as a read-only Health workout.
+- Evidence: Packages/StezuCore/Sources/StezuCore/DayRecords.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/DayView.swift, DayRecordsTests (commit on wt/S-025).
+- Reverse if: sessions need deleting from Health too (add a workout delete by external id), or records gain stable ids from a shared store.

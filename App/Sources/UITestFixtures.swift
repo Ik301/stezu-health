@@ -68,7 +68,7 @@ enum UITestFixtures {
     return { sunday }
   }
   static func healthSamples(scenario: String?) -> [HealthSample] {
-    guard scenario == dataWeekScenario else { return [] }
+    guard isDataWeek(scenario) else { return [] }
     let stezu: [(Int, Double)] = [
       (-3, 171.2), (-1, 171.0), (2, 170.8), (5, 170.6), (6, 170.4), (7, 170.5), (9, 170.0),
       (10, 169.8),
@@ -88,7 +88,7 @@ enum UITestFixtures {
   /// the Saturday before, HRV on 5 days (median 47 ms), resting HR on 5 days (mean 59 bpm), and
   /// 5 nights (ending Mon, Tue, Wed, Fri, Sat) of 7h 20m asleep among in-bed and awake stages.
   static func weekHealthSamples(scenario: String?) -> [HealthSample] {
-    guard scenario == dataWeekScenario else { return [] }
+    guard isDataWeek(scenario) else { return [] }
     let steps: [Int: Double] = [3: 6000, 5: 4000, 6: 3250, 7: 3600, 8: 4550, 9: 2700, 10: 3900]
     let rows: [(HealthType, Int, [Int: Double])] = [
       (.stepCount, 9, steps), (.stepCount, 18, steps),
@@ -103,7 +103,7 @@ enum UITestFixtures {
     }
   }
   static func sleep(scenario: String?) -> [SleepInterval] {
-    guard scenario == dataWeekScenario else { return [] }
+    guard isDataWeek(scenario) else { return [] }
     let stages: [(SleepStage, Double, Double)] = [
       (.inBed, -60, 420), (.asleepCore, -45, 180), (.asleepDeep, 180, 240),
       (.asleepREM, 240, 330), (.awake, 330, 340), (.asleepCore, 340, 405),
@@ -135,8 +135,9 @@ enum UITestFixtures {
     }
   }
 
-  /// "data-food-week" (S-023): data-week's connection and Sunday clock with logged meals and
-  /// sessions instead of samples. All made up.
+  /// "data-food-week" (S-023): data-week's connection, Sunday clock, weigh-ins, steps, HRV,
+  /// resting HR and sleep, plus logged meals and sessions, so Monday has every kind of record
+  /// (S-025). All made up.
   static let foodWeekScenario = "data-food-week"
   static func isDataWeek(_ scenario: String?) -> Bool {
     scenario == dataWeekScenario || scenario == foodWeekScenario

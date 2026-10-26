@@ -185,6 +185,19 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
       store.execute(query)
     }
   }
+
+  /// Only samples this app wrote, ending at `date` (weigh-ins start and end at once).
+  func deleteBodyMass(at date: Date) async throws {
+    let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+      HKQuery.predicateForObjects(from: HKSource.default()),
+      HKQuery.predicateForSamples(withStart: date, end: date + 1, options: .strictStartDate),
+    ])
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+      store.deleteObjects(of: HKQuantityType(.bodyMass), predicate: predicate) { _, _, error in
+        if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+      }
+    }
+  }
 }
 
 extension HealthType {

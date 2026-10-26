@@ -909,7 +909,7 @@
         "s025-day"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-026",
