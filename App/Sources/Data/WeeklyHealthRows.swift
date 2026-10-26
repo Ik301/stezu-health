@@ -5,6 +5,7 @@ import SwiftUI
 /// respiratory rate and temperature (S-027), each with its coverage; all but steps and resting HR
 /// are labelled context. No data shows "--" beside its coverage, never 0, plus the hint.
 struct WeeklyHealthRows: View {
+  var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
   @State private var week: WeeklyHealth?
 
@@ -61,6 +62,8 @@ struct WeeklyHealthRows: View {
       Spacer()
       Text(value).font(.system(size: 17, weight: .medium)).accessibilityIdentifier(
         "data.\(id).value")
+      // The strap rows have no history view yet (S-024 covers the S-022 metrics only).
+      if let metric = Metric(rawValue: id) { MetricOpenButton(metric: metric, open: open) }
     }
     .foregroundStyle(Theme.text)
   }
