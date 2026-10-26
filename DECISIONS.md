@@ -718,3 +718,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Batches hold at most 5,000 items and 24 MiB of JSON (gzip allowed). Day keys use `STEZU_HEALTH_TZ` (default America/New_York) and are recomputed when it changes. `daily_steps` and `sleep_nights` take the largest single source per day or night and also expose the raw sum or the per-source rows.
 - Evidence: server/stezu_server/health.py, server/stezu_server/app.py, server/Tests/test_sync.py, server/README.md (server/sync). A 5,000-sample batch is stored in about 0.15 s on the VM; a replay of it counts 5,000 duplicates.
 - Reverse if: Hermes needs Health's exact merged totals (then the app sends daily `HKStatisticsCollectionQuery` sums as records), or the database grows to where `/sync/status` takes more than about a second.
+
+## D-054 Data asks Health once, on the first Connect tap, and remembers it in a flag; reads that return nothing are absent
+
+- Status: proposed by night agent, 2026-10-25 (S-020).
+- Problem: Data must not ask for Health access at launch, must ask once when Isaac taps Connect, and must not show the empty state again; afterwards Sources has to tell "no data" apart from a real count.
+- Given: HealthKit shows its sheet only for types not yet asked about and never says whether a read was denied: a denied read returns no samples. The `-uitest` launch uses FakeHealthStore, which counts requests.
+- Constraints:
+  - Deciding from HealthKit's authorization status breaks for reads: it is only reported for writes, so the empty state could return.
+  - Asking at launch breaks the story ("nothing is asked at app launch").
+  - Showing 0 samples for a type with none breaks rule 5 and hides a denied read.
+- Options:
+  - (a) `HealthConnection` keeps a "health.connected" flag (UserDefaults live, memory in -uitest), set after `requestAuthorization` returns; `connect` is a no-op once set. A type with no sample ever is absent ("--") with the hint to turn the read on.
+  - (b) Ask on every Data open and let HealthKit suppress repeats.
+  - (c) Probe each type with a read to guess access.
+- Decision: (a). A throw from the sheet leaves the flag unset, so Connect can be tried again.
+- Evidence: App/Sources/Data/HealthConnection.swift, App/Sources/Data/DataView.swift, Packages/StezuCore/Sources/StezuCore/HealthSources.swift, AppTests HealthConnectTests, HealthSourcesTests (commit b06a4dd on wt/S-020).
+- Reverse if: a later version adds types; then the flag must become a version number so the sheet asks again for the new types only.

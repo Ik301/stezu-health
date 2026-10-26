@@ -29,4 +29,53 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
   func requestAuthorization() async throws {
     try await store.requestAuthorization(toShare: Self.shareTypes, read: Self.readTypes)
   }
+
+  func samples(of type: HealthType, since start: Date) async throws -> [HealthSample] {
+    let predicate = HKQuery.predicateForSamples(withStart: start, end: nil)
+    return try await query(type, predicate: predicate, limit: HKObjectQueryNoLimit, newest: false)
+  }
+
+  func latestSampleDate(of type: HealthType) async throws -> Date? {
+    try await query(type, predicate: nil, limit: 1, newest: true).first?.date
+  }
+
+  private func query(_ type: HealthType, predicate: NSPredicate?, limit: Int, newest: Bool)
+    async throws -> [HealthSample]
+  {
+    try await withCheckedThrowingContinuation { continuation in
+      let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: !newest)
+      let query = HKSampleQuery(
+        sampleType: type.sampleType, predicate: predicate, limit: limit, sortDescriptors: [sort]
+      ) { _, results, error in
+        guard let results else {
+          return continuation.resume(throwing: error ?? CancellationError())
+        }
+        continuation.resume(
+          returning: results.map {
+            let source = $0.sourceRevision.source
+            return HealthSample(
+              type: type, date: $0.endDate, sourceName: source.name,
+              sourceBundleID: source.bundleIdentifier)
+          })
+      }
+      store.execute(query)
+    }
+  }
+}
+
+extension HealthType {
+  /// The HealthKit type behind each v1 type.
+  var sampleType: HKSampleType {
+    switch self {
+    case .bodyMass: HKQuantityType(.bodyMass)
+    case .stepCount: HKQuantityType(.stepCount)
+    case .heartRate: HKQuantityType(.heartRate)
+    case .heartRateVariability: HKQuantityType(.heartRateVariabilitySDNN)
+    case .restingHeartRate: HKQuantityType(.restingHeartRate)
+    case .sleepAnalysis: HKCategoryType(.sleepAnalysis)
+    case .dietaryEnergy: HKQuantityType(.dietaryEnergyConsumed)
+    case .dietaryProtein: HKQuantityType(.dietaryProtein)
+    case .workout: HKObjectType.workoutType()
+    }
+  }
 }
