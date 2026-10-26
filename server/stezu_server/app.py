@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 from datetime import date as Date
 from datetime import datetime
@@ -14,12 +15,14 @@ from fastapi.concurrency import run_in_threadpool
 
 from . import __version__, barcode, foodpro, scan, search
 from .config import Settings, load_settings
+from .health import HealthDB, TooLarge, gunzip
 from .model import AnthropicClient, ModelError
 from .net import Http
 from .store import Store
 
 log = logging.getLogger("stezu")
 MAX_BODY = 9 * 1024 * 1024
+MAX_SYNC_BODY = 24 * 1024 * 1024
 
 
 def create_app(settings: Settings | None = None, http: Any = None, model: Any = None) -> FastAPI:
@@ -27,6 +30,7 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
     app = FastAPI(title="Stezu food server", version=__version__, docs_url=None, redoc_url=None, openapi_url=None)
     store, http = Store(settings.db_path), http or Http()
     model = model or AnthropicClient(settings, http)
+    health_db = HealthDB(settings.health_db or settings.db_path.with_name("health.db"), settings.health_tz)
     if not settings.tokens:
         log.warning("no device tokens configured: every authenticated request will get 401")
 
@@ -114,6 +118,27 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
             raise HTTPException(400, str(exc)) from None
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(502, f"Open Food Facts lookup failed: {exc}") from None
+
+    @api.post("/sync")
+    async def sync(request: Request) -> dict[str, Any]:
+        if int(request.headers.get("content-length") or 0) > MAX_SYNC_BODY:
+            raise HTTPException(413, "request too large")
+        raw = await request.body()
+        try:
+            if request.headers.get("content-encoding", "").lower() == "gzip":
+                raw = gunzip(raw, MAX_SYNC_BODY)
+            body = json.loads(raw)
+            if not isinstance(body, dict):
+                raise ValueError("body must be a JSON object")
+            return await run_in_threadpool(health_db.ingest, body)
+        except TooLarge as exc:
+            raise HTTPException(413, str(exc)) from None
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+
+    @api.get("/sync/status")
+    def sync_status() -> dict[str, Any]:
+        return health_db.status()
 
     app.include_router(api)
     return app

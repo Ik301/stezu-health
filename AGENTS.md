@@ -39,7 +39,7 @@ The scheme runs AppTests and AppUITests. CI picks the simulator dynamically (see
 
 ## Server client contract
 
-The VM server lives in server/ and is built separately; cards never touch server/. The app reaches it only through `VMTransport`: a method, a path relative to the base URL, and a body. The base URL and a bearer token are set once on the device in Settings (S-002); the token lives in the Keychain, and neither is ever committed. Until then the app uses `UnconfiguredVMTransport`, which throws `notConfigured`. Write one small client per endpoint that builds a `VMRequest` and decodes the reply; tests and `-uitest` use `FakeVMTransport`. Paths and JSON shapes are in server/README.md (GET /health, GET /menu, POST /scan, GET /search, GET /barcode/{gtin}); every call but /health needs the token. Stories with needs_server true are built against the fake now.
+The VM server lives in server/ and is built separately; cards never touch server/. The app reaches it only through `VMTransport`: a method, a path relative to the base URL, and a body. The base URL and a bearer token are set once on the device in Settings (S-002); the token lives in the Keychain, and neither is ever committed. Until then the app uses `UnconfiguredVMTransport`, which throws `notConfigured`. Write one small client per endpoint that builds a `VMRequest` and decodes the reply; tests and `-uitest` use `FakeVMTransport`. Paths and JSON shapes are in server/README.md (GET /health, GET /menu, POST /scan, GET /search, GET /barcode/{gtin}, POST /sync, GET /sync/status); every call but /health needs the token. Stories with needs_server true are built against the fake now.
 
 ## Gates
 

@@ -700,4 +700,21 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/ProgramImport.swift, App/Sources/Workout/ProgramFilePicker.swift, App/Sources/Workout/WorkoutView.swift, App/Sources/AppEnvironment.swift (40f9d5e).
 - Reverse if: Isaac wants an import to replace the whole program (remove templates the file lacks), or a seed fix should reach an imported template.
 
+## D-053 /sync keys samples by HealthKit UUID with tombstones and records by newest updated_at, in its own SQLite file
 
+- Status: proposed by the server/sync session, 2026-10-25.
+- Problem: the phone will send the same data more than once (retried batches, a reinstall's 90-day backfill, a queue replayed out of order), and HealthKit reports deletions separately, before or after the sample they delete reaches the server. Hermes also needs daily numbers from sources that overlap.
+- Given: D-048 (the phone POSTs to the VM; Hermes reads read-only). HealthKit samples never change and carry a UUID; Stezu records have their own ids and do change. Apple Health merges overlapping sources by a priority list that HealthKit does not expose. The service runs under a 300 MB memory cap, and server.sqlite3 is a disposable cache.
+- Constraints:
+  - Deleting a row on an HKDeletedObject breaks replay: an older batch sent again would bring the sample back.
+  - Rejecting a whole batch for one bad item breaks the app's retry queue: that batch would fail forever.
+  - Keeping only UTC breaks day-keyed views, because the sqlite3 CLI Hermes uses has no time-zone database; keeping only local time breaks ordering across DST and travel.
+  - Writing health rows into the cache file breaks the cache's disposability: clearing it would erase history.
+- Options:
+  - (a) A separate health.db; samples `INSERT ... ON CONFLICT (uuid) DO NOTHING`; a deletion sets `deleted_at` or inserts a tombstone row; records upsert only when `updated_at` is newer; per-item validation with a `rejected` count; UTC plus precomputed local columns; SQL views for daily numbers.
+  - (b) As (a), but hard deletes and last-write-wins on samples.
+  - (c) Store each batch as a JSON blob and derive tables later.
+  - (d) Karina's Postgres store: frozen by D-012.
+- Decision: (a). Batches hold at most 5,000 items and 24 MiB of JSON (gzip allowed). Day keys use `STEZU_HEALTH_TZ` (default America/New_York) and are recomputed when it changes. `daily_steps` and `sleep_nights` take the largest single source per day or night and also expose the raw sum or the per-source rows.
+- Evidence: server/stezu_server/health.py, server/stezu_server/app.py, server/Tests/test_sync.py, server/README.md (server/sync). A 5,000-sample batch is stored in about 0.15 s on the VM; a replay of it counts 5,000 duplicates.
+- Reverse if: Hermes needs Health's exact merged totals (then the app sends daily `HKStatisticsCollectionQuery` sums as records), or the database grows to where `/sync/status` takes more than about a second.

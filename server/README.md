@@ -8,6 +8,10 @@ The phone never holds a model key. Only the photo, the region volumes and the me
 model; no health data does. Decisions: D-035 (matching across all halls, ranges), D-036
 (where keys and tokens live), D-037 (how ranges are built).
 
+It also receives the phone's Apple Health samples and Stezu's own records through `POST /sync`
+and keeps them in a separate SQLite database that Hermes reads (D-048). `/sync` never calls a
+model.
+
 ## Run
 
     server/run_tests.sh      # offline tests; creates server/.venv on first use
@@ -32,6 +36,8 @@ Keep that file outside the repo with mode 0600. Environment variables with the s
 | `STEZU_MODEL` | Model id | `claude-sonnet-4-6` |
 | `STEZU_MODEL_TEMPERATURE` | `0`, or `none` for models that reject the parameter | `0` |
 | `STEZU_USDA_KEY` | FoodData Central key (`DEMO_KEY` works for low volume) | none: USDA skipped |
+| `STEZU_HEALTH_DB` | Health database for `/sync` (created on start, mode 0600, WAL) | `~/.local/share/stezu/health.db` |
+| `STEZU_HEALTH_TZ` | Time zone for the day keys in the health views | `America/New_York` |
 
 Generate a device token with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`.
 
@@ -124,6 +130,163 @@ Open Food Facts lookup (8 to 14 digits; a 12-digit UPC is retried as EAN-13), ca
 ```
 
 or `{"status": "not_found", "gtin": "…"}`.
+
+### `POST /sync`
+
+Stores a batch of Apple Health samples, deletions and Stezu records. Send
+`Content-Type: application/json`; the body may be gzipped with `Content-Encoding: gzip`.
+**Limits: at most 5,000 items (samples + deleted + records) per request and 24 MiB of JSON
+after decompression; more answers 413 and stores nothing.** The app sends about 2,000.
+
+Every value below is synthetic.
+
+```json
+{"device_id": "0F6E2B9C-1D4A-4C3B-9E8F-000000000001",
+ "batch_id": "5A1C7E3D-2B4F-4A6E-8D9C-000000000042",
+ "samples": [
+  {"uuid": "3C9A1E52-7B44-4F0A-9D1E-000000000001", "type": "HKQuantityTypeIdentifierHeartRate",
+   "start": "2026-10-21T08:00:00-04:00", "end": "2026-10-21T08:00:00-04:00",
+   "value": 62, "unit": "count/min", "source_name": "Example Watch", "source_bundle": "com.example.watch",
+   "metadata": {"HKMetadataKeyHeartRateMotionContext": 1}},
+  {"uuid": "3C9A1E52-7B44-4F0A-9D1E-000000000002", "type": "HKCategoryTypeIdentifierSleepAnalysis",
+   "start": "2026-10-21T23:30:00-04:00", "end": "2026-10-22T01:00:00-04:00",
+   "value": 4, "unit": null, "source_name": "Example Watch", "source_bundle": "com.example.watch"},
+  {"uuid": "3C9A1E52-7B44-4F0A-9D1E-000000000003", "type": "HKWorkoutTypeIdentifier",
+   "start": "2026-10-21T17:00:00-04:00", "end": "2026-10-21T18:00:00-04:00",
+   "value": null, "unit": null, "source_name": "Stezu", "source_bundle": "com.ik301.stezuhealth",
+   "metadata": {"activity_type": 50, "activity_name": "traditionalStrengthTraining", "duration_s": 3600,
+                "total_energy_kcal": 250, "total_distance_m": null}}],
+ "deleted": [{"uuid": "3C9A1E52-7B44-4F0A-9D1E-0000000000AA", "type": "HKQuantityTypeIdentifierStepCount"}],
+ "records": [
+  {"kind": "set", "id": "8E2D4C6A-0000-4000-8000-000000000007", "updated_at": "2026-10-21T17:20:00-04:00",
+   "deleted": false, "payload": {"session_id": "…", "exercise": "Bench Press", "pounds": 95, "reps": 8}},
+  {"kind": "meal", "id": "8E2D4C6A-0000-4000-8000-000000000008", "updated_at": "2026-10-21T19:00:00-04:00",
+   "deleted": true, "payload": null}]}
+```
+
+Top level:
+
+| Field | Type | Rules |
+|---|---|---|
+| `device_id` | string, 1–128 | Stable per install (a random UUID kept on the device). |
+| `batch_id` | string, 1–128 | Unique per batch; reuse it when retrying the same batch. |
+| `samples`, `deleted`, `records` | arrays | Each may be omitted, `null` or empty. |
+
+`samples[]` (HealthKit samples; the HealthKit UUID is the dedupe key):
+
+| Field | Type | Rules |
+|---|---|---|
+| `uuid` | string, 1–64 | `HKObject.uuid.uuidString`. Compared case-insensitively (stored upper-case). |
+| `type` | string, starts with `HK` | The identifier's raw value, e.g. `HKQuantityTypeIdentifierStepCount`. Workouts use `HKWorkoutTypeIdentifier`. |
+| `start`, `end` | string | ISO 8601 **with an offset** (`-04:00` or `Z`); `end` ≥ `start`. |
+| `value` | number or null | Quantity samples: the value in `unit`. Category samples: the raw `Int` value (sleep: 0 inBed, 1 asleepUnspecified, 2 awake, 3 asleepCore, 4 asleepDeep, 5 asleepREM). Required, except `null` for workouts. Never send 0 for a missing value. |
+| `unit` | string or null, ≤ 40 | `HKUnit.unitString`: `count/min`, `ms`, `lb`, `kg`, `%`, `degC`, `count`, `kcal`, … `null` for category samples and workouts. `%` carries HealthKit's fraction: 0.97 means 97%. |
+| `source_name`, `source_bundle` | string or null | `sourceRevision.source.name` and `.bundleIdentifier`. |
+| `metadata` | object or null | HealthKit metadata with JSON-safe values (dates as ISO strings). Workouts put `activity_type` (`HKWorkoutActivityType` raw value), `activity_name`, `duration_s`, `total_energy_kcal` and `total_distance_m` here (`null` when absent). |
+
+`deleted[]`: `{"uuid": string, "type": string or null}` from `HKDeletedObject`; `type` is
+optional but recommended. A deletion may arrive before the sample it deletes; it is kept as a
+tombstone, so the sample stays deleted if it arrives (or is replayed) later.
+
+`records[]` (Stezu's own data; `(kind, id)` is the key):
+
+| Field | Type | Rules |
+|---|---|---|
+| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`; others are stored too. |
+| `id` | string, 1–128 | The app's stable id for the record. |
+| `updated_at` | string | ISO 8601 with an offset. The newest version wins; an equal or older `updated_at` is a duplicate and changes nothing, so bump it on every edit. |
+| `deleted` | bool | Default `false`. `true` is a tombstone. |
+| `payload` | object | The record as the app models it, stored verbatim. May be `null` only when `deleted` is true. |
+
+Answer (200):
+
+```json
+{"accepted": 5, "duplicates": 0, "deleted": 1, "rejected": 0, "errors": [],
+ "server_time": "2026-10-21T23:10:00.123Z"}
+```
+
+Every item lands in exactly one count:
+
+- `accepted`: a new sample, a new record, or a newer version of a record (tombstones included);
+- `duplicates`: it changed nothing (a known UUID, an already deleted UUID, a record that is not newer);
+- `deleted`: a `deleted` entry that removed a stored sample or recorded a tombstone for an unseen one;
+- `rejected`: it failed validation. `errors` lists the first 20 as `"samples[3]: reason"`. The
+  rest of the batch is stored. Resending a rejected item fails the same way, so log it and move on.
+
+Replaying a batch is always safe: it returns `accepted: 0` and counts everything as a duplicate.
+Within a batch, samples are stored before deletions. A batch of 5,000 samples takes about 0.15 s
+on the VM.
+
+Errors (nothing is stored): 400 for a body that is not a JSON object, bad gzip, a missing
+`device_id` or `batch_id`, or `samples`/`deleted`/`records` that are not arrays; 401; 413 over
+the limits. After a 5xx or a network failure, retry the same batch later.
+
+### `GET /sync/status`
+
+What the server holds, for the Settings row:
+
+```json
+{"server_time": "2026-10-21T23:10:01.456Z", "samples_total": 1204, "records_total": 31,
+ "types": [{"type": "HKQuantityTypeIdentifierHeartRate", "count": 1200, "deleted": 2,
+            "first_start": "2026-07-23T12:00:00.000Z", "last_start": "2026-10-21T21:59:00.000Z"},
+           {"type": "HKQuantityTypeIdentifierStepCount", "count": 4, "deleted": 0,
+            "first_start": "2026-10-21T12:00:00.000Z", "last_start": "2026-10-21T22:30:00.000Z"}],
+ "kinds": [{"kind": "set", "count": 30, "deleted": 1, "last_updated_at": "2026-10-21T21:20:00.000Z"}],
+ "devices": [{"device_id": "0F6E2B9C-1D4A-4C3B-9E8F-000000000001",
+              "last_batch_at": "2026-10-21T23:10:00.123Z",
+              "last_batch_id": "5A1C7E3D-2B4F-4A6E-8D9C-000000000042", "batches": 12}]}
+```
+
+`count` excludes deleted items; `deleted` counts tombstones. `first_start` and `last_start` are
+the earliest and latest start of a stored sample of that type (`null` when none). `samples_total`
+and `records_total` sum the `count`s. `last_batch_at` is when the server last received a batch
+from that device (a replay counts). Times the server writes are UTC, fixed width,
+`YYYY-MM-DDTHH:MM:SS.mmmZ`.
+
+## Health database (for Hermes)
+
+The file named by `STEZU_HEALTH_DB` (default `~/.local/share/stezu/health.db`), mode 0600, WAL
+mode, created when the server starts. Read it read-only:
+`sqlite3 -readonly "$STEZU_HEALTH_DB"`, or `sqlite3.connect(f"file:{path}?mode=ro", uri=True)`.
+
+Tables:
+
+- `samples`: `uuid` (key), `type`, `start_ts` and `end_ts` (UTC text), `start_local` and
+  `end_local` (wall time in `STEZU_HEALTH_TZ`, no offset), `utc_offset` (the offset the phone
+  sent, e.g. `-04:00`), `value`, `unit`, `source_name`, `source_bundle`, `metadata_json`,
+  `received_at`, `deleted_at`. A tombstone has `deleted_at` set and may have no times. Index on
+  `(type, start_ts)`.
+- `records`: `kind`, `id` (key together), `updated_at`, `deleted` (0/1), `payload_json`, `received_at`.
+- `batches`: `batch_id` (key), `device_id`, `received_at`, `counts_json`.
+
+Views (recreated on every start). `day` is the local date of a sample's start in
+`STEZU_HEALTH_TZ` (default `America/New_York`); changing the zone recomputes the local columns at
+the next start. Absent is not zero: a metric or sleep stage with no samples has no row or a
+NULL, never 0.
+
+| View | Rows and columns |
+|---|---|
+| `live_samples` | `samples` without deleted rows, plus `day`. |
+| `daily_quantity` | Per `day`, `type`, `unit`: `n`, `min_value`, `mean_value`, `max_value`, `sum_value`, `sources`. |
+| `steps_by_source` | Per `day` and source: `steps`, `n`. |
+| `daily_steps` | Per `day`: `steps` (the largest single-source total), `steps_raw_sum` (all sources added), `source_count`, `top_source`, `top_bundle`. |
+| `sleep_by_source` | Per `night` and source: `asleep_min`, `core_min`, `deep_min`, `rem_min`, `unspecified_min`, `awake_min`, `in_bed_min`, `bedtime`, `wake_time`, `n`. |
+| `sleep_nights` | Per `night`: the source with the most asleep minutes, with the same columns, plus `source_count`. |
+| `body_mass` | Every weigh-in: `uuid`, `measured_at`, `day`, `value`, `unit`, `kg`, `source_name`, `source_bundle`, `stezu_weighin` (1 when `source_bundle` is `com.ik301.stezuhealth`). |
+| `heart_rate_daily`, `resting_hr`, `hrv`, `spo2`, `respiratory_rate`, `temperature` | Per `day`, `type`, `unit`: `n`, `min_value`, `mean_value`, `max_value`, `sources`. Types: HeartRate, RestingHeartRate, HeartRateVariabilitySDNN (ms), OxygenSaturation (a fraction), RespiratoryRate, and BodyTemperature, AppleSleepingWristTemperature, BasalBodyTemperature. |
+| `workouts` | HealthKit workouts: `uuid`, `day`, `start_local`, `end_local`, `activity_type`, `activity_name`, `duration_min`, `energy_kcal`, `distance_m`, `source_name`, `source_bundle`. |
+| `stezu_records` | `records` without tombstones. |
+
+A night is keyed by its wake date: a sleep segment belongs to the local date of its end plus
+6 hours. A segment ending at 23:30 on the 21st and one ending at 06:40 on the 22nd both belong
+to the night of the 22nd; anything ending at 18:00 or later counts toward the next date.
+
+Sources overlap. Apple Health shows merged numbers: where a watch and a phone both counted
+steps, it keeps the source higher on the user's priority list for that interval. HealthKit does
+not expose that list and the server gets raw samples, so adding every source double counts
+(`steps_raw_sum`). `daily_steps.steps` takes the largest single-source total of the day instead;
+it reads low on a day when no one device was carried throughout. `sleep_nights` makes the same
+choice per night, and `sleep_by_source` keeps every source.
 
 ## Deploy as a systemd user service
 
