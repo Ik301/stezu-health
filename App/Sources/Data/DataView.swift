@@ -13,8 +13,7 @@ struct DataView: View {
   var body: some View {
     AreaScaffold(area: .data, title: "This week", goHome: goHome) {
       if connected ?? environment.healthConnection.isConnected {
-        Text("Weekly rows: --").font(.system(size: Theme.subtitleSize))
-          .foregroundStyle(Theme.label)
+        WeightRow()
         pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }
       } else {
         Text(

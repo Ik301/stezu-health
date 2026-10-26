@@ -769,3 +769,19 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The external id is "stezu.workout.<start in ms>", so the same session always maps to one id; `HealthKitStore` asks for permission if it was never asked, skips the write when a workout with that `HKMetadataKeyExternalUUID` exists, and builds it with `HKWorkoutBuilder` (traditional strength training, no energy samples). The Workout screen closes the logger at once, clears active-workout.json, and adds the row after the write returns; the week (Monday to Sunday) shows sessions and working sets, "--" when there are none. Finished sessions also feed last-session numbers.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutFinish.swift, Packages/StezuCore/Sources/StezuCore/HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Workout/FinishedWorkoutStore.swift, App/Sources/Workout/WorkoutView.swift (4253ed3).
 - Reverse if: a "Not in Health" session must be retried automatically, or the app is killed between Finish and the write often enough to lose sessions; then save first with a pending state (b).
+## D-057 Weigh-ins are body-mass samples Health credits to Stezu; the week's row reads them back from Health
+
+- Status: proposed by night agent, 2026-10-25 (S-021).
+- Problem: the Weight row needs a trend from Isaac's weigh-ins, but Health's body-mass type also holds other apps' samples (a strap writes its static profile weight), and the app has no local weight store.
+- Given: F-001's `TrendWeight` (EWMA over irregular days). HealthKit credits every sample to the app that wrote it (source bundle id). Writes from Stezu carry com.ik301.stezuhealth. `HealthStore` is the only path to Health; FakeHealthStore in tests and -uitest.
+- Constraints:
+  - Mixing every body-mass source into the trend breaks the trend: a fixed profile weight pulls it toward a number nobody measured.
+  - A separate local weigh-in store breaks single ownership: Health and the app could disagree, and weigh-ins from before a reinstall would vanish.
+  - Showing 0 for a week with no weigh-ins breaks rule 5.
+- Options:
+  - (a) Save writes one body-mass sample through `HealthStore.saveBodyMass`; the row reads 90 days of body mass back and keeps only samples whose source bundle id is Stezu's (`WeeklyWeight.weighIns`), listing the apps it used. Other apps' samples show on Sources with their counts and only feed the stepper's prefill when Stezu has none.
+  - (b) Keep weigh-ins in the app's own store and also write them to Health.
+  - (c) Use every body-mass sample and let Isaac pick sources in a setting.
+- Decision: (a). The week runs Monday to Sunday in the device calendar; with no Stezu weigh-in this week the trend, change and coverage are nil and show "--". The change is the trend now minus the trend at the end of last week (or this week's first weigh-in if there is none before).
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyWeight.swift, HealthStore.swift, App/Sources/Data/WeightRow.swift, App/Sources/Health/HealthKitStore.swift, HealthStoreTests, WeighInTests, AppUITests WeightUITests (commit on wt/S-021).
+- Reverse if: Isaac weighs in on a smart scale that writes to Health; then the allowed bundle ids become a setting (`weighIns(_:bundleIDs:)` already takes the set).

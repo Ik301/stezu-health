@@ -14,16 +14,21 @@ public enum HealthType: String, CaseIterable, Sendable {
   case workout = "Workouts"
 }
 
-/// One sample's date and the app that wrote it. Values come with the stories that read them.
+/// One sample's date, the app that wrote it and, for weight, its value in pounds.
 public struct HealthSample: Sendable, Equatable {
   public let type: HealthType
   public let date: Date
   public let sourceName: String
   public let sourceBundleID: String?
+  /// Pounds for body mass; nil for types whose values no story reads yet.
+  public let value: Double?
 
-  public init(type: HealthType, date: Date, sourceName: String, sourceBundleID: String? = nil) {
-    (self.type, self.date, self.sourceName, self.sourceBundleID) =
-      (type, date, sourceName, sourceBundleID)
+  public init(
+    type: HealthType, date: Date, sourceName: String, sourceBundleID: String? = nil,
+    value: Double? = nil
+  ) {
+    (self.type, self.date, self.sourceName, self.sourceBundleID, self.value) =
+      (type, date, sourceName, sourceBundleID, value)
   }
 }
 

@@ -800,7 +800,7 @@
         "s021-weigh-in"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-022",
