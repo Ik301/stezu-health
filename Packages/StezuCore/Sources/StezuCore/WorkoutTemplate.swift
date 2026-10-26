@@ -31,9 +31,22 @@ public struct WorkoutTemplate: Sendable, Equatable, Codable {
   public var key: String
   public var name: String
   public var exercises: [TemplateExercise]
+  /// An optional block (S-035, D-084), appended to a running workout instead of done as a day.
+  public var addOn: Bool
 
-  public init(key: String, name: String, exercises: [TemplateExercise]) {
-    (self.key, self.name, self.exercises) = (key, name, exercises)
+  public init(key: String, name: String, exercises: [TemplateExercise], addOn: Bool = false) {
+    (self.key, self.name, self.exercises, self.addOn) = (key, name, exercises, addOn)
+  }
+
+  private enum CodingKeys: String, CodingKey { case key, name, exercises, addOn }
+
+  /// Files and libraries without the flag (before S-035) decode as days.
+  public init(from decoder: any Decoder) throws {
+    let box = try decoder.container(keyedBy: CodingKeys.self)
+    key = try box.decode(String.self, forKey: .key)
+    name = try box.decode(String.self, forKey: .name)
+    exercises = try box.decode([TemplateExercise].self, forKey: .exercises)
+    addOn = try box.decodeIfPresent(Bool.self, forKey: .addOn) ?? false
   }
 }
 
@@ -127,12 +140,19 @@ public struct TemplateLibrary: Sendable, Equatable, Codable {
     }
   }
 
-  /// The template after the last one done, wrapping around; the first when none was done or the
-  /// last one no longer exists. Nil only when there are no templates.
+  /// The templates done as days, in rotation order; add-ons are left out.
+  public var days: [WorkoutTemplate] { templates.filter { !$0.addOn } }
+
+  /// The add-on blocks a running workout can append (S-035).
+  public var addOns: [WorkoutTemplate] { templates.filter(\.addOn) }
+
+  /// The day after the last one done, wrapping around; the first when none was done or the
+  /// last one no longer exists. Nil only when there are no days. Add-ons are never next.
   public func next(after lastKey: String?) -> WorkoutTemplate? {
-    guard let lastKey, let index = templates.firstIndex(where: { $0.key == lastKey }) else {
-      return templates.first
+    let days = days
+    guard let lastKey, let index = days.firstIndex(where: { $0.key == lastKey }) else {
+      return days.first
     }
-    return templates[(index + 1) % templates.count]
+    return days[(index + 1) % days.count]
   }
 }
