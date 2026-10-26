@@ -222,6 +222,13 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Naming: `Metric` (core enum, raw values match the overview ids), `MetricOpenButton`, `TrendChart` drawn with Canvas (no Charts import).
 - Left undone: only the chevron opens a detail, not a tap anywhere on the row (the rows keep their child accessibility ids, and a whole-row button would merge them); sleep shows "From: --" because `SleepInterval` carries no source; the chart has no axis labels; value formatting is duplicated between WeeklyHealthRows and `Metric.format` (diff budget); steps' source names come from a raw sample read over 8 weeks, which may be slow on a device with many samples.
 
+## 2026-10-25 S-009 Resume a workout after closing the app (night agent)
+
+- A workout in progress already lived in active-workout.json (S-004). Now, when the Workout screen loads with no logger open, `SessionResume.atLaunch` reads it: within 3 hours of its last set (a default in `SessionResumeConfig`) the black card becomes a Resume card (template name, "n sets logged", Resume), and one tap reopens the saved logger unchanged: same exercise, sets, undo and swaps. Past 3 hours a session with sets is finished through `WorkoutFinish` ending at its last set (it shows in the week and goes to Health); one with no sets is dropped. Starting another workout while Resume is shown finishes the saved one first. Decision D-064.
+- Tests: SessionResumeTests (2, core), AppUITests SessionResumeUITests (screenshots s009-resume-card, s009-resumed). `FEATURE_ID=S-009 scripts/gate-linux.sh` passed G1 to G5 locally (126 non-test lines in 3 files before the docs). S-009 flipped with check-features.py --flip.
+- Naming: `SessionResume` (`.nothing`, `.resume`, `.close`), `SessionResume.lastSet(of:)`; no library added.
+- Left undone: the idle check runs when the Workout screen loads, not at app launch or on return from the background, so a session closed by idle time reaches Health only once Workout is opened; the rest countdown is not saved, so a resumed logger shows no rest; the idle close has no UI test (core test only); no AppTests test covers `loadSaved`.
+
 ## 2026-10-25 S-010 Weekly workout history and past sessions (night agent)
 
 - Workout has a History row under the week's numbers. It opens a sheet (NavigationStack): Monday-to-Sunday weeks that have a session, newest first, each headed "Mon, <date> - Sun, <date>" with its working-set count, then its sessions newest first ("<template>   <day>   n sets"). A session opens its exercises with sets as weight x reps ("65 x 5", bodyweight "BW x 10"); an exercise opens every session that has it, newest first. Sources: the seeded `workoutHistory` plus finished sessions (S-008). Decision D-061.
