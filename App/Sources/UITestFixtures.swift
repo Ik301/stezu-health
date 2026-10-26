@@ -12,7 +12,22 @@ enum UITestFixtures {
     "GET /search?estimate=true": VMResponse(status: 200, body: Data(estimateReply.utf8)),
     "POST /sync": VMResponse(status: 200, body: Data(#"{"accepted": 3, "rejected": 0}"#.utf8)),
     "GET /sync/status": VMResponse(status: 200, body: Data(#"{"samples_total": 3}"#.utf8)),
+    "GET /barcode/0000000000031": VMResponse(status: 200, body: Data(barcodeReply.utf8)),
+    "GET /barcode/0000000000024": VMResponse(
+      status: 200, body: Data(#"{"status": "not_found", "gtin": "0000000000024"}"#.utf8)),
   ]
+
+  /// Barcode mode's synthetic code (S-016): a made-up product, or in "barcode-unknown" a code
+  /// Open Food Facts does not know.
+  static func barcode(scenario: String?) -> String {
+    scenario == "barcode-unknown" ? "0000000000024" : "0000000000031"
+  }
+  static let barcodeReply = #"""
+    {"status": "found", "source": "open_food_facts", "gtin": "0000000000031",
+     "name": "Oat Bar", "brand": "Example Foods",
+     "per_serving": {"label": "1 bar (40 g)", "quantity": 40, "unit": "g", "kcal": 160,
+      "protein_g": 4}, "per_package": null, "per_100": null, "cached": false}
+    """#
 
   /// "sync": three made-up heart-rate readings to send; the fake status above counts three.
   static func healthChanges(scenario: String?) -> [HealthType: [HealthChange]] {

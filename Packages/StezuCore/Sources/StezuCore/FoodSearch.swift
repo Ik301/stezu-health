@@ -69,7 +69,8 @@ public struct FoodSearchClient: Sendable {
 
   /// One result of any source. Dining and packaged results carry one number per serving, which
   /// becomes a range here; an estimate already carries ranges. Fields decode leniently.
-  private struct Result: Decodable {
+  /// GET /barcode's found reply has the same shape (BarcodeClient).
+  struct Result: Decodable {
     let item: MatchedItem?
 
     enum Keys: String, CodingKey {
