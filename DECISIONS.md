@@ -802,3 +802,35 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A night belongs to the day its stages end on, with anything ending after 18:00 counted toward the next day; asleep stages are merged as a union so two apps recording one night count once. HRV stays a median of raw readings, with the reading count as coverage. FakeHealthStore buckets by the current calendar and does not remove overlap.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, SleepNightTests, AppUITests WeeklyHealthUITests (commit on wt/S-022).
 - Reverse if: Isaac's strap writes sleep as one asleepUnspecified block while another app writes stages; then pick one sleep source per night instead of the union.
+
+## D-059 A search result becomes an item at 1 serving with a range around its one per-serving value; a text estimate keeps the server's rough range
+
+- Status: proposed by night agent, 2026-10-25 (S-014).
+- Problem: GET /search gives dining and packaged results as one kcal and protein number per serving, while the item list (S-013) shows only ranges and its totals sum ranges. The text estimate already comes as a range, and the list must still tell it apart as rough.
+- Given: server/stezu_server/search.py: dining results carry `kcal`/`protein_g` numbers and every hall; Open Food Facts and USDA results carry `per_serving`; the estimate carries `{low, high}` widened to at least plus or minus 40% and `rough: true`. D-037 gives a photo of a listed item without depth plus or minus 25% at full confidence. `MatchedItem` is the item list's row type.
+- Constraints:
+  - Showing the single number breaks the item list's rule of ranges only and makes a pick look surer than a photo.
+  - Widening on the server breaks the contract (server/ is out of bounds for cards).
+  - Reading a missing number as 0 breaks rule 5.
+- Options:
+  - (a) `FoodSearchClient` decodes each result straight into a `MatchedItem` at 1 serving: a number becomes plus or minus 25% (`pickSpread`), a `{low, high}` stays as sent, a missing or half-null value stays nil, and `rough` is the server's flag.
+  - (b) Show picks as one number and keep ranges for photos only.
+  - (c) A separate search-result type, converted when the item list opens.
+- Decision: (a). The per-serving label wins over the dining `serving` text. The panel shows dining halls, USDA (labelled restaurants and generic) and packaged food, hides skipped groups, and says "Could not load" for a failed one.
+- Evidence: Packages/StezuCore/Sources/StezuCore/FoodSearch.swift, App/Sources/Food/FoodSearchPanel.swift, FoodSearchClientTests, AppUITests FoodSearchUITests (commit on wt/S-014).
+- Reverse if: weighed portions show packaged picks are much tighter than 25%; then give packaged labels their own spread.
+
+## D-060 The fake transport answers a route narrowed by one query pair before the bare route
+
+- Status: proposed by night agent, 2026-10-25 (S-014).
+- Problem: search and text estimate share one route (GET /search), but `-uitest` needs a different synthetic reply for each, and FakeVMTransport keyed only by method and path.
+- Given: `VMRequest` carries its query as a dictionary; `UITestFixtures.vmRoutes` is a flat route-to-response map shared by every story.
+- Constraints:
+  - Keying the fake by the full query breaks every fixture whose query holds a date or typed text.
+  - A reply that always includes an estimate breaks the contract (the estimate group is "available" until asked).
+- Options:
+  - (a) A key may add one `name=value` pair ("GET /search?estimate=true"); a request holding that pair gets it, otherwise the bare route answers.
+  - (b) Give FakeVMTransport a closure that builds replies.
+- Decision: (a), a few lines in `FakeVMTransport.send`.
+- Evidence: Packages/StezuCore/Sources/StezuCore/VMTransport.swift, App/Sources/UITestFixtures.swift, FoodSearchClientTests/testTextEstimateIsRough (commit on wt/S-014).
+- Reverse if: a fixture needs two pairs at once; then switch to (b).

@@ -1,3 +1,4 @@
+import StezuCore
 import SwiftUI
 import UIKit
 
@@ -12,17 +13,29 @@ struct FoodView: View {
   @State private var captured: CapturedMeal?
   @State private var match = MatchState.matching
   @State private var captureFailed = false
+  @State private var query = ""
+  @State private var picked: PickedItem?
+  @FocusState private var searching: Bool
 
   var body: some View {
     VStack(spacing: 0) {
       topBar
-      Spacer()
-      if cameraAllowed == false { deniedMessage }
-      if captureFailed {
-        Text("Could not take the photo.").foregroundStyle(.white)
-          .accessibilityIdentifier("food.error")
+      searchBar.padding(.top, 10)
+      if trimmedQuery.isEmpty {
+        Spacer()
+        if cameraAllowed == false { deniedMessage }
+        if captureFailed {
+          Text("Could not take the photo.").foregroundStyle(.white)
+            .accessibilityIdentifier("food.error")
+        }
+        Spacer()
+      } else {
+        FoodSearchPanel(query: trimmedQuery) { item in
+          searching = false
+          picked = PickedItem(item: item)
+        }
+        .padding(.vertical, 8)
       }
-      Spacer()
       bottomBar
     }
     .padding(16)
@@ -31,6 +44,20 @@ struct FoodView: View {
     .task { await startCamera() }
     .onDisappear { (environment.photoSource as? LiveCameraPhotoSource)?.stop() }
     .sheet(item: $captured) { _ in PhotoMatchSheet(state: match) }
+  }
+
+  private var trimmedQuery: String { query.trimmingCharacters(in: .whitespaces) }
+
+  /// Typing opens search results over the camera (S-014); a pick opens the item list.
+  private var searchBar: some View {
+    TextField("Search food", text: $query).focused($searching).autocorrectionDisabled()
+      .font(.system(size: Theme.subtitleSize)).foregroundStyle(Theme.text)
+      .padding(.horizontal, 16).frame(height: 44).background(Capsule().fill(Theme.card))
+      .accessibilityIdentifier("food.search.field")
+      .sheet(item: $picked) { picked in
+        PhotoMatchSheet(
+          state: .matched(PhotoMatch(mealId: picked.id.uuidString, items: [picked.item])))
+      }
   }
 
   @ViewBuilder private var cameraImage: some View {
@@ -122,4 +149,10 @@ struct FoodView: View {
       captureFailed = true
     }
   }
+}
+
+/// A search pick waiting in the item list sheet.
+struct PickedItem: Identifiable {
+  let id = UUID()
+  let item: MatchedItem
 }

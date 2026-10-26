@@ -101,7 +101,7 @@ struct PhotoMatchSheet: View {
         Text(Self.range(item.kcal, unit: "kcal")).accessibilityIdentifier("\(id).kcal")
       }
       HStack {
-        Text(item.hall ?? (item.isRough ? "Not on a menu" : "--"))
+        Text(item.hall ?? item.brand ?? (item.isRough ? "Not on a menu" : "--"))
           .accessibilityIdentifier("\(id).hall")
         Text(Self.servings(item)).accessibilityIdentifier("\(id).servings")
         Spacer()
