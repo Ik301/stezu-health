@@ -38,7 +38,7 @@ final class WorkoutRecordTests: XCTestCase {
     XCTAssertEqual(body["session_id"] as? String, sessionID)
     XCTAssertEqual(body["template_key"] as? String, "day-1")
     XCTAssertEqual(body["exercise_key"] as? String, "bench")
-    XCTAssertEqual(body["exercise"] as? String, "Bench press")
+    XCTAssertEqual(body["exercise_name"] as? String, "Bench press")
     XCTAssertEqual(body["reps"] as? Int, 8)
     XCTAssertEqual(body["kind"] as? String, "working")
     XCTAssertNotNil(body["logged_at"] as? String)
@@ -132,9 +132,13 @@ final class WorkoutRecordTests: XCTestCase {
     XCTAssertEqual(session.exercises.last?.sets.first?.pounds, nil)
     XCTAssertEqual(session.exercises.first?.sets.first?.pounds, 60)
     let body = try payload(try XCTUnwrap(queued.first))
-    for key in ["template_key", "template_name", "start", "end", "exercises"] {
+    for key in ["template_key", "template_name", "started_at", "ended_at", "exercises"] {
       XCTAssertNotNil(body[key], "the session lacks \(key)")
     }
+    let exercise = try XCTUnwrap((body["exercises"] as? [[String: Any]])?.first)
+    XCTAssertEqual(exercise["exercise_key"] as? String, "bench")
+    XCTAssertEqual(exercise["exercise_name"] as? String, "Bench press")
+    XCTAssertEqual((exercise["sets"] as? [[String: Any]])?.first?["reps"] as? Int, 8)
     XCTAssertEqual(queued.last?.setPayload?.sessionId, WorkoutFinish.externalID(for: active))
 
     // Relaunch from the saved state: the flag holds, nothing is queued again.

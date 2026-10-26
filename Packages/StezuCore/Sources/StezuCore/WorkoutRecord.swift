@@ -12,7 +12,8 @@ public struct SetRecord: Codable, Sendable, Equatable {
   public let loggedAt, kind: String
 
   enum CodingKeys: String, CodingKey {
-    case id, exercise, pounds, reps, kind
+    case id, pounds, reps, kind
+    case exercise = "exercise_name"
     case sessionId = "session_id"
     case templateKey = "template_key"
     case exerciseKey = "exercise_key"
@@ -50,6 +51,12 @@ public struct SessionRecord: Codable, Sendable, Equatable {
     public let key: String?
     public let name: String
     public let sets: [SetRecord]
+
+    enum CodingKeys: String, CodingKey {
+      case sets
+      case key = "exercise_key"
+      case name = "exercise_name"
+    }
   }
 
   public let id: String
@@ -58,7 +65,9 @@ public struct SessionRecord: Codable, Sendable, Equatable {
   public let exercises: [Exercise]
 
   enum CodingKeys: String, CodingKey {
-    case id, start, end, exercises
+    case id, exercises
+    case start = "started_at"
+    case end = "ended_at"
     case templateKey = "template_key"
     case templateName = "template_name"
   }
