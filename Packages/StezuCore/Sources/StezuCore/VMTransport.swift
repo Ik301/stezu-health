@@ -89,6 +89,8 @@ public actor FakeVMTransport: VMTransport {
     while held.contains(request.route) {
       try await Task.sleep(nanoseconds: 1_000_000_000)
     }
-    return routes[request.route] ?? VMResponse(status: 404)
+    // A key may add one query pair ("GET /search?estimate=true"); it wins when it matches.
+    let narrower = request.query.compactMap { routes["\(request.route)?\($0.key)=\($0.value)"] }
+    return narrower.first ?? routes[request.route] ?? VMResponse(status: 404)
   }
 }
