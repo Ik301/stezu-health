@@ -69,16 +69,16 @@ struct DayView: View {
     let sessions = (environment.workoutHistory + finished)
       .filter { !removed.contains(.session($0.startedAt)) }
     records = await DayRecords.load(
-      day, from: environment.healthStore, meals: meals, sessions: sessions)
+      day, from: environment.weightHealth, meals: meals, sessions: sessions)
   }
 
-  /// A weigh-in leaves Health; a meal's `.log` file and a session's entry in
-  /// finished-workouts.json are removed. A failed Health delete keeps the record.
+  /// A weigh-in leaves the phone, then Health, then is sent as deleted (S-031); a meal's `.log`
+  /// file and a session's entry in finished-workouts.json are removed.
   private func delete(_ owner: DayRecord.Owner) async {
     confirming = nil
     switch owner {
     case .weighIn(let date):
-      guard (try? await environment.healthStore.deleteBodyMass(at: date)) != nil else { return }
+      await environment.deleteWeighIn(at: date)
     case .meal(let id):
       await environment.mealCaptures.unlog(id)
       await environment.syncMeal(nil, id: id)

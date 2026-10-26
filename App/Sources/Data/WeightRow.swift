@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The overview's Weight row for this Monday-to-Sunday week (S-021): trend, the trend's change
 /// this week, weigh-in days out of 7, the confidence reason and the apps the trend uses. Weigh in
-/// opens a stepper prefilled with the last weigh-in; Save writes one sample and reloads the row.
+/// opens a stepper prefilled with the last weigh-in; Save stores a weigh-in and reloads the row.
 struct WeightRow: View {
   var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
@@ -41,7 +41,7 @@ struct WeightRow: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
     .task(id: reloads) {
-      loaded = await WeeklyWeight.load(from: environment.healthStore, now: environment.now())
+      loaded = await WeeklyWeight.load(from: environment.weightHealth, now: environment.now())
     }
     .sheet(isPresented: $weighing) {
       // With nothing in Health the stepper needs some start; 150 is a generic default.
@@ -82,8 +82,7 @@ private struct WeighInSheet: View {
         .accessibilityIdentifier("data.weighIn.stepper")
       Button {
         Task {
-          let health = environment.healthStore
-          try? await WeeklyWeight.weighIn(pounds: pounds, at: environment.now(), to: health)
+          await environment.weighIn(pounds: pounds)
           dismiss()
           saved()
         }
@@ -96,5 +95,45 @@ private struct WeighInSheet: View {
     }
     .padding(24)
     .foregroundStyle(Theme.text)
+  }
+}
+
+/// S-031: weigh-ins.json, next to finished-workouts.json; memory storage keeps it for the launch.
+enum WeighInFile {
+  static func store(storage: StorageMode) -> WeighInStore {
+    let file = FinishedWorkoutStore(storage: storage).file?.deletingLastPathComponent()
+      .appendingPathComponent("weigh-ins.json")
+    let saved = file.flatMap { try? Data(contentsOf: $0) }
+      .flatMap { try? JSONDecoder().decode(WeighInLog.self, from: $0) }
+    return WeighInStore(log: saved ?? WeighInLog()) { log in
+      guard let file, let data = try? JSONEncoder().encode(log) else { return }
+      try? FileManager.default.createDirectory(
+        at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+      try? data.write(to: file, options: .atomic)
+    }
+  }
+}
+
+extension AppEnvironment {
+  /// Health with Stezu's weigh-ins from the store; the first read once connected imports Health's.
+  var weightHealth: any HealthStore {
+    WeighInHealth(
+      base: healthStore, store: weighIns, migrates: isUITest || healthConnection.isConnected
+    ) { await self.syncRecords($0) }
+  }
+
+  func weighIn(pounds: Double) async {
+    await weighIns.add(pounds: pounds, at: now(), health: healthStore) {
+      await self.syncRecords($0)
+    }
+  }
+
+  func deleteWeighIn(at date: Date) async {
+    await weighIns.delete(at: date, health: healthStore) { await self.syncRecords($0) }
+  }
+
+  /// Sources' "Not in Health": the weigh-ins Health refused.
+  func weighInsNotInHealth() async -> [String] {
+    await weighIns.notInHealth().map { "Weigh-in \($0.measuredAt.formatted()), \($0.pounds) lb" }
   }
 }

@@ -27,13 +27,16 @@ public struct HealthSample: Sendable, Equatable {
   public let sourceBundleID: String?
   /// Pounds for body mass, a fraction for blood oxygen, breaths/min, °F; nil where unread.
   public let value: Double?
+  /// Health's UUID, or for a weigh-in Stezu wrote, the weigh-in id in its metadata (S-031).
+  public var id: String? = nil
 
   public init(
     type: HealthType, date: Date, sourceName: String, sourceBundleID: String? = nil,
-    value: Double? = nil
+    value: Double? = nil, id: String? = nil
   ) {
     (self.type, self.date, self.sourceName, self.sourceBundleID, self.value) =
       (type, date, sourceName, sourceBundleID, value)
+    self.id = id
   }
 }
 
