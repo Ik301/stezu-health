@@ -1088,6 +1088,68 @@
       ],
       "needs_server": true,
       "passes": false
+    },
+    {
+      "id": "S-032",
+      "kind": "story",
+      "area": "data",
+      "title": "Places you go are recorded in the background, saved on the phone first, and sent to Hermes",
+      "steps": [
+        "Sources gains a Location row. Tapping Allow asks for When In Use and then Always access, the standard two-step iOS flow. The row shows the current permission (Always, While Using, Off) and the time of the last recorded location, or \"--\".",
+        "With Always access, the app monitors visits (CLLocationManager.startMonitoringVisits) and significant location changes (startMonitoringSignificantLocationChanges). Both work in the background and relaunch the app after it is terminated. No continuous GPS, so the battery cost stays low.",
+        "Every visit (arrival, departure, latitude, longitude, horizontal accuracy) and every significant change (time, latitude, longitude, accuracy, speed if known) is appended to a local store on the phone first (D-076). Then it is queued on the existing sync queue as a `visit` or `location` record. A visit whose departure is not known yet is updated, not duplicated, when the departure arrives. Use the record field names documented in server/README.md.",
+        "When an event wakes the app in the background, it saves the event and tries one sync pass within the time iOS allows. Anything not sent stays queued; nothing is dropped.",
+        "Data shows a Places row for this week: the number of visits recorded and the days with location data (\"5 of 7\"), or \"--\". No map, no inferred places in v1.",
+        "Launch with -uitest-scenario location. A fake location source delivers two visits and one significant change. Sources shows Location as Always with a last-fix time, the Places row shows 2 visits, and FakeVMTransport receives the records."
+      ],
+      "tap_budget": "1 tap to allow; 0 after that",
+      "depends_on": [
+        "S-030"
+      ],
+      "core_tests": [
+        "StezuCoreTests.LocationRecordTests/testVisitIsUpdatedNotDuplicatedOnDeparture",
+        "StezuCoreTests.LocationRecordTests/testEventsAreStoredBeforeQueueing",
+        "StezuCoreTests.LocationRecordTests/testPlacesWeekCountsDaysWithData"
+      ],
+      "ui_tests": [
+        "AppUITests.LocationUITests/testVisitsAppearAndSync"
+      ],
+      "screenshots": [
+        "s032-places-row",
+        "s032-sources-location"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-033",
+      "kind": "story",
+      "area": "data",
+      "title": "Health data and queued records reach Hermes in the background, even on days you don't open the app",
+      "steps": [
+        "Register a BGAppRefreshTask with the identifier listed in the Info.plist key BGTaskSchedulerPermittedIdentifiers. Schedule it after every sync pass and at launch (earliest begin about 1 hour). iOS decides when it actually runs.",
+        "When it runs: read Health changes since the saved anchors (the same anchored pass as S-028, D-067), then send queued batches, within about 25 seconds, and stop cleanly when iOS calls the expiration handler. Anchors only move after a batch is saved to the queue, so an interrupted run loses nothing.",
+        "Health data is only readable while the phone is unlocked. A run while it is locked reads nothing and still sends the queue (records, visits).",
+        "Settings shows the last background sync time next to the last foreground sync, or \"--\".",
+        "Launch with -uitest-scenario background-sync and trigger the handler through a debug hook. FakeVMTransport receives a batch, and Settings shows a background sync time."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-028",
+        "S-032"
+      ],
+      "core_tests": [
+        "StezuCoreTests.BackgroundSyncTests/testExpirationLeavesQueueIntact",
+        "StezuCoreTests.BackgroundSyncTests/testAnchorsMoveOnlyAfterQueueSave"
+      ],
+      "ui_tests": [
+        "AppUITests.HermesSyncUITests/testBackgroundSyncUpdatesStatus"
+      ],
+      "screenshots": [
+        "s033-background-sync"
+      ],
+      "needs_server": true,
+      "passes": false
     }
   ]
 }
