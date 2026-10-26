@@ -195,7 +195,7 @@ VIEWS = {
                     " nullif(sum(kind = 'location'), 0) AS location_fixes FROM (SELECT day, 'visit' AS kind"
                     " FROM stezu_visits UNION ALL SELECT day, 'location' FROM stezu_locations)"
                     " WHERE day IS NOT NULL GROUP BY day",
-    # iPhone app-focus intervals sent by the Mac uploader (mac/screentime, D-080). The length is the
+    # iPhone app-focus intervals sent by the Mac uploader (mac/screentime, D-081). The length is the
     # payload's duration_s when positive, else end minus start; anything else is NULL, never 0.
     "stezu_app_usage": f"SELECT id, device_name, device_model, bundle_id, app_name, started_at, ended_at,"
                        f" {day_of('started_at')} AS day, CASE WHEN dur > 0 THEN dur WHEN julianday(ended_at) >"
