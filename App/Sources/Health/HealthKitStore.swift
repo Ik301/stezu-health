@@ -72,6 +72,55 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
       HKQuantitySample(type: HKQuantityType(.bodyMass), quantity: quantity, start: date, end: date))
   }
 
+  /// Tags the correlation and both samples, so Undo can find them all.
+  private static let mealKey = "stezu_meal_id"
+
+  /// One food correlation holding energy and protein at their midpoints, each with its low and
+  /// high in metadata. The write time is the sync version, so a later write of the meal wins.
+  func saveFood(_ entry: FoodEntry) async throws {
+    if store.authorizationStatus(for: HKQuantityType(.dietaryEnergyConsumed)) == .notDetermined {
+      try await requestAuthorization()
+    }
+    let date = entry.date
+    let parts: [(HKQuantityType, FoodRange?, (low: String, high: String), HKUnit)] = [
+      (HKQuantityType(.dietaryEnergyConsumed), entry.kcal, FoodEntry.kcalKeys, .kilocalorie()),
+      (HKQuantityType(.dietaryProtein), entry.proteinG, FoodEntry.proteinKeys, .gram()),
+    ]
+    var samples = Set<HKSample>()
+    for (type, range, keys, unit) in parts {
+      guard let range else { continue }
+      var metadata: [String: Any] = range.metadata(keys)
+      metadata[Self.mealKey] = entry.syncIdentifier
+      samples.insert(
+        HKQuantitySample(
+          type: type, quantity: HKQuantity(unit: unit, doubleValue: range.midpoint), start: date,
+          end: date, metadata: metadata))
+    }
+    var metadata: [String: Any] = [Self.mealKey: entry.syncIdentifier]
+    metadata[HKMetadataKeySyncIdentifier] = entry.syncIdentifier
+    metadata[HKMetadataKeySyncVersion] = Int(Date().timeIntervalSince1970 * 1000)
+    try await store.save(
+      HKCorrelation(
+        type: HKCorrelationType(.food), start: date, end: date, objects: samples,
+        metadata: metadata))
+  }
+
+  func deleteFood(syncIdentifier: String) async throws {
+    let predicate = HKQuery.predicateForObjects(
+      withMetadataKey: Self.mealKey, allowedValues: [syncIdentifier])
+    let types: [HKObjectType] = [
+      HKCorrelationType(.food), HKQuantityType(.dietaryEnergyConsumed),
+      HKQuantityType(.dietaryProtein),
+    ]
+    for type in types {
+      try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
+        store.deleteObjects(of: type, predicate: predicate) { _, _, error in
+          if let error { done.resume(throwing: error) } else { done.resume() }
+        }
+      }
+    }
+  }
+
   func dailyValues(of type: HealthType, in interval: DateInterval) async throws -> [Date: Double] {
     guard let quantityType = type.sampleType as? HKQuantityType else { return [:] }
     let predicate = HKQuery.predicateForSamples(withStart: interval.start, end: interval.end)
