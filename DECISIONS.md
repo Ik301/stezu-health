@@ -802,3 +802,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A night belongs to the day its stages end on, with anything ending after 18:00 counted toward the next day; asleep stages are merged as a union so two apps recording one night count once. HRV stays a median of raw readings, with the reading count as coverage. FakeHealthStore buckets by the current calendar and does not remove overlap.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthStore.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, SleepNightTests, AppUITests WeeklyHealthUITests (commit on wt/S-022).
 - Reverse if: Isaac's strap writes sleep as one asleepUnspecified block while another app writes stages; then pick one sleep source per night instead of the union.
+
+## D-059 History groups sessions into Monday-to-Sunday weeks when it opens, from the sessions themselves
+
+- Status: proposed by night agent, 2026-10-25 (S-010).
+- Problem: History must show weeks newest first with each week's sessions and working-set count, and a week with no session must not appear as a row of zeros, while sessions keep arriving from two places (seeded history and finished-workouts.json).
+- Given: finished sessions live in finished-workouts.json (D-056) and the Workout screen already holds them with the seeded `workoutHistory`. The week runs Monday to Sunday (D-056, D-057). Every logged set counts as a working set (S-008).
+- Constraints:
+  - Storing weekly totals beside the sessions breaks when a session is added or a store is rewritten: the totals go stale.
+  - Walking calendar weeks from the oldest session to today breaks rule 5: gap weeks would need a row, and the easy row is 0.
+  - Using the calendar's own first weekday breaks the Monday start on a device set to Sunday.
+- Options:
+  - (a) `WeeklyHistory.weeks` buckets the sessions by the Monday of their week (`firstWeekday = 2`) each time History opens, so only weeks with a session exist; the exercise page filters the same sessions by name.
+  - (b) Keep a weekly index file updated on each Finish.
+  - (c) Enumerate every week back to the first session and hide the empty ones in the view.
+- Decision: (a). History is a read-only sheet over `environment.workoutHistory` plus the finished sessions; nothing new is stored.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHistory.swift, App/Sources/Workout/WorkoutHistoryView.swift, App/Sources/Workout/WorkoutView.swift, WeeklyHistoryTests, AppUITests WorkoutHistoryUITests (commit on wt/S-010).
+- Reverse if: history grows to thousands of sessions and opening History lags; then cache the weeks and rebuild them on Finish.
