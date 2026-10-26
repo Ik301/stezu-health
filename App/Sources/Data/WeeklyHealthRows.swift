@@ -4,6 +4,7 @@ import SwiftUI
 /// This week's steps, sleep, HRV and resting heart rate, each with its coverage (S-022); sleep and
 /// HRV are labelled context. No data shows "--" beside its coverage, never 0, plus the hint.
 struct WeeklyHealthRows: View {
+  var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
   @State private var week: WeeklyHealth?
 
@@ -50,6 +51,7 @@ struct WeeklyHealthRows: View {
       Spacer()
       Text(value).font(.system(size: 17, weight: .medium)).accessibilityIdentifier(
         "data.\(id).value")
+      MetricOpenButton(metric: Metric(rawValue: id) ?? .steps, open: open)
     }
     .foregroundStyle(Theme.text)
   }
