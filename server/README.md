@@ -192,7 +192,7 @@ tombstone, so the sample stays deleted if it arrives (or is replayed) later.
 
 | Field | Type | Rules |
 |---|---|---|
-| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`, `visit`, `location`; others are stored too. |
+| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`, `visit`, `location`, `app_usage`; others are stored too. |
 | `id` | string, 1–128 | The app's stable id for the record. |
 | `updated_at` | string | ISO 8601 with an offset. The newest version wins; an equal or older `updated_at` is a duplicate and changes nothing, so bump it on every edit. |
 | `deleted` | bool | Default `false`. `true` is a tombstone. |
@@ -282,6 +282,8 @@ NULL, never 0.
 | `stezu_visits` | One row per live `visit` record: `id`, `arrived_at`, `departed_at` (NULL while unknown), `day`, `latitude`, `longitude`, `horizontal_accuracy_m`, `duration_min` (NULL unless both ends are known and departure is not before arrival), `updated_at`. |
 | `stezu_locations` | One row per live `location` record: `id`, `at`, `day`, `latitude`, `longitude`, `horizontal_accuracy_m`, `speed_mps`, `updated_at`. |
 | `places_daily` | Per `day` with at least one visit or fix: `visits` (visits by their `day`) and `location_fixes`; a count with nothing recorded that day is NULL, not 0. |
+| `stezu_app_usage` | One row per live `app_usage` record (an iPhone app-focus interval from the Mac uploader): `id`, `device_name`, `device_model`, `bundle_id`, `app_name`, `started_at`, `ended_at`, `day`, `duration_s` (the payload's when positive, else `ended_at` minus `started_at`, else NULL), `capped` (1/0), `updated_at`. |
+| `screen_time_daily` | Per `day` and `device_name` with at least one interval that has a bundle id and a length: `total_min`, `apps` (distinct bundle ids), `top_apps` (JSON array of the five apps with the most minutes, `[{"bundle_id", "minutes"}]`, most first), `intervals`, `capped_intervals` (NULL when no interval says). An interval counts toward the day it started. |
 | `stezu_meals` | One row per live `meal` record: `id`, `eaten_at`, `day`, `status`, `edited` (1/0), `in_health` (1/0), `n_items`, `kcal_low`, `kcal_high`, `protein_g_low`, `protein_g_high` (the items' ranges summed), `items` (names, `; `-separated), `updated_at`. |
 
 The record views read `payload_json` with `json_extract` and never fail on an odd payload:
@@ -308,6 +310,7 @@ these names; the names in brackets are also accepted:
 | `weigh_in` (S-031) | `id`, `measured_at`, `pounds`, `in_health` [`inHealth`] (`null` until the Health write was tried), optional `day`. |
 | `visit` (S-032) | `id`, `arrived_at` (ISO 8601 with offset, or `null` when unknown), `departed_at` (`null` until the departure is known), `latitude`, `longitude` (degrees, WGS 84), `horizontal_accuracy_m` (metres), `day`. A departure, or any other change, resends the same id with a newer `updated_at`; it replaces the row, never adds one. Send `null` for an unknown end, not `distantPast` or `distantFuture`. |
 | `location` (S-032) | `id`, `at` (ISO 8601 with offset), `latitude`, `longitude`, `horizontal_accuracy_m`, `speed_mps` (`null` when CoreLocation reports none, never a negative or 0 for missing), `day`. A significant location change. |
+| `app_usage` (Mac uploader, D-081) | `id` (sha256 hex of device id, bundle id and UTC start), `device_name`, `device_model` (e.g. `iPhone15,2`), `bundle_id`, `app_name` (`null`: Biome has only the bundle id), `start`, `end` (ISO 8601 with the Mac's offset, milliseconds), `duration_s` (> 0; at most the cap), `capped` (true when the interval was cut at the uploader's cap, 4 h by default), `day` (local date of `start`). Sent by `mac/screentime/stezu_screentime.py` with batch `device_id` `mac-screentime`; every daily run re-sends the trailing 7 days with a newer `updated_at` (milliseconds), which replaces the row. An interval still open at run time is not sent until it ends. |
 | `meal` (S-029) | `id`, `eaten_at`, `day`, `status`, `edited`, `in_health`, `items`: `[{item_id, name, source, halls, serving, servings, confidence, rough, kcal: {low, high}, protein_g: {low, high}}]`. |
 
 A night is keyed by its wake date: a sleep segment belongs to the local date of its end plus
