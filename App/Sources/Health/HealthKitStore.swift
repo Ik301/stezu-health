@@ -113,6 +113,51 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
     }
   }
 
+  /// HKAnchoredObjectQuery: from `start` the first time, then every change after the anchor.
+  func changes(of type: HealthType, after anchor: Data?, since start: Date, limit: Int)
+    async throws -> HealthChanges
+  {
+    let previous = anchor.flatMap {
+      try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: $0)
+    }
+    let predicate = previous == nil ? HKQuery.predicateForSamples(withStart: start, end: nil) : nil
+    let result = try await HKAnchoredObjectQueryDescriptor(
+      predicates: [.sample(type: type.sampleType, predicate: predicate)], anchor: previous,
+      limit: limit
+    ).result(for: store)
+    let identifier = type.sampleType.identifier
+    return (
+      result.addedSamples.compactMap { Self.syncSample($0, type) },
+      result.deletedObjects.map { SyncDeletion(uuid: $0.uuid.uuidString, type: identifier) },
+      try? NSKeyedArchiver.archivedData(
+        withRootObject: result.newAnchor, requiringSecureCoding: true)
+    )
+  }
+
+  /// Quantities in the type's unit, categories' raw value, workouts' details in metadata.
+  private static func syncSample(_ sample: HKSample, _ type: HealthType) -> SyncSample? {
+    var value: Double?
+    var metadata = (sample.metadata ?? [:]).compactMapValues { ($0 as? NSNumber)?.doubleValue }
+    if let quantity = sample as? HKQuantitySample, let unit = type.unit {
+      value = quantity.quantity.doubleValue(for: unit)
+    } else if let category = sample as? HKCategorySample {
+      value = Double(category.value)
+    } else if let workout = sample as? HKWorkout {
+      let energy = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()
+      metadata["activity_type"] = Double(workout.workoutActivityType.rawValue)
+      metadata["duration_s"] = workout.duration
+      metadata["total_energy_kcal"] = energy?.doubleValue(for: .kilocalorie())
+    } else {
+      return nil
+    }
+    let source = sample.sourceRevision.source
+    return SyncSample(
+      uuid: sample.uuid.uuidString, type: sample.sampleType.identifier,
+      start: SyncSample.timestamp(sample.startDate), end: SyncSample.timestamp(sample.endDate),
+      value: value, unit: type.unit?.unitString, sourceName: source.name,
+      sourceBundle: source.bundleIdentifier, metadata: metadata.isEmpty ? nil : metadata)
+  }
+
   private func query(_ type: HealthType, predicate: NSPredicate?, limit: Int, newest: Bool)
     async throws -> [HealthSample]
   {
@@ -160,7 +205,7 @@ extension HealthType {
     }
   }
 
-  /// The unit values are read in; nil where no story reads values.
+  /// The unit values are read and synced in; nil for sleep and workouts.
   var unit: HKUnit? {
     switch self {
     case .bodyMass: .pound()
@@ -169,7 +214,9 @@ extension HealthType {
     case .oxygenSaturation: .percent()
     case .bodyTemperature, .wristTemperature: .degreeFahrenheit()
     case .heartRateVariability: .secondUnit(with: .milli)
-    default: nil
+    case .dietaryEnergy: .kilocalorie()
+    case .dietaryProtein: .gram()
+    case .sleepAnalysis, .workout: nil
     }
   }
 }

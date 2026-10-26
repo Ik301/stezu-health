@@ -30,6 +30,17 @@ public protocol HealthStore: Sendable {
 
   /// sleepAnalysis stages that end from `start` on.
   func sleepIntervals(since start: Date) async throws -> [SleepInterval]
+  /// Up to `limit` changes after `anchor` (opaque), or from `start` on without one (S-028).
+  func changes(of type: HealthType, after anchor: Data?, since start: Date, limit: Int)
+    async throws -> HealthChanges
+}
+
+/// One page of an anchored Health read (S-028).
+public typealias HealthChanges = (samples: [SyncSample], deleted: [SyncDeletion], anchor: Data?)
+
+public enum HealthChange: Sendable {
+  case added(SyncSample)
+  case deleted(SyncDeletion)
 }
 
 /// An in-memory HealthStore for tests and `-uitest` launches. It records what was asked of it.
@@ -43,11 +54,13 @@ public actor FakeHealthStore: HealthStore {
   public private(set) var storedSleep: [SleepInterval]
 
   public init(
-    isAvailable: Bool = true, samples: [HealthSample] = [], sleep: [SleepInterval] = []
+    isAvailable: Bool = true, samples: [HealthSample] = [], sleep: [SleepInterval] = [],
+    changes: [HealthType: [HealthChange]] = [:]
   ) {
     self.isAvailable = isAvailable
     self.storedSamples = samples
     self.storedSleep = sleep
+    self.changeLog = changes
   }
 
   public func requestAuthorization() async throws {
@@ -99,6 +112,24 @@ public actor FakeHealthStore: HealthStore {
 
   public func sleepIntervals(since start: Date) async throws -> [SleepInterval] {
     storedSleep.filter { $0.end >= start }.sorted { $0.start < $1.start }
+  }
+
+  /// Changes per type, oldest first; the anchor counts those read and `since` is ignored.
+  private let changeLog: [HealthType: [HealthChange]]
+
+  public func changes(of type: HealthType, after anchor: Data?, since start: Date, limit: Int)
+    async throws -> HealthChanges
+  {
+    let read = anchor.flatMap { Int(String(decoding: $0, as: UTF8.self)) } ?? 0
+    let page = (changeLog[type] ?? []).dropFirst(read).prefix(limit)
+    var (samples, deleted): ([SyncSample], [SyncDeletion]) = ([], [])
+    for change in page {
+      switch change {
+      case .added(let sample): samples.append(sample)
+      case .deleted(let deletion): deleted.append(deletion)
+      }
+    }
+    return (samples, deleted, Data(String(read + page.count).utf8))
   }
 }
 

@@ -10,7 +10,23 @@ enum UITestFixtures {
     "POST /scan": VMResponse(status: 200, body: Data(scanReply.utf8)),
     "GET /search": VMResponse(status: 200, body: Data(searchReply.utf8)),
     "GET /search?estimate=true": VMResponse(status: 200, body: Data(estimateReply.utf8)),
+    "POST /sync": VMResponse(status: 200, body: Data(#"{"accepted": 3, "rejected": 0}"#.utf8)),
+    "GET /sync/status": VMResponse(status: 200, body: Data(#"{"samples_total": 3}"#.utf8)),
   ]
+
+  /// "sync": three made-up heart-rate readings to send; the fake status above counts three.
+  static func healthChanges(scenario: String?) -> [HealthType: [HealthChange]] {
+    guard scenario == "sync" else { return [:] }
+    let time = SyncSample.timestamp(Date())
+    let type = "HKQuantityTypeIdentifierHeartRate"
+    let sample = { (n: Int) -> HealthChange in
+      .added(
+        SyncSample(
+          uuid: "SYNTHETIC-\(n)", type: type, start: time, end: time, value: Double(60 + n),
+          unit: "count/min", sourceName: "Example Watch", sourceBundle: nil))
+    }
+    return [.heartRate: (1...3).map(sample)]
+  }
 
   /// Past sessions for a scenario, dated back from `now`. "workout-history": a Day 1 session
   /// 7 days ago and a newer Day 2 session that also has bench press and the only overhead press.
