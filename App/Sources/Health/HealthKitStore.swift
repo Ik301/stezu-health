@@ -39,6 +39,30 @@ final class HealthKitStore: HealthStore, @unchecked Sendable {
     try await query(type, predicate: nil, limit: 1, newest: true).first?.date
   }
 
+  /// Built with HKWorkoutBuilder, no energy samples. Skips the write when a workout with this
+  /// external id is already in Health (a retry). Throws when the write is denied or fails.
+  func saveStrengthWorkout(start: Date, end: Date, externalID: String) async throws {
+    if store.authorizationStatus(for: HKObjectType.workoutType()) == .notDetermined {
+      try await requestAuthorization()
+    }
+    let existing = HKSampleQueryDescriptor(
+      predicates: [
+        .workout(
+          HKQuery.predicateForObjects(
+            withMetadataKey: HKMetadataKeyExternalUUID, allowedValues: [externalID]))
+      ], sortDescriptors: [], limit: 1)
+    if let found = try? await existing.result(for: store), !found.isEmpty { return }
+
+    let configuration = HKWorkoutConfiguration()
+    configuration.activityType = .traditionalStrengthTraining
+    let builder = HKWorkoutBuilder(
+      healthStore: store, configuration: configuration, device: .local())
+    try await builder.beginCollection(at: start)
+    try await builder.addMetadata([HKMetadataKeyExternalUUID: externalID])
+    try await builder.endCollection(at: end)
+    guard try await builder.finishWorkout() != nil else { throw HKError(.errorInvalidArgument) }
+  }
+
   private func query(_ type: HealthType, predicate: NSPredicate?, limit: Int, newest: Bool)
     async throws -> [HealthSample]
   {

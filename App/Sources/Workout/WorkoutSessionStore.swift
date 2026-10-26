@@ -30,4 +30,10 @@ struct WorkoutSessionStore {
       at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
     try? data.write(to: file, options: .atomic)
   }
+
+  /// Forgets the workout in progress once it is finished or discarded.
+  func clear() {
+    guard let file else { return }
+    try? FileManager.default.removeItem(at: file)
+  }
 }
