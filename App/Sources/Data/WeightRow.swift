@@ -5,6 +5,7 @@ import SwiftUI
 /// this week, weigh-in days out of 7, the confidence reason and the apps the trend uses. Weigh in
 /// opens a stepper prefilled with the last weigh-in; Save writes one sample and reloads the row.
 struct WeightRow: View {
+  var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
   @State private var loaded: (week: WeekWeight, prefill: Double?)?
   @State private var weighing = false
@@ -22,6 +23,7 @@ struct WeightRow: View {
           .font(.system(size: Theme.bigNumberSize, weight: .medium))
           .tracking(Theme.bigNumberTracking)
           .accessibilityIdentifier("data.weight.trend")
+        MetricOpenButton(metric: .weight, open: open)
       }
       label("This week: " + (week?.change.map { String(format: "%+.1f lb", $0) } ?? "--"))
         .accessibilityIdentifier("data.weight.change")

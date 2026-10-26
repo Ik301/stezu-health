@@ -9,12 +9,13 @@ struct DataView: View {
   @Environment(\.appEnvironment) private var environment
   @State private var connected: Bool?
   @State private var sourcesOpen = false
+  @State private var metric: Metric?
 
   var body: some View {
     AreaScaffold(area: .data, title: "This week", goHome: goHome) {
       if connected ?? environment.healthConnection.isConnected {
-        WeightRow()
-        WeeklyHealthRows()
+        WeightRow { metric = $0 }
+        WeeklyHealthRows { metric = $0 }
         pill("Sources", id: "data.sources", inverted: false) { sourcesOpen = true }
       } else {
         Text(
@@ -34,6 +35,7 @@ struct DataView: View {
     .sheet(isPresented: $sourcesOpen) {
       SourcesView(store: environment.healthStore).presentationDragIndicator(.visible)
     }
+    .sheet(item: $metric) { MetricDetailView(metric: $0).presentationDragIndicator(.visible) }
   }
 
   private func pill(_ title: String, id: String, inverted: Bool, action: @escaping () -> Void)
