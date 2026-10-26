@@ -1160,7 +1160,7 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutRecord.swift, SyncRecord.swift, HealthSync.swift, WorkoutFinish.swift, App/Sources/Settings/HermesSync.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/Workout/WorkoutView.swift, WorkoutRecordTests (3), HermesSyncUITests/testLoggedSetsAndFinishedWorkoutAreSynced (commit on wt/S-030).
 - Reverse if: two sets can be logged in the same millisecond of one session (then store an id per set), or the server starts treating an equal record replayed by the backfill as a conflict.
 
-## D-081 Each location event is saved to location-log.json first, then queued as a `visit` or `location` record whose id comes from its time, and sent by one pass of the existing queue
+## D-082 Each location event is saved to location-log.json first, then queued as a `visit` or `location` record whose id comes from its time, and sent by one pass of the existing queue
 
 - Status: proposed by night agent, 2026-10-26 (S-032).
 - Problem: visits and significant location changes arrive while the app is in the background or was just relaunched for them, often with the phone locked and only seconds of run time. Each one must be kept on the phone before anything else, reach the server once, and a visit reported first on arrival and again on departure must stay one visit.
