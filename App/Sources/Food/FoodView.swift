@@ -121,7 +121,7 @@ struct FoodView: View {
 
   private var deniedMessage: some View {
     VStack(spacing: 12) {
-      Text("Camera access is off. Turn it on in Settings, Stezu Health, Camera.")
+      Text("Camera access is off. Turn it on in Settings, Ingest, Camera.")
         .multilineTextAlignment(.center).foregroundStyle(.white)
         .accessibilityIdentifier("food.camera.denied")
       Button("Open Settings") {
