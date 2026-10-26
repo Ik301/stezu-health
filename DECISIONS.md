@@ -849,3 +849,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). History is a read-only sheet over `environment.workoutHistory` plus the finished sessions; nothing new is stored.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHistory.swift, App/Sources/Workout/WorkoutHistoryView.swift, App/Sources/Workout/WorkoutView.swift, WeeklyHistoryTests, AppUITests WorkoutHistoryUITests (commit on wt/S-010).
 - Reverse if: history grows to thousands of sessions and opening History lags; then cache the weeks and rebuild them on Finish.
+
+## D-062 Strap context rows take the median of raw readings, and breathing and temperature are counted by night
+
+- Status: proposed by night agent, 2026-10-25 (S-027).
+- Problem: blood oxygen, respiratory rate and temperature need one weekly number and a coverage count each, but a strap writes them at night in uneven bursts, Health stores oxygen as a fraction, and an Apple Watch writes a different temperature type than a strap does.
+- Given: `HealthStore.samples(of:since:)` returns raw samples with values in each type's unit (fraction, count/min, °F). Sleep nights already belong to the day they end on, with anything after 18:00 counted toward the next day (D-058). The week runs Monday to Sunday.
+- Constraints:
+  - A mean of raw readings breaks on bursts: one night with many readings outweighs the rest, and a single spike moves it.
+  - Counting oxygen coverage in days breaks the strap's pattern of many readings a night; counting breathing and temperature by reading hides how many nights are covered.
+  - Mixing wrist temperature (Watch) with body temperature (strap) in one median breaks the number, because the two sit at different levels.
+  - Showing 0 with no samples breaks rule 5.
+- Options:
+  - (a) Median of every reading in the week; oxygen is scaled to percent and its coverage counts readings; respiratory rate and temperature are grouped into nights the same way as sleep and their coverage counts nights. Temperature uses body temperature, and wrist temperature only when no app wrote body temperature that week.
+  - (b) Per-day statistics queries (discrete average) as S-022 does for resting heart rate.
+  - (c) Pick one source app per type and average it.
+- Decision: (a). Read access for oxygenSaturation, respiratoryRate, bodyTemperature and appleSleepingWristTemperature joins the one Connect request, and all four appear on Sources. Every value is nil, shown as "--", when its coverage is 0.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthSources.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, AppUITests WeeklyHealthUITests (commit on wt/S-027).
+- Reverse if: Isaac's strap turns out to write only body temperature deviations, or a Watch and a strap both write temperature; then show the type in use beside the value, or let Sources pick one.

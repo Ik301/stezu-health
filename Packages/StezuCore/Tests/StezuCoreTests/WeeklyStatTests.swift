@@ -55,6 +55,48 @@ final class WeeklyStatTests: XCTestCase {
     XCTAssertEqual(median.confidence.reason, "5 samples this week")
   }
 
+  func testMedianOfPercentReadings() async {
+    let week = WeeklyStats.week(containing: day(11), calendar: calendar)
+
+    // Blood oxygen: Health stores fractions; the median reads as a percent; coverage counts
+    // readings this week, not the Saturday before.
+    let oxygen = [(3, 0.90), (5, 0.97), (6, 0.95), (7, 0.98), (8, 0.96), (9, 0.97), (10, 0.99)]
+      .map {
+        HealthSample(type: .oxygenSaturation, date: day($0.0), sourceName: "Strap", value: $0.1)
+      }
+    let percent = WeeklyStats.median(oxygen, in: week, scale: 100)
+    XCTAssertEqual(percent.value ?? 0, 97, accuracy: 0.001)
+    XCTAssertEqual(percent.coverage, 6)
+    XCTAssertEqual(percent.confidence.reason, "6 samples this week")
+
+    // Respiratory rate: the median of every reading; two readings in one night count one night,
+    // and a reading Monday 03:00 belongs to the night ending Monday.
+    let breaths = [(5, 3, 14.0), (5, 4, 15.0), (6, 3, 14.6), (8, 2, 13.8), (12, 3, 20.0)].map {
+      HealthSample(
+        type: .respiratoryRate, date: day($0.0, hour: $0.1), sourceName: "Strap", value: $0.2)
+    }
+    let nightly = WeeklyStats.nightlyMedian(breaths, in: week, calendar: calendar)
+    XCTAssertEqual(nightly.value ?? 0, 14.3, accuracy: 0.001)
+    XCTAssertEqual(nightly.coverage, 3)
+    XCTAssertEqual(nightly.confidence.reason, "3 of 7 nights with data")
+
+    // Absent is not zero.
+    let none = WeeklyStats.nightlyMedian([], in: week, calendar: calendar)
+    XCTAssertNil(none.value)
+    XCTAssertEqual(none.coverage, 0)
+
+    // Temperature falls back to wrist temperature only when no body temperature exists.
+    let wrist = [5, 6].map {
+      HealthSample(type: .wristTemperature, date: day($0, hour: 3), sourceName: "Watch", value: 97)
+    }
+    let store = FakeHealthStore(samples: oxygen + breaths + wrist)
+    let health = await WeeklyHealth.load(from: store, now: day(11), calendar: calendar)
+    XCTAssertEqual(health.bloodOxygen.coverage, 6)
+    XCTAssertEqual(health.respiratoryRate.coverage, 3)
+    XCTAssertEqual(health.temperature.value, 97)
+    XCTAssertEqual(health.temperature.coverage, 2)
+  }
+
   func testNoDataIsAbsentNotZero() async {
     let week = WeeklyStats.week(containing: day(11), calendar: calendar)
     let stats = [
@@ -72,7 +114,10 @@ final class WeeklyStatTests: XCTestCase {
 
     // A denied or empty store reads the same: every metric absent.
     let health = await WeeklyHealth.load(from: FakeHealthStore(), now: day(11))
-    for stat in [health.steps, health.sleep, health.hrv, health.restingHeartRate] {
+    for stat in [
+      health.steps, health.sleep, health.hrv, health.restingHeartRate, health.bloodOxygen,
+      health.respiratoryRate, health.temperature,
+    ] {
       XCTAssertNil(stat.value)
       XCTAssertEqual(stat.coverage, 0)
     }

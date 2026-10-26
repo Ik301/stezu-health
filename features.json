@@ -965,7 +965,7 @@
         "s027-strap-rows"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-028",
