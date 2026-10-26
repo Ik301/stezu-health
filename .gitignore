@@ -14,6 +14,8 @@ xcuserdata/
 *.cer
 *.certSigningRequest
 *.mobileprovision
+# Your own signing team (scripts/set-team.sh); Config/Signing.xcconfig includes it if present
+Config/Local.xcconfig
 .env
 *.env
 !*.env.example

@@ -1097,3 +1097,19 @@ The research notes cited here are kept private, because they contain personal he
 - Why: these records are entered in the app itself, so the app is their source of truth. Routing them through Health loses detail (sets, reps and exercise names don't fit a Health workout) and makes the VM depend on a Health write that can be denied.
 - Changes: D-057 (weigh-ins live only in Health) is reversed by S-031. S-030 sends sets and sessions. Meals already work this way (D-068, D-075).
 - Reverse if: never for app-entered data. Health remains the source only for what other devices record (the strap and the phone's sensors).
+
+## D-077 The signing team lives in a gitignored Config/Local.xcconfig, included by a committed Config/Signing.xcconfig
+
+- Status: decided by Isaac, 2026-10-26 (infra/local-signing).
+- Problem: every `xcodegen generate` rewrote the project without the team Isaac picked in Xcode, so the next device build failed with "StezuHealth requires a provisioning profile with the HealthKit feature" until he picked the team again on StezuHealth and RestActivity.
+- Given: the .xcodeproj is generated and gitignored; the repo is public (D-034) and G3 rejects a team, identity or profile in project.yml; CI builds unsigned with CODE_SIGNING_ALLOWED=NO.
+- Constraints:
+  - A team in project.yml breaks D-034 and G3.
+  - A required include of a file that only exists on Isaac's Mac breaks CI and every fresh clone.
+- Options:
+  - (a) project.yml `configFiles` (Debug, Release) for StezuHealth and RestActivity point at Config/Signing.xcconfig: `CODE_SIGN_STYLE = Automatic` plus `#include? "Local.xcconfig"`. scripts/set-team.sh writes Local.xcconfig with `DEVELOPMENT_TEAM`, taken from its argument or from the OU of the first Apple Development certificate, and runs xcodegen.
+  - (b) An environment variable read by XcodeGen (`${DEVELOPMENT_TEAM}` in project.yml): it must be exported in every shell that runs xcodegen, and an unset one writes an empty team.
+  - (c) Keep picking the team in Xcode after each generate.
+- Decision: (a). The include is optional, so CI and a fresh clone build without a team; Local.xcconfig is in .gitignore.
+- Evidence: Config/Signing.xcconfig, scripts/set-team.sh, project.yml, .gitignore, README.md "Build on your Mac" (commit on infra/local-signing).
+- Reverse if: the project moves to a paid team shared by several people (then the team may go in a committed xcconfig), or XcodeGen gains a supported local-override file.
