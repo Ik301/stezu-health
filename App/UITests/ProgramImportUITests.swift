@@ -56,7 +56,7 @@ final class ProgramImportUITests: XCTestCase {
     var app = UITestApp.launch()
     openWorkout(app)
     tap("workout.import", in: app)
-    confirmation(app).buttons["Replace"].tap()
+    confirmation(app).buttons["Replace"].firstMatch.tap()
     XCTAssertEqual(message(app).label, "Imported 2 templates")
     XCTAssertTrue(app.element("workout.template.pull").exists, "Pull was not added")
     for key in ["day-2", "day-3", "day-4", "day-5"] {
@@ -103,7 +103,7 @@ final class ProgramImportUITests: XCTestCase {
     tap("workout.import", in: app)
     let alert = confirmation(app)
     saveScreenshot("s034-replace-confirm", of: app)
-    alert.buttons["Cancel"].tap()
+    alert.buttons["Cancel"].firstMatch.tap()
     let closed = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: alert)
     wait(for: [closed], timeout: 10)
     XCTAssertEqual(app.element("workout.today.name").label, "Day 1 Push", "Cancel changed it")
@@ -113,7 +113,7 @@ final class ProgramImportUITests: XCTestCase {
 
     // Step 2: Replace leaves exactly Push then Pull (and Empty workout); the seed's days are gone.
     tap("workout.import", in: app)
-    confirmation(app).buttons["Replace"].tap()
+    confirmation(app).buttons["Replace"].firstMatch.tap()
     XCTAssertEqual(message(app).label, "Imported 2 templates")
     XCTAssertEqual(app.element("workout.today.name").label, "Push", "Push is not first")
     XCTAssertTrue(app.element("workout.template.pull").exists, "Pull is not listed")
