@@ -38,6 +38,56 @@ CREATE TABLE IF NOT EXISTS batches (batch_id TEXT PRIMARY KEY, device_id TEXT NO
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
 
+DATE = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+LB_KG = 0.45359237
+
+
+def jnum(path: str, src: str = "payload_json") -> str:
+    """A JSON number at path, else NULL: a missing, null or non-number field is absent, never 0."""
+    return f"CASE WHEN json_type({src}, '{path}') IN ('integer', 'real') THEN json_extract({src}, '{path}') END"
+
+
+def jtext(*paths: str, src: str = "payload_json") -> str:
+    """The first JSON string found at one of paths (the name, then its aliases), else NULL."""
+    found = [f"CASE WHEN json_type({src}, '{p}') = 'text' THEN json_extract({src}, '{p}') END" for p in paths]
+    return found[0] if len(found) == 1 else f"coalesce({', '.join(found)})"
+
+
+def jbool(*paths: str) -> str:
+    """1 for JSON true, 0 for false, NULL when missing, null or not a boolean."""
+    found = [f"CASE json_type(payload_json, '{p}') WHEN 'true' THEN 1 WHEN 'false' THEN 0 END" for p in paths]
+    return found[0] if len(found) == 1 else f"coalesce({', '.join(found)})"
+
+
+def day_of(ts: str) -> str:
+    """The payload's own day key, else the date of a timestamp the phone stamped in its own zone."""
+    return (f"coalesce(CASE WHEN p_day GLOB {DATE} THEN p_day END,"
+            f" CASE WHEN {ts} GLOB {DATE} || 'T*' THEN substr({ts}, 1, 10) END)")
+
+
+def live(kind: str, *columns: str) -> str:
+    """Live records of one kind with payload fields pulled out (tombstones excluded)."""
+    return (f"(SELECT id, updated_at, payload_json, {jtext('$.day')} AS p_day, {', '.join(columns)}"
+            f" FROM records WHERE kind = '{kind}' AND deleted = 0)")
+
+
+def range_total(field: str, bound: str) -> str:
+    """A meal's items summed like FoodRange.total: NULL when there are no items or any item lacks it."""
+    v = f"CASE WHEN i.type = 'object' THEN {jnum(f'$.{field}.{bound}', 'i.value')} END"
+    return (f"(SELECT CASE WHEN count(*) > 0 AND count(v) = count(*) THEN sum(v) END FROM (SELECT {v} AS v"
+            f" FROM json_each(CASE WHEN json_type(payload_json, '$.items') = 'array' THEN payload_json END,"
+            f" '$.items') i))")
+
+
+# A finished session's sets, read from its exercises[].sets[] (objects only, so odd payloads never fail).
+SESSION_SETS = ("FROM json_each(CASE WHEN json_type(payload_json, '$.exercises') = 'array' THEN payload_json END,"
+                " '$.exercises') e, json_each(coalesce(CASE WHEN e.type = 'object' THEN CASE WHEN"
+                " json_type(e.value, '$.sets') = 'array' THEN e.value END END, '{}'), '$.sets') x"
+                " WHERE x.type = 'object'")
+REPS = f"CASE WHEN x.type = 'object' THEN {jnum('$.reps', 'x.value')} END"
+HAS_EXERCISES = "json_type(payload_json, '$.exercises') = 'array'"
+POUNDS = f"CASE WHEN {jnum('$.pounds')} > 0 THEN {jnum('$.pounds')} END"  # bodyweight is NULL, never 0
+
 DAILY = {"heart_rate_daily": ["HeartRate"], "resting_hr": ["RestingHeartRate"],
          "hrv": ["HeartRateVariabilitySDNN"], "spo2": ["OxygenSaturation"],
          "respiratory_rate": ["RespiratoryRate"],
@@ -78,6 +128,41 @@ VIEWS = {
                 " json_extract(metadata_json, '$.total_distance_m') AS distance_m, source_name, source_bundle"
                 f" FROM live_samples WHERE type = '{WORKOUT}'",
     "stezu_records": "SELECT kind, id, updated_at, payload_json, received_at FROM records WHERE deleted = 0",
+    "stezu_sets": f"SELECT id, session_id, template_key, exercise_key, exercise_name, pounds, reps, logged_at,"
+                  f" {day_of('logged_at')} AS day, set_kind AS kind, updated_at FROM "
+                  + live("set", f"{jtext('$.session_id')} AS session_id", f"{jtext('$.template_key')} AS template_key",
+                         f"{jtext('$.exercise_key')} AS exercise_key",
+                         f"{jtext('$.exercise_name', '$.name')} AS exercise_name", f"{POUNDS} AS pounds",
+                         f"{jnum('$.reps')} AS reps", f"{jtext('$.logged_at')} AS logged_at",
+                         f"{jtext('$.kind')} AS set_kind"),
+    "stezu_sessions": f"SELECT id, started_at, ended_at, {day_of('started_at')} AS day, template_key, template_name,"
+                      " (julianday(ended_at) - julianday(started_at)) * 1440.0 AS duration_min,"
+                      f" CASE WHEN {HAS_EXERCISES} THEN json_array_length(payload_json, '$.exercises') END"
+                      f" AS n_exercises, CASE WHEN {HAS_EXERCISES} THEN (SELECT count(*) {SESSION_SETS})"
+                      " ELSE (SELECT nullif(count(*), 0) FROM stezu_sets t WHERE t.session_id = s.id) END AS n_sets,"
+                      f" CASE WHEN {HAS_EXERCISES} THEN (SELECT sum({REPS}) {SESSION_SETS})"
+                      " ELSE (SELECT sum(t.reps) FROM stezu_sets t WHERE t.session_id = s.id) END AS total_reps,"
+                      " in_health, updated_at FROM "
+                      + live("workout_session", f"{jtext('$.started_at', '$.start')} AS started_at",
+                             f"{jtext('$.ended_at', '$.end', '$.finished_at')} AS ended_at",
+                             f"{jtext('$.template_key')} AS template_key",
+                             f"{jtext('$.template_name', '$.template')} AS template_name",
+                             f"{jbool('$.in_health', '$.inHealth')} AS in_health") + " s",
+    "stezu_weighins": f"SELECT id, measured_at, {day_of('measured_at')} AS day, pounds, pounds * {LB_KG} AS kg,"
+                      " in_health, updated_at FROM "
+                      + live("weigh_in", f"{jtext('$.measured_at')} AS measured_at", f"{POUNDS} AS pounds",
+                             f"{jbool('$.in_health', '$.inHealth')} AS in_health"),
+    "stezu_meals": f"SELECT id, eaten_at, {day_of('eaten_at')} AS day, status, edited, in_health, n_items,"
+                   " kcal_low, kcal_high, protein_g_low, protein_g_high, items, updated_at FROM "
+                   + live("meal", f"{jtext('$.eaten_at')} AS eaten_at", f"{jtext('$.status')} AS status",
+                          f"{jbool('$.edited')} AS edited", f"{jbool('$.in_health')} AS in_health",
+                          "CASE WHEN json_type(payload_json, '$.items') = 'array'"
+                          " THEN json_array_length(payload_json, '$.items') END AS n_items",
+                          *(f"{range_total(f, b)} AS {f}_{b}" for f in ("kcal", "protein_g") for b in ("low", "high")),
+                          "(SELECT group_concat(n, '; ') FROM (SELECT CASE WHEN i.type = 'object' THEN"
+                          f" {jtext('$.name', src='i.value')} END AS n FROM json_each(CASE WHEN"
+                          " json_type(payload_json, '$.items') = 'array' THEN payload_json END, '$.items') i))"
+                          " AS items"),
 } | {name: "SELECT day, type, unit, n, min_value, mean_value, max_value, sources FROM daily_quantity"
            " WHERE type IN (" + ", ".join(f"'{Q}{t}'" for t in types) + ")" for name, types in DAILY.items()}
 

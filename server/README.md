@@ -276,6 +276,30 @@ NULL, never 0.
 | `heart_rate_daily`, `resting_hr`, `hrv`, `spo2`, `respiratory_rate`, `temperature` | Per `day`, `type`, `unit`: `n`, `min_value`, `mean_value`, `max_value`, `sources`. Types: HeartRate, RestingHeartRate, HeartRateVariabilitySDNN (ms), OxygenSaturation (a fraction), RespiratoryRate, and BodyTemperature, AppleSleepingWristTemperature, BasalBodyTemperature. |
 | `workouts` | HealthKit workouts: `uuid`, `day`, `start_local`, `end_local`, `activity_type`, `activity_name`, `duration_min`, `energy_kcal`, `distance_m`, `source_name`, `source_bundle`. |
 | `stezu_records` | `records` without tombstones. |
+| `stezu_sets` | One row per live `set` record: `id`, `session_id`, `template_key`, `exercise_key`, `exercise_name`, `pounds` (NULL for bodyweight), `reps`, `logged_at`, `day`, `kind` (e.g. `working`), `updated_at`. |
+| `stezu_sessions` | One row per live `workout_session` record: `id`, `started_at`, `ended_at`, `day`, `template_key`, `template_name`, `duration_min`, `n_exercises`, `n_sets`, `total_reps`, `in_health` (1/0), `updated_at`. |
+| `stezu_weighins` | One row per live `weigh_in` record: `id`, `measured_at`, `day`, `pounds`, `kg`, `in_health` (1/0), `updated_at`. |
+| `stezu_meals` | One row per live `meal` record: `id`, `eaten_at`, `day`, `status`, `edited` (1/0), `in_health` (1/0), `n_items`, `kcal_low`, `kcal_high`, `protein_g_low`, `protein_g_high` (the items' ranges summed), `items` (names, `; `-separated), `updated_at`. |
+
+The four record views read `payload_json` with `json_extract` and never fail on an odd payload:
+a field that is missing, `null` or of the wrong type is NULL, never 0. `pounds` of 0 or less is
+NULL (bodyweight, or a bad value). A record's `day` is the payload's `day` when it is a
+`YYYY-MM-DD` string, else the date part of its timestamp as the phone stamped it (its own zone
+and offset), so it matches the day the app shows; it is not recomputed in `STEZU_HEALTH_TZ`.
+`n_sets` and `total_reps` count `exercises[].sets[]` in the session payload; a session without an
+`exercises` array falls back to the live `set` records with its `session_id`, and is NULL when
+there are none. A meal's range is NULL when it has no items or any item lacks that range, as in
+the app (`FoodRange.total`). Booleans are 1, 0 or NULL.
+
+Record payloads (snake_case, as `MealRecord` in StezuCore's SyncRecord.swift). The views read
+these names; the names in brackets are also accepted:
+
+| Kind | Payload fields |
+|---|---|
+| `set` (S-030) | `id`, `session_id`, `template_key`, `exercise_key`, `exercise_name` [`name`], `pounds` (number, `null` for bodyweight, never 0), `reps`, `logged_at` (ISO 8601 with offset, milliseconds), `kind` (`working`), optional `day`. Undo sends the same id with `deleted: true`. |
+| `workout_session` (S-030) | `id`, `template_key`, `template_name` [`template`], `started_at` [`start`], `ended_at` [`end`, `finished_at`], `in_health` [`inHealth`], `exercises`: `[{exercise_key, exercise_name, sets: [set payloads as above]}]`, optional `day`. |
+| `weigh_in` (S-031) | `id`, `measured_at`, `pounds`, `in_health` [`inHealth`] (`null` until the Health write was tried), optional `day`. |
+| `meal` (S-029) | `id`, `eaten_at`, `day`, `status`, `edited`, `in_health`, `items`: `[{item_id, name, source, halls, serving, servings, confidence, rough, kcal: {low, high}, protein_g: {low, high}}]`. |
 
 A night is keyed by its wake date: a sleep segment belongs to the local date of its end plus
 6 hours. A segment ending at 23:30 on the 21st and one ending at 06:40 on the 22nd both belong
