@@ -73,7 +73,8 @@ struct AppEnvironment: Sendable {
       isUITest: true, storage: .memory, scenario: scenario,
       healthStore: FakeHealthStore(
         samples: UITestFixtures.healthSamples(scenario: scenario)
-          + UITestFixtures.weekHealthSamples(scenario: scenario),
+          + UITestFixtures.weekHealthSamples(scenario: scenario)
+          + UITestFixtures.strapSamples(scenario: scenario),
         sleep: UITestFixtures.sleep(scenario: scenario)),
       vmTransport: FakeVMTransport(
         routes: UITestFixtures.vmRoutes, offline: offline,

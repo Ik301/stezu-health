@@ -12,6 +12,10 @@ public enum HealthType: String, CaseIterable, Sendable {
   case dietaryEnergy = "Energy eaten"
   case dietaryProtein = "Protein"
   case workout = "Workouts"
+  case oxygenSaturation = "Blood oxygen"
+  case respiratoryRate = "Respiratory rate"
+  case bodyTemperature = "Temperature"
+  case wristTemperature = "Wrist temperature"
 }
 
 /// One sample's date, the app that wrote it and, for weight, its value in pounds.
@@ -20,7 +24,7 @@ public struct HealthSample: Sendable, Equatable {
   public let date: Date
   public let sourceName: String
   public let sourceBundleID: String?
-  /// Pounds for body mass; nil for types whose values no story reads yet.
+  /// Pounds for body mass, a fraction for blood oxygen, breaths/min, °F; nil where unread.
   public let value: Double?
 
   public init(

@@ -1,8 +1,9 @@
 import StezuCore
 import SwiftUI
 
-/// This week's steps, sleep, HRV and resting heart rate, each with its coverage (S-022); sleep and
-/// HRV are labelled context. No data shows "--" beside its coverage, never 0, plus the hint.
+/// This week's steps, sleep, HRV and resting heart rate (S-022), then the strap's blood oxygen,
+/// respiratory rate and temperature (S-027), each with its coverage; all but steps and resting HR
+/// are labelled context. No data shows "--" beside its coverage, never 0, plus the hint.
 struct WeeklyHealthRows: View {
   var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
@@ -18,10 +19,20 @@ struct WeeklyHealthRows: View {
       row("Resting HR", "restingHR", week?.restingHeartRate, of: "days") {
         "\(Int($0.rounded())) bpm"
       }
+      row("Blood oxygen", "oxygen", week?.bloodOxygen, of: nil, context: true) {
+        "\(Int($0.rounded()))%"
+      }
+      row("Respiratory rate", "respiratory", week?.respiratoryRate, of: "nights", context: true) {
+        String(format: "%.1f br/min", $0)
+      }
+      row("Temperature", "temperature", week?.temperature, of: "nights", context: true) {
+        String(format: "%.1f °F", $0)
+      }
       if let week,
-        [week.steps, week.sleep, week.hrv, week.restingHeartRate].contains(where: {
-          $0.value == nil
-        })
+        [
+          week.steps, week.sleep, week.hrv, week.restingHeartRate, week.bloodOxygen,
+          week.respiratoryRate, week.temperature,
+        ].contains(where: { $0.value == nil })
       {
         label(HealthSources.deniedHint).accessibilityIdentifier("data.health.hint")
       }
@@ -51,7 +62,8 @@ struct WeeklyHealthRows: View {
       Spacer()
       Text(value).font(.system(size: 17, weight: .medium)).accessibilityIdentifier(
         "data.\(id).value")
-      MetricOpenButton(metric: Metric(rawValue: id) ?? .steps, open: open)
+      // The strap rows have no history view yet (S-024 covers the S-022 metrics only).
+      if let metric = Metric(rawValue: id) { MetricOpenButton(metric: metric, open: open) }
     }
     .foregroundStyle(Theme.text)
   }
