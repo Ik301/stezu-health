@@ -15,13 +15,15 @@ struct WorkoutLoggerView: View {
   /// Finish (S-008): hands the session to the Workout screen, which closes the logger.
   private let onFinish: (WorkoutSession) -> Void
 
+  /// `resuming` (S-009) reopens a saved logger as it was; otherwise a new session starts now.
   init(
-    template: WorkoutTemplate, history: [WorkoutSession] = [],
+    template: WorkoutTemplate, resuming: SetLogger? = nil, history: [WorkoutSession] = [],
     onFinish: @escaping (WorkoutSession) -> Void = { _ in }
   ) {
     self.history = history
     _logger = State(
-      initialValue: SetLogger(template: template, startedAt: Date(), history: history))
+      initialValue: resuming
+        ?? SetLogger(template: template, startedAt: Date(), history: history))
     self.onFinish = onFinish
   }
 
