@@ -24,6 +24,9 @@ targets:
       - package: StezuCore
         product: StezuCore
       - target: RestActivity
+    configFiles:
+      Debug: Config/Signing.xcconfig
+      Release: Config/Signing.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth
@@ -52,6 +55,9 @@ targets:
         excludes:
           - Info.plist
       - App/Shared
+    configFiles:
+      Debug: Config/Signing.xcconfig
+      Release: Config/Signing.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth.RestActivity

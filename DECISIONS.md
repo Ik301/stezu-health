@@ -1098,7 +1098,23 @@ The research notes cited here are kept private, because they contain personal he
 - Changes: D-057 (weigh-ins live only in Health) is reversed by S-031. S-030 sends sets and sessions. Meals already work this way (D-068, D-075).
 - Reverse if: never for app-entered data. Health remains the source only for what other devices record (the strap and the phone's sensors).
 
-## D-077 Sets and sessions become `/sync` records with ids derived from their times, queued after the phone's save, and stored workouts are backfilled once behind a flag in the sync state
+## D-077 The signing team lives in a gitignored Config/Local.xcconfig, included by a committed Config/Signing.xcconfig
+
+- Status: decided by Isaac, 2026-10-26 (infra/local-signing).
+- Problem: every `xcodegen generate` rewrote the project without the team Isaac picked in Xcode, so the next device build failed with "StezuHealth requires a provisioning profile with the HealthKit feature" until he picked the team again on StezuHealth and RestActivity.
+- Given: the .xcodeproj is generated and gitignored; the repo is public (D-034) and G3 rejects a team, identity or profile in project.yml; CI builds unsigned with CODE_SIGNING_ALLOWED=NO.
+- Constraints:
+  - A team in project.yml breaks D-034 and G3.
+  - A required include of a file that only exists on Isaac's Mac breaks CI and every fresh clone.
+- Options:
+  - (a) project.yml `configFiles` (Debug, Release) for StezuHealth and RestActivity point at Config/Signing.xcconfig: `CODE_SIGN_STYLE = Automatic` plus `#include? "Local.xcconfig"`. scripts/set-team.sh writes Local.xcconfig with `DEVELOPMENT_TEAM`, taken from its argument or from the OU of the first Apple Development certificate, and runs xcodegen.
+  - (b) An environment variable read by XcodeGen (`${DEVELOPMENT_TEAM}` in project.yml): it must be exported in every shell that runs xcodegen, and an unset one writes an empty team.
+  - (c) Keep picking the team in Xcode after each generate.
+- Decision: (a). The include is optional, so CI and a fresh clone build without a team; Local.xcconfig is in .gitignore.
+- Evidence: Config/Signing.xcconfig, scripts/set-team.sh, project.yml, .gitignore, README.md "Build on your Mac" (commit on infra/local-signing).
+- Reverse if: the project moves to a paid team shared by several people (then the team may go in a committed xcconfig), or XcodeGen gains a supported local-override file.
+
+## D-078 Sets and sessions become `/sync` records with ids derived from their times, queued after the phone's save, and stored workouts are backfilled once behind a flag in the sync state
 
 - Status: proposed by night agent, 2026-10-26 (S-030).
 - Problem: every logged and undone set and every finished session must reach the server's records with ids that stay the same across an undo, a backfill and a replay, the phone's own save must come before both the record and the Health copy, and the workouts stored before this build must be sent once, never twice.
