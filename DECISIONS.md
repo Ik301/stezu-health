@@ -867,3 +867,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Read access for oxygenSaturation, respiratoryRate, bodyTemperature and appleSleepingWristTemperature joins the one Connect request, and all four appear on Sources. Every value is nil, shown as "--", when its coverage is 0.
 - Evidence: Packages/StezuCore/Sources/StezuCore/WeeklyHealth.swift, HealthSources.swift, App/Sources/Health/HealthKitStore.swift, App/Sources/Data/WeeklyHealthRows.swift, WeeklyStatTests, AppUITests WeeklyHealthUITests (commit on wt/S-027).
 - Reverse if: Isaac's strap turns out to write only body temperature deviations, or a Watch and a strap both write temperature; then show the type in use beside the value, or let Sources pick one.
+
+## D-063 A meal is pending until its scan reply is saved beside the photo; opening Food retries pending meals oldest first and never deletes one
+
+- Status: proposed by night agent, 2026-10-25 (S-017).
+- Problem: a photo taken without a connection (or before a server is set) must survive relaunches, show as pending rather than 0 kcal, and get matched later in capture order, without the queue ever dropping a meal.
+- Given: the shutter already saves `<id>.jpg` and `<id>.json` before any network call (S-012), `PhotoMatchClient` sends POST /scan (S-013), and `VMTransport` throws `VMTransportError` when offline or unconfigured.
+- Constraints:
+  - A separate queue file or database breaks the single source of truth: it can disagree with the photos on disk after a crash.
+  - Re-encoding `PhotoMatch` needs Codable on every food model, which adds lines past the diff budget.
+  - A background retry timer or BGTask needs a capability (Info.plist key), ruled out on a card branch.
+- Options:
+  - (a) State from files: a meal with `<id>.scan` (the raw 200 reply) is matched, one without it is pending. `MealQueue.retry` walks pending meals oldest first; a `VMTransportError` ends the round, any other failure leaves that meal pending and moves on. Retries run when Food opens.
+  - (b) A queue.json list of pending ids, rewritten on each change.
+  - (c) Retry on a timer while the app is open.
+- Decision: (a). Nothing in the queue deletes files. The newest meal matched in a round opens in the sheet. Today's line counts pending meals for the day and shows logged kcal as "--" until meals can be logged (S-015), never 0.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MealQueue.swift, PhotoMatch.swift (`scanReply`), App/Sources/Food/MealCapture.swift, PhotoMatchSheet.swift, FoodView.swift, MealQueueTests, AppTests MealQueueStoreTests, AppUITests OfflineQueueUITests (commit on wt/S-017).
+- Reverse if: meals must match while Food stays closed (retry from the app's scene phase instead), or the queue grows large enough that reading every reply on open is slow.
