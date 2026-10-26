@@ -9,6 +9,7 @@ Read this first. SPEC.md says what to build (for v1, D-032 to D-035 override it 
 - App/Shared: compiled into the app and the extension (RestActivityAttributes). App/RestActivity: the Live Activity widget extension (com.ik301.stezuhealth.RestActivity).
 - App/Tests: AppTests (unit). App/UITests: AppUITests (XCUITest). Both run in the ios CI job only.
 - project.yml: the XcodeGen spec (the .xcodeproj is generated and gitignored). App/StezuHealth.entitlements: HealthKit.
+- Info.plist keys (D-079): string keys are `INFOPLIST_KEY_` settings in project.yml; array keys sit in its `info:` block, which xcodegen writes to the gitignored App/Info.plist. Location: NSLocationWhenInUseUsageDescription, NSLocationAlwaysAndWhenInUseUsageDescription. UIBackgroundModes: location, fetch, processing. BGTaskSchedulerPermittedIdentifiers: `com.ik301.stezuhealth.sync`, the one BGTaskScheduler identifier (S-033). No HealthKit background-delivery entitlement.
 - scripts/: the gates. .github/workflows/ci.yml: CI. PROGRESS.md: the log.
 
 ## Build and test
