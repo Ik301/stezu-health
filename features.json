@@ -1054,7 +1054,7 @@
         "s030-workout-synced"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-031",
