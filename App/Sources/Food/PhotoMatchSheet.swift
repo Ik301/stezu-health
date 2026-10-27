@@ -87,14 +87,14 @@ struct PhotoMatchSheet: View {
   }
 
   private func status(_ title: String, id: String, detail: String) -> some View {
-    VStack(spacing: 12) {
-      Text(title).font(.system(size: Theme.subtitleSize, weight: .semibold))
-        .foregroundStyle(Theme.text).accessibilityIdentifier(id)
-      Text(detail).font(.system(size: Theme.labelSize))
-        .foregroundStyle(Theme.label).accessibilityIdentifier("food.captured.saved")
+    VStack(spacing: Theme.spaceMd) {
+      Text(title).textStyle(.subtitle, weight: .semibold)
+        .foregroundStyle(Theme.ink).accessibilityIdentifier(id)
+      Text(detail).textStyle(.label)
+        .foregroundStyle(Theme.muted).accessibilityIdentifier("food.captured.saved")
       if let today {
-        Text("Today: \(today)").font(.system(size: Theme.labelSize, weight: .medium))
-          .foregroundStyle(Theme.text).accessibilityIdentifier("food.today")
+        Text("Today: \(today)").textStyle(.label, weight: .medium)
+          .foregroundStyle(Theme.ink).accessibilityIdentifier("food.today")
       }
     }
     .presentationDetents([.fraction(0.3)])
@@ -105,15 +105,16 @@ struct PhotoMatchSheet: View {
     _ item: MatchedItem, id: String, onName: @escaping () -> Void,
     @ViewBuilder controls: () -> Controls
   ) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: Theme.spaceXs) {
       HStack {
-        Text(item.name).font(.system(size: Theme.subtitleSize, weight: .medium))
+        Text(item.name).textStyle(.subtitle, weight: .medium)
           .onTapGesture(perform: onName).accessibilityAddTraits(.isButton)
           .accessibilityIdentifier("\(id).name")
         if item.isRough {
-          Text("rough").font(.system(size: Theme.labelSize, weight: .semibold))
-            .foregroundStyle(Theme.invertedText).padding(.horizontal, 8).padding(.vertical, 2)
-            .background(Capsule().fill(Theme.invertedCard))
+          Text("rough").textStyle(.label, weight: .semibold)
+            .foregroundStyle(Theme.onInvert)
+            .padding(.horizontal, Theme.spaceSm).padding(.vertical, Theme.space2xs)
+            .background(Capsule().fill(Theme.invert))
             .accessibilityIdentifier("\(id).rough")
         }
         Spacer()
@@ -127,13 +128,13 @@ struct PhotoMatchSheet: View {
         Text(Self.range(item.proteinG, unit: "g protein"))
           .accessibilityIdentifier("\(id).protein")
       }
-      .font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+      .textStyle(.label).foregroundStyle(Theme.muted)
       controls()
     }
-    .foregroundStyle(Theme.text)
-    .padding(12)
-    .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
-    .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Theme.cardBorder))
+    .foregroundStyle(Theme.ink)
+    .padding(Theme.spaceMd)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
+    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard).stroke(Theme.edge))
   }
 
   /// "200-260 kcal", or "--" when the range is unknown. Never a single number.

@@ -30,8 +30,8 @@ struct FoodView: View {
   var body: some View {
     VStack(spacing: 0) {
       topBar
-      todayStrip.padding(.top, 10)
-      searchBar.padding(.top, 10)
+      todayStrip.padding(.top, Theme.spaceSm)
+      searchBar.padding(.top, Theme.spaceSm)
       if trimmedQuery.isEmpty {
         Spacer()
         if mode == "Barcode" {
@@ -42,11 +42,11 @@ struct FoodView: View {
         }
         if cameraAllowed == false { deniedMessage }
         if captureFailed {
-          Text("Could not take the photo.").foregroundStyle(.white)
+          Text("Could not take the photo.").foregroundStyle(Theme.onCamera)
             .accessibilityIdentifier("food.error")
         }
         if logFailed {
-          Text("Could not save the meal.").foregroundStyle(.white)
+          Text("Could not save the meal.").foregroundStyle(Theme.onCamera)
             .accessibilityIdentifier("food.log.error")
         }
         Spacer()
@@ -55,14 +55,14 @@ struct FoodView: View {
           searching = false
           picked = PickedItem(item: item)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, Theme.spaceSm)
       }
       if let logged { undoToast(logged) }
       bottomBar
     }
-    .padding(16)
+    .padding(Theme.spaceLg)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.black.overlay { cameraImage }.clipped().ignoresSafeArea(edges: .top))
+    .background(Theme.camera.overlay { cameraImage }.clipped().ignoresSafeArea(edges: .top))
     .task {
       if environment.isUITest {
         await environment.mealCaptures.seedPhotos(FixturePhotoSource.plateJPEG())
@@ -84,8 +84,9 @@ struct FoodView: View {
   /// Typing opens search results over the camera (S-014); a pick opens the item list.
   private var searchBar: some View {
     TextField("Search food", text: $query).focused($searching).autocorrectionDisabled()
-      .font(.system(size: Theme.subtitleSize)).foregroundStyle(Theme.text)
-      .padding(.horizontal, 16).frame(height: 44).background(Capsule().fill(Theme.card))
+      .textStyle(.subtitle).foregroundStyle(Theme.ink)
+      .padding(.horizontal, Theme.spaceLg).frame(height: Theme.sizeTarget)
+      .background(Capsule().fill(Theme.surface))
       .accessibilityIdentifier("food.search.field")
       .sheet(item: $picked) { picked in
         PhotoMatchSheet(
@@ -110,36 +111,37 @@ struct FoodView: View {
   private var topBar: some View {
     HStack {
       Button(action: goHome) {
-        Image(systemName: "house").font(.system(size: 17, weight: .medium))
-          .foregroundStyle(Theme.text).frame(width: 44, height: 44)
-          .background(Circle().fill(Theme.card))
+        Image(systemName: "house").textStyle(.value)
+          .foregroundStyle(Theme.ink).frame(width: Theme.sizeTarget, height: Theme.sizeTarget)
+          .background(Circle().fill(Theme.surface))
       }
       .accessibilityLabel("Home").accessibilityIdentifier("nav.home")
-      Text("Food").font(.system(size: Theme.subtitleSize, weight: .semibold))
-        .foregroundStyle(Theme.text).padding(.horizontal, 10).padding(.vertical, 6)
-        .background(Capsule().fill(Theme.card))
+      Text("Food").textStyle(.subtitle, weight: .semibold)
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, Theme.spaceSm).padding(.vertical, Theme.spaceXs)
+        .background(Capsule().fill(Theme.surface))
         .accessibilityAddTraits(.isHeader).accessibilityIdentifier("screen.food.title")
       Spacer()
       HStack(spacing: 0) {
         ForEach(["Photo", "Barcode"], id: \.self) { item in
           Button(item) { mode = item }
-            .font(.system(size: Theme.labelSize, weight: .medium))
-            .foregroundStyle(item == mode ? Theme.invertedText : Theme.text)
-            .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(Capsule().fill(item == mode ? Theme.invertedCard : Color.clear))
+            .textStyle(.label, weight: .medium)
+            .foregroundStyle(item == mode ? Theme.onInvert : Theme.ink)
+            .padding(.horizontal, Theme.spaceMd).padding(.vertical, Theme.spaceSm)
+            .background(Capsule().fill(item == mode ? Theme.invert : Color.clear))
             .accessibilityValue(item == mode ? "on" : "off")
             .accessibilityIdentifier("food.mode.\(item.lowercased())")
         }
       }
-      .padding(3).background(Capsule().fill(Color.white))
+      .padding(Theme.space2xs).background(Capsule().fill(Theme.surfaceRaised))
     }
   }
 
   private var bottomBar: some View {
     HStack {
       Button("History") { showingHistory = true }
-        .font(.system(size: Theme.labelSize, weight: .medium)).foregroundStyle(Theme.text)
-        .frame(width: 64, height: 44).background(Capsule().fill(Theme.card))
+        .textStyle(.label, weight: .medium).foregroundStyle(Theme.ink)
+        .frame(width: 64, height: Theme.sizeTarget).background(Capsule().fill(Theme.surface))
         .accessibilityIdentifier("food.history")
         .sheet(isPresented: $showingHistory) { FoodHistory { Task { await loadToday() } } }
       Spacer()
@@ -147,20 +149,21 @@ struct FoodView: View {
         Button {
           Task { await shutter() }
         } label: {
-          Circle().strokeBorder(Color.white, lineWidth: 4).frame(width: 74, height: 74)
-            .overlay(Circle().fill(Color.white).padding(8))
+          Circle().strokeBorder(Theme.onCamera, lineWidth: 4)
+            .frame(width: Theme.sizeShutter, height: Theme.sizeShutter)
+            .overlay(Circle().fill(Theme.onCamera).padding(Theme.spaceSm))
         }
         .accessibilityLabel("Shutter").accessibilityIdentifier("food.shutter")
         .disabled(cameraAllowed != true)
       }
       Spacer()
-      Color.clear.frame(width: 64, height: 44)
+      Color.clear.frame(width: 64, height: Theme.sizeTarget)
     }
   }
 
   /// Today's kcal and protein ranges and meal count, "--" with none; no target (D-032).
   private var todayStrip: some View {
-    HStack(spacing: 12) {
+    HStack(spacing: Theme.spaceMd) {
       Text("Today").fontWeight(.semibold)
       Text(PhotoMatchSheet.range(day?.kcal, unit: "kcal")).accessibilityIdentifier(
         "food.strip.kcal")
@@ -170,8 +173,8 @@ struct FoodView: View {
       Text(day?.mealCount.map { "\($0) meal\($0 == 1 ? "" : "s")" } ?? "-- meals")
         .accessibilityIdentifier("food.strip.meals")
     }
-    .font(.system(size: Theme.labelSize, weight: .medium)).foregroundStyle(Theme.text)
-    .padding(.horizontal, 14).frame(height: 32).background(Capsule().fill(Theme.card))
+    .textStyle(.label, weight: .medium).foregroundStyle(Theme.ink)
+    .padding(.horizontal, Theme.spaceMd).frame(height: 32).background(Capsule().fill(Theme.surface))
   }
 
   private func loadToday() async {
@@ -180,16 +183,17 @@ struct FoodView: View {
   }
 
   private var deniedMessage: some View {
-    VStack(spacing: 12) {
+    VStack(spacing: Theme.spaceMd) {
       Text("Camera access is off. Turn it on in Settings, Ingest, Camera.")
-        .multilineTextAlignment(.center).foregroundStyle(.white)
+        .multilineTextAlignment(.center).foregroundStyle(Theme.onCamera)
         .accessibilityIdentifier("food.camera.denied")
       Button("Open Settings") {
         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
       }
-      .foregroundStyle(.white)
+      .foregroundStyle(Theme.onCamera)
     }
-    .padding(16).background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(.black))
+    .padding(Theme.spaceLg)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.camera))
   }
 
   /// After Log: "Meal logged" with Undo for 8 seconds over the camera.
@@ -197,8 +201,8 @@ struct FoodView: View {
     HStack {
       Text("Meal logged").accessibilityIdentifier("food.logged.toast")
       if let inHealth = loggedInHealth {
-        Text(inHealth ? "In Health" : "Not in Health").font(.system(size: Theme.labelSize))
-          .foregroundStyle(Theme.label).accessibilityIdentifier("food.logged.health")
+        Text(inHealth ? "In Health" : "Not in Health").textStyle(.label)
+          .foregroundStyle(Theme.onInvertMuted).accessibilityIdentifier("food.logged.health")
       }
       Spacer()
       Button("Undo") {
@@ -212,9 +216,9 @@ struct FoodView: View {
       }
       .fontWeight(.semibold).accessibilityIdentifier("food.logged.undo")
     }
-    .font(.system(size: Theme.subtitleSize)).foregroundStyle(Theme.invertedText)
-    .padding(.horizontal, 18).frame(height: 48)
-    .background(Capsule().fill(Theme.invertedCard)).padding(.bottom, 10)
+    .textStyle(.subtitle).foregroundStyle(Theme.onInvert)
+    .padding(.horizontal, Theme.spaceCard).frame(height: 48)
+    .background(Capsule().fill(Theme.invert)).padding(.bottom, Theme.spaceSm)
     .task(id: id) {
       guard (try? await Task.sleep(nanoseconds: 8_000_000_000)) != nil else { return }
       logged = nil

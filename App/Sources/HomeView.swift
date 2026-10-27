@@ -32,14 +32,14 @@ struct HomeView: View {
     // Re-read the clock every minute so the inverted card follows the time of day.
     TimelineView(.everyMinute) { _ in
       let inverted = model.invertedCardID()
-      VStack(spacing: 12) {
+      VStack(spacing: Theme.spaceMd) {
         HStack {
           Spacer()
           Button(action: openSettings) {
             Image(systemName: "gearshape")
-              .font(.system(size: 17, weight: .medium))
-              .foregroundStyle(Theme.text)
-              .frame(width: 44, height: 44)
+              .textStyle(.value)
+              .foregroundStyle(Theme.ink)
+              .frame(width: Theme.sizeTarget, height: Theme.sizeTarget)
           }
           .accessibilityLabel("Settings")
           .accessibilityIdentifier("home.settings")
@@ -54,9 +54,9 @@ struct HomeView: View {
           .accessibilityIdentifier("home.card.\(card.id)")
         }
       }
-      .padding(16)
+      .padding(Theme.spaceLg)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .background(Theme.background.ignoresSafeArea())
+      .background(Theme.ground.ignoresSafeArea())
     }
     .task { inputs = await HomeInputs.load(from: environment) }
   }
@@ -68,28 +68,27 @@ struct HomeCardView: View {
   @Environment(\.displayScale) private var displayScale
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: Theme.spaceXs) {
       Text(card.label)
-        .font(.system(size: Theme.labelSize))
-        .foregroundStyle(Theme.label)
+        .textStyle(.label)
+        .foregroundStyle(inverted ? Theme.onInvertMuted : Theme.muted)
       Text(card.subtitle)
-        .font(.system(size: Theme.subtitleSize))
-        .foregroundStyle(inverted ? Theme.invertedText : Theme.text)
+        .textStyle(.subtitle)
+        .foregroundStyle(inverted ? Theme.onInvert : Theme.ink)
       Spacer(minLength: 0)
       Text(card.value)
-        .font(.system(size: Theme.bigNumberSize, weight: .medium))
-        .tracking(Theme.bigNumberTracking)
-        .foregroundStyle(inverted ? Theme.invertedText : Theme.text)
+        .textStyle(.big)
+        .foregroundStyle(inverted ? Theme.onInvert : Theme.ink)
     }
-    .padding(18)
+    .padding(Theme.spaceCard)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     .background(
-      RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-        .fill(inverted ? Theme.invertedCard : Theme.card)
+      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
+        .fill(inverted ? Theme.invert : Theme.surface)
     )
     .overlay(
-      RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-        .strokeBorder(Theme.cardBorder, lineWidth: inverted ? 0 : 1 / displayScale)
+      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
+        .strokeBorder(Theme.edge, lineWidth: inverted ? 0 : 1 / displayScale)
     )
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("\(card.label), \(card.subtitle), \(card.value)")

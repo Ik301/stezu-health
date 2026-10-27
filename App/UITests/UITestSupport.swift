@@ -5,13 +5,15 @@ import XCTest
 enum UITestApp {
   @MainActor
   static func launch(
-    scenario: String? = nil, offline: Bool = false, persist: Bool = false, reset: Bool = false
+    scenario: String? = nil, offline: Bool = false, persist: Bool = false, reset: Bool = false,
+    dark: Bool = false
   ) -> XCUIApplication {
     var arguments = ["-uitest"]
     if let scenario { arguments += ["-uitest-scenario", scenario] }
     if offline { arguments.append("-uitest-offline") }
     if persist { arguments.append("-uitest-persist") }
     if reset { arguments.append("-uitest-reset") }
+    if dark { arguments.append("-uitest-dark") }
     let app = XCUIApplication()
     app.launchArguments = arguments
     app.launch()

@@ -14,14 +14,13 @@ struct WeightRow: View {
   var body: some View {
     let week = loaded?.week
     let sources = week?.sources.joined(separator: ", ") ?? ""
-    VStack(alignment: .leading, spacing: 6) {
+    VStack(alignment: .leading, spacing: Theme.spaceXs) {
       label(week.map { weekRange($0.weekStart) } ?? "--").accessibilityIdentifier("data.week.range")
       HStack(alignment: .firstTextBaseline) {
-        Text("Weight").font(.system(size: 17, weight: .semibold))
+        Text("Weight").textStyle(.headline)
         Spacer()
         Text(week?.trend.map { String(format: "%.1f lb", $0) } ?? "--")
-          .font(.system(size: Theme.bigNumberSize, weight: .medium))
-          .tracking(Theme.bigNumberTracking)
+          .textStyle(.big)
           .accessibilityIdentifier("data.weight.trend")
         MetricOpenButton(metric: .weight, open: open)
       }
@@ -33,13 +32,13 @@ struct WeightRow: View {
       label("From: " + (sources.isEmpty ? "--" : sources)).accessibilityIdentifier(
         "data.weight.sources")
       Button("Weigh in") { weighing = true }
-        .font(.system(size: 17, weight: .semibold))
+        .textStyle(.headline)
         .accessibilityIdentifier("data.weighIn")
     }
-    .foregroundStyle(Theme.text)
-    .padding(16)
+    .foregroundStyle(Theme.ink)
+    .padding(Theme.spaceLg)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
     .task(id: reloads) {
       loaded = await WeeklyWeight.load(from: environment.weightHealth, now: environment.now())
     }
@@ -57,7 +56,7 @@ struct WeightRow: View {
   }
 
   private func label(_ text: String) -> some View {
-    Text(text).font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+    Text(text).textStyle(.label).foregroundStyle(Theme.muted)
   }
 }
 
@@ -74,9 +73,9 @@ private struct WeighInSheet: View {
   }
 
   var body: some View {
-    VStack(spacing: 24) {
+    VStack(spacing: Theme.spaceXl) {
       Text(String(format: "%.1f lb", pounds))
-        .font(.system(size: Theme.heroNumberSize, weight: .medium))
+        .textStyle(.hero)
         .accessibilityIdentifier("data.weighIn.value")
       Stepper("Weight", value: $pounds, in: 50...700, step: 0.1).labelsHidden()
         .accessibilityIdentifier("data.weighIn.stepper")
@@ -87,14 +86,14 @@ private struct WeighInSheet: View {
           saved()
         }
       } label: {
-        Text("Save").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.invertedText)
+        Text("Save").textStyle(.headline).foregroundStyle(Theme.onInvert)
           .frame(maxWidth: .infinity, minHeight: 50)
-          .background(Theme.invertedCard, in: Capsule())
+          .background(Theme.invert, in: Capsule())
       }
       .accessibilityIdentifier("data.weighIn.save")
     }
-    .padding(24)
-    .foregroundStyle(Theme.text)
+    .padding(Theme.spaceXl)
+    .foregroundStyle(Theme.ink)
   }
 }
 

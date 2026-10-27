@@ -12,11 +12,11 @@ struct MetricDetailView: View {
   @State private var history: MetricHistory?
   @State private var openWeek: Int?
   @State private var openDay: Date?
-  private let shape = RoundedRectangle(cornerRadius: Theme.cardRadius)
+  private let shape = RoundedRectangle(cornerRadius: Theme.radiusCard)
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 12) {
+      VStack(alignment: .leading, spacing: Theme.spaceMd) {
         if openDay != nil {
           Button("Week") { openDay = nil }.accessibilityIdentifier("metric.day.back")
         } else if openWeek == nil {
@@ -25,22 +25,22 @@ struct MetricDetailView: View {
           Button("8 weeks") { openWeek = nil }.accessibilityIdentifier("metric.back")
         }
         Text(openDay?.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) ?? metric.title)
-          .font(.system(size: 34, weight: .semibold)).accessibilityIdentifier("metric.title")
+          .textStyle(.title1).accessibilityIdentifier("metric.title")
         if let openDay {
-          DayView(day: openDay).padding(16).background(Theme.card, in: shape)
+          DayView(day: openDay).padding(Theme.spaceLg).background(Theme.surface, in: shape)
         } else if let history, let index = openWeek {
-          days(history.weeks[index]).padding(16).background(Theme.card, in: shape)
+          days(history.weeks[index]).padding(Theme.spaceLg).background(Theme.surface, in: shape)
         } else if let history {
           if metric == .weight {
-            TrendChart(history: history).padding(16).background(Theme.card, in: shape)
+            TrendChart(history: history).padding(Theme.spaceLg).background(Theme.surface, in: shape)
           }
-          weeks(history).padding(16).background(Theme.card, in: shape)
+          weeks(history).padding(Theme.spaceLg).background(Theme.surface, in: shape)
         }
       }
-      .font(.system(size: 17)).foregroundStyle(Theme.text).padding(16)
+      .textStyle(.body).foregroundStyle(Theme.ink).padding(Theme.spaceLg)
     }
     .scrollIndicators(.hidden)
-    .background(Theme.background.ignoresSafeArea())
+    .background(Theme.ground.ignoresSafeArea())
     .task {
       history = await MetricHistory.load(
         metric, from: environment.weightHealth, now: environment.now())
@@ -48,7 +48,7 @@ struct MetricDetailView: View {
   }
 
   private func weeks(_ history: MetricHistory) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
       ForEach(Array(history.weeks.enumerated()), id: \.offset) { index, week in
         let dates = range(week.start)
         let unit = metric == .sleep ? "nights" : "days"
@@ -59,12 +59,12 @@ struct MetricDetailView: View {
           openWeek = index
         } label: {
           HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-              Text(dates).font(.system(size: 17, weight: .semibold))
+            VStack(alignment: .leading, spacing: Theme.space2xs) {
+              Text(dates).textStyle(.headline)
               label(covered)
             }
             Spacer()
-            Text(value).font(.system(size: 17, weight: .medium))
+            Text(value).textStyle(.value)
           }
           .contentShape(Rectangle())
         }
@@ -80,20 +80,21 @@ struct MetricDetailView: View {
   }
 
   private func days(_ week: MetricWeek) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
       label(range(week.start))
       ForEach(Array(week.days.enumerated()), id: \.offset) { index, day in
         HStack {
           Text(day.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
             .accessibilityIdentifier("metric.day.\(index).name")
           Spacer()
-          Text(day.value.map(metric.format) ?? "--").font(.system(size: 17, weight: .medium))
+          Text(day.value.map(metric.format) ?? "--").textStyle(.value)
             .accessibilityIdentifier("metric.day.\(index).value")
           Button {
             openDay = day.day
           } label: {
-            Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold))
-              .foregroundStyle(Theme.label).frame(width: 44, height: 22).contentShape(Rectangle())
+            Image(systemName: "chevron.right").textStyle(.subtitle, weight: .semibold)
+              .foregroundStyle(Theme.muted).frame(width: Theme.sizeTarget, height: 22)
+              .contentShape(Rectangle())
           }
           .accessibilityLabel("Everything on this day")
           .accessibilityIdentifier("metric.day.\(index).open")
@@ -110,7 +111,7 @@ struct MetricDetailView: View {
   }
 
   private func label(_ text: String) -> some View {
-    Text(text).font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+    Text(text).textStyle(.label).foregroundStyle(Theme.muted)
   }
 }
 
@@ -133,10 +134,10 @@ private struct TrendChart: View {
       }
       var line = Path()
       line.addLines(points.map { at($0, $0.trend) })
-      context.stroke(line, with: .color(Theme.text), lineWidth: 2)
+      context.stroke(line, with: .color(Theme.ink), lineWidth: 2)
       for point in points {
         let dot = CGRect(origin: at(point, point.pounds), size: .zero).insetBy(dx: -3, dy: -3)
-        context.fill(Path(ellipseIn: dot), with: .color(Theme.label))
+        context.fill(Path(ellipseIn: dot), with: .color(Theme.muted))
       }
     }
     .frame(height: 120)
@@ -156,8 +157,9 @@ struct MetricOpenButton: View {
     Button {
       open(metric)
     } label: {
-      Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(Theme.label).frame(width: 44, height: 22).contentShape(Rectangle())
+      Image(systemName: "chevron.right").textStyle(.subtitle, weight: .semibold)
+        .foregroundStyle(Theme.muted).frame(width: Theme.sizeTarget, height: 22)
+        .contentShape(Rectangle())
     }
     .accessibilityLabel("\(metric.title) weeks")
     .accessibilityIdentifier("data.\(metric.rawValue).open")

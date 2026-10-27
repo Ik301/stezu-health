@@ -15,7 +15,7 @@ struct DayView: View {
   @State private var editing: LoggedMeal?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 14) {
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
       if records?.isEmpty == true { Text("--").accessibilityIdentifier("day.empty") }
       ForEach(Array((records ?? []).enumerated()), id: \.offset) { index, record in
         row(record, id: "day.record.\(index)", index: index)
@@ -32,13 +32,13 @@ struct DayView: View {
 
   private func row(_ record: DayRecord, id: String, index: Int) -> some View {
     HStack(alignment: .top) {
-      VStack(alignment: .leading, spacing: 2) {
-        Text(record.kind.rawValue).font(.system(size: 17, weight: .semibold))
+      VStack(alignment: .leading, spacing: Theme.space2xs) {
+        Text(record.kind.rawValue).textStyle(.headline)
           .accessibilityIdentifier(id)
-        Text(record.detail).font(.system(size: Theme.subtitleSize))
+        Text(record.detail).textStyle(.subtitle)
           .accessibilityIdentifier("\(id).detail")
         Text(record.isStezu ? "From Stezu" : "From \(record.source), read-only")
-          .font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+          .textStyle(.label).foregroundStyle(Theme.muted)
           .accessibilityIdentifier("\(id).source")
       }
       Spacer()
@@ -54,9 +54,9 @@ struct DayView: View {
   }
 
   private func action(_ title: String, id: String, run: @escaping () -> Void) -> some View {
-    Button(title, action: run).font(.system(size: Theme.labelSize, weight: .medium))
-      .foregroundStyle(Theme.text).padding(.horizontal, 12).frame(minHeight: 32)
-      .background(Color.white, in: Capsule()).accessibilityIdentifier(id)
+    Button(title, action: run).textStyle(.label, weight: .medium)
+      .foregroundStyle(Theme.ink).padding(.horizontal, Theme.spaceMd).frame(minHeight: 32)
+      .background(Theme.surfaceRaised, in: Capsule()).accessibilityIdentifier(id)
   }
 
   /// Logged meals (a saved edit replaces a seeded meal with its id), Stezu sessions from the

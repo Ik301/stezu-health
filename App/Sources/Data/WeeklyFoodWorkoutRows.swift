@@ -9,24 +9,24 @@ struct WeeklyFoodWorkoutRows: View {
   @State private var workouts: [WeekWorkout]?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: Theme.spaceSm) {
       HStack(alignment: .firstTextBaseline) {
-        VStack(alignment: .leading, spacing: 2) {
-          Text("Food").font(.system(size: 17, weight: .semibold))
+        VStack(alignment: .leading, spacing: Theme.space2xs) {
+          Text("Food").textStyle(.headline)
           label(food.map { "logged \($0.loggedDays) of 7 days" } ?? "--")
             .accessibilityIdentifier("data.food.coverage")
         }
         Spacer()
-        VStack(alignment: .trailing, spacing: 2) {
+        VStack(alignment: .trailing, spacing: Theme.space2xs) {
           value(food?.kcal, unit: "kcal").accessibilityIdentifier("data.food.kcal")
           value(food?.protein, unit: "g protein").accessibilityIdentifier("data.food.protein")
         }
       }
       HStack(alignment: .firstTextBaseline) {
-        Text("Workouts").font(.system(size: 17, weight: .semibold))
+        Text("Workouts").textStyle(.headline)
         Spacer()
         Text(workouts.flatMap { $0.isEmpty ? nil : "\($0.count) this week" } ?? "--")
-          .font(.system(size: 17, weight: .medium)).accessibilityIdentifier("data.workouts.value")
+          .textStyle(.value).accessibilityIdentifier("data.workouts.value")
       }
       ForEach(Array((workouts ?? []).enumerated()), id: \.offset) { index, workout in
         HStack {
@@ -35,13 +35,13 @@ struct WeeklyFoodWorkoutRows: View {
           Spacer()
           label(workout.source.rawValue).accessibilityIdentifier("data.workouts.\(index).source")
         }
-        .font(.system(size: Theme.subtitleSize))
+        .textStyle(.subtitle)
       }
     }
-    .foregroundStyle(Theme.text)
-    .padding(16)
+    .foregroundStyle(Theme.ink)
+    .padding(Theme.spaceLg)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
     .task { await load() }
   }
 
@@ -59,10 +59,10 @@ struct WeeklyFoodWorkoutRows: View {
 
   private func value(_ stat: WeeklyRange?, unit: String) -> some View {
     Text(stat?.value.map { PhotoMatchSheet.range($0, unit: unit) } ?? "--")
-      .font(.system(size: 17, weight: .medium))
+      .textStyle(.value)
   }
 
   private func label(_ text: String) -> some View {
-    Text(text).font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+    Text(text).textStyle(.label).foregroundStyle(Theme.muted)
   }
 }

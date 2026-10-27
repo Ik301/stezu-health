@@ -19,7 +19,7 @@ struct WorkoutHistoryView: View {
         title("History", id: "workout.history.title")
         let weeks = WeeklyHistory.weeks(sessions)
         if weeks.isEmpty {
-          Text("No sessions yet").foregroundStyle(Theme.label)
+          Text("No sessions yet").foregroundStyle(Theme.muted)
         }
         ForEach(Array(weeks.enumerated()), id: \.offset) { w, week in
           HStack {
@@ -29,9 +29,9 @@ struct WorkoutHistoryView: View {
             Text(Self.count(week.workingSets, "working set"))
               .accessibilityIdentifier("history.week.\(w).sets")
           }
-          .font(.system(size: Theme.labelSize))
-          .foregroundStyle(Theme.label)
-          .padding(.top, 8)
+          .textStyle(.label)
+          .foregroundStyle(Theme.muted)
+          .padding(.top, Theme.spaceSm)
           ForEach(Array(week.sessions.enumerated()), id: \.offset) { s, session in
             NavigationLink {
               detail(session)
@@ -50,7 +50,7 @@ struct WorkoutHistoryView: View {
         }
       }
     }
-    .tint(Theme.text)
+    .tint(Theme.ink)
   }
 
   /// One session: each exercise with its sets as weight x reps.
@@ -59,26 +59,26 @@ struct WorkoutHistoryView: View {
       title("\(name(session))   \(Self.day(session.startedAt))", id: "history.session.title")
       if continuable(session) {
         Button("Continue") { onContinue(session) }
-          .font(.system(size: 17, weight: .semibold))
-          .frame(maxWidth: .infinity, minHeight: 48)
-          .overlay(Capsule().strokeBorder(Theme.text, lineWidth: 1))
+          .textStyle(.headline)
+          .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+          .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 1))
           .accessibilityIdentifier("history.session.continue")
       }
       ForEach(Array(session.exercises.enumerated()), id: \.offset) { index, log in
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Theme.spaceXs) {
           NavigationLink {
             exercise(log.exercise)
           } label: {
-            Text(log.exercise).font(.system(size: Theme.subtitleSize, weight: .semibold))
+            Text(log.exercise).textStyle(.subtitle, weight: .semibold)
           }
           .accessibilityIdentifier("history.exercise.\(index)")
           Text(Self.sets(log.sets))
-            .font(.system(size: Theme.subtitleSize))
+            .textStyle(.subtitle)
             .accessibilityIdentifier("history.exercise.\(index).sets")
         }
-        .padding(16)
+        .padding(Theme.spaceLg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
       }
     }
   }
@@ -97,24 +97,24 @@ struct WorkoutHistoryView: View {
 
   private func page(@ViewBuilder _ content: () -> some View) -> some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 12, content: content).padding(20)
+      VStack(alignment: .leading, spacing: Theme.spaceMd, content: content).padding(Theme.spaceCard)
     }
     .scrollIndicators(.hidden)
     .buttonStyle(.plain)
-    .foregroundStyle(Theme.text)
-    .background(Theme.background.ignoresSafeArea())
+    .foregroundStyle(Theme.ink)
+    .background(Theme.ground.ignoresSafeArea())
   }
 
   private func title(_ text: String, id: String) -> some View {
-    Text(text).font(.system(size: 28, weight: .semibold)).accessibilityIdentifier(id)
+    Text(text).textStyle(.title2).accessibilityIdentifier(id)
   }
 
   private func row(_ text: String) -> some View {
     Text(text)
-      .font(.system(size: Theme.subtitleSize))
-      .padding(16)
+      .textStyle(.subtitle)
+      .padding(Theme.spaceLg)
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+      .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
   }
 
   private func name(_ session: WorkoutSession) -> String {

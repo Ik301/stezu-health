@@ -39,6 +39,12 @@ final class AppEnvironmentTests: XCTestCase {
     XCTAssertEqual(folder.lastPathComponent, "stezu-uitest-store")
   }
 
+  func testDarkArgumentForcesTheDarkAppearance() {
+    XCTAssertTrue(
+      AppEnvironment.fromLaunch(arguments: ["StezuHealth", "-uitest", "-uitest-dark"]).forcesDark)
+    XCTAssertFalse(AppEnvironment.fromLaunch(arguments: ["StezuHealth", "-uitest"]).forcesDark)
+  }
+
   func testFixturePhotoIsAJPEG() async throws {
     let data = try await FixturePhotoSource().capturePhoto()
     XCTAssertEqual(Array(data.prefix(2)), [0xFF, 0xD8])

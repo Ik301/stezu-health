@@ -8,7 +8,7 @@ struct BottomNav: View {
   let open: (Area) -> Void
 
   var body: some View {
-    HStack(spacing: 24) {
+    HStack(spacing: Theme.spaceXl) {
       ForEach(Area.allCases, id: \.self) { area in
         Button {
           open(area)
@@ -23,8 +23,8 @@ struct BottomNav: View {
       }
     }
     .frame(maxWidth: .infinity)
-    .padding(.vertical, 12)
-    .background(Theme.background.ignoresSafeArea())
+    .padding(.vertical, Theme.spaceMd)
+    .background(Theme.ground.ignoresSafeArea())
   }
 }
 
@@ -35,11 +35,11 @@ struct NavCircle: View {
 
   var body: some View {
     Text(title)
-      .font(.system(size: Theme.labelSize, weight: .medium))
-      .foregroundStyle(isActive ? Theme.invertedText : Theme.text)
-      .frame(width: Theme.navCircleSize, height: Theme.navCircleSize)
-      .background(Circle().fill(isActive ? Theme.invertedCard : Theme.card))
-      .overlay(Circle().strokeBorder(Theme.cardBorder, lineWidth: isActive ? 0 : 1 / displayScale))
+      .textStyle(.label, weight: .medium)
+      .foregroundStyle(isActive ? Theme.onInvert : Theme.ink)
+      .frame(width: Theme.sizeNav, height: Theme.sizeNav)
+      .background(Circle().fill(isActive ? Theme.invert : Theme.surface))
+      .overlay(Circle().strokeBorder(Theme.edge, lineWidth: isActive ? 0 : 1 / displayScale))
   }
 }
 

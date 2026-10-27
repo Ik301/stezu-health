@@ -31,7 +31,7 @@ struct WorkoutLoggerView: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 12) {
+      VStack(alignment: .leading, spacing: Theme.spaceMd) {
         HStack {
           Spacer()
           // No confirmation: one tap ends the rest and finishes.
@@ -39,9 +39,9 @@ struct WorkoutLoggerView: View {
             rest?.skip()
             onFinish(logger.session)
           }
-          .font(.system(size: 17, weight: .semibold))
-          .foregroundStyle(Theme.text)
-          .frame(minWidth: 72, minHeight: 44)
+          .textStyle(.headline)
+          .foregroundStyle(Theme.ink)
+          .frame(minWidth: 72, minHeight: Theme.sizeTarget)
           .accessibilityIdentifier("workout.logger.finish")
         }
         logCard
@@ -51,26 +51,26 @@ struct WorkoutLoggerView: View {
             "Set \(index + 1)   \(Self.weight(set.pounds)) x \(set.reps)"
               + (logger.lastNumbers.map { "   " + $0.summary(setAt: index) } ?? "")
           )
-          .font(.system(size: Theme.subtitleSize))
-          .foregroundStyle(Theme.text)
-          .padding(16)
+          .textStyle(.subtitle)
+          .foregroundStyle(Theme.ink)
+          .padding(Theme.spaceLg)
           .frame(maxWidth: .infinity, alignment: .leading)
-          .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+          .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
           .accessibilityIdentifier("workout.logger.logged.\(index)")
         }
         Button("Undo") { undo() }
-          .font(.system(size: 17, weight: .semibold))
-          .foregroundStyle(Theme.text)
+          .textStyle(.headline)
+          .foregroundStyle(Theme.ink)
           .disabled(!logger.canUndo)
           .opacity(logger.canUndo ? 1 : 0.4)
           .accessibilityIdentifier("workout.logger.undo")
         // One tap appends the block to this workout; the button goes once it is added.
         ForEach(addable, id: \.key) { addOn in
           Button("+ \(addOn.name)") { logger.append(addOn, history: history) }
-            .font(.system(size: Theme.subtitleSize, weight: .semibold))
-            .foregroundStyle(Theme.text)
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .overlay(Capsule().strokeBorder(Theme.text, lineWidth: 1))
+            .textStyle(.subtitle, weight: .semibold)
+            .foregroundStyle(Theme.ink)
+            .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+            .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 1))
             .buttonStyle(.plain)
             .accessibilityIdentifier("workout.logger.addon.\(addOn.key)")
         }
@@ -95,11 +95,11 @@ struct WorkoutLoggerView: View {
   }
 
   private var logCard: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: Theme.spaceSm) {
       let exercise = logger.exercise
       HStack(alignment: .firstTextBaseline) {
         Text(exercise?.name ?? "No exercises")
-          .font(.system(size: 28, weight: .semibold))
+          .textStyle(.title2)
           .accessibilityIdentifier("workout.logger.exercise")
         Spacer()
         if exercise != nil {
@@ -113,19 +113,19 @@ struct WorkoutLoggerView: View {
         }
       }
       Text(exercise.map { "Set \(logger.setNumber) of \($0.sets)" } ?? "--")
-        .font(.system(size: Theme.subtitleSize))
+        .textStyle(.subtitle)
         .accessibilityIdentifier("workout.logger.set")
       Text(exercise.map { "\($0.repRange) reps" } ?? "--")
-        .font(.system(size: Theme.labelSize))
-        .foregroundStyle(Theme.label)
+        .textStyle(.label)
+        .foregroundStyle(Theme.onInvertMuted)
         .accessibilityIdentifier("workout.logger.reps")
       // Last session's numbers for this set, same template first; "Last --" the first time.
       Text(
         exercise == nil
           ? "--" : logger.lastNumbers?.summary(setAt: logger.setNumber - 1) ?? "Last --"
       )
-      .font(.system(size: Theme.labelSize))
-      .foregroundStyle(Theme.label)
+      .textStyle(.label)
+      .foregroundStyle(Theme.onInvertMuted)
       .accessibilityIdentifier("workout.logger.last")
       stepper(
         logger.isBodyweight ? "BW" : logger.pounds.map { Self.weight($0) } ?? "--",
@@ -135,20 +135,20 @@ struct WorkoutLoggerView: View {
       stepper(exercise == nil ? "--" : "\(logger.reps)", id: "workout.logger.repCount") {
         logger.stepReps(up: $0)
       }
-      HStack(spacing: 12) {
+      HStack(spacing: Theme.spaceMd) {
         Button(logger.isBodyweight ? "Weight" : "BW") { logger.toggleBodyweight() }
-          .font(.system(size: 17, weight: .semibold))
-          .frame(minWidth: 72, minHeight: 48)
-          .overlay(Capsule().strokeBorder(Theme.invertedText, lineWidth: 1))
+          .textStyle(.headline)
+          .frame(minWidth: 72, minHeight: Theme.sizeControl)
+          .overlay(Capsule().strokeBorder(Theme.onInvert, lineWidth: 1))
           .accessibilityIdentifier("workout.logger.bodyweight")
         Button {
           logSet()
         } label: {
           Text("Log")
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(Theme.text)
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(Capsule().fill(Theme.invertedText))
+            .textStyle(.headline)
+            .foregroundStyle(Theme.ink)
+            .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+            .background(Capsule().fill(Theme.onInvert))
         }
         .disabled(!logger.canLog)
         .opacity(logger.canLog ? 1 : 0.4)
@@ -156,10 +156,10 @@ struct WorkoutLoggerView: View {
       }
     }
     .buttonStyle(.plain)
-    .foregroundStyle(Theme.invertedText)
-    .padding(18)
+    .foregroundStyle(Theme.onInvert)
+    .padding(Theme.spaceCard)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.invertedCard))
+    .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.invert))
   }
 
   /// Logs the card's set and starts the rest at that exercise's template rest, with no tap.
@@ -191,27 +191,26 @@ struct WorkoutLoggerView: View {
   @ViewBuilder
   private var restCard: some View {
     if let rest, let startedAt = rest.startedAt {
-      VStack(alignment: .leading, spacing: 8) {
+      VStack(alignment: .leading, spacing: Theme.spaceSm) {
         Text("Rest")
-          .font(.system(size: Theme.labelSize))
-          .foregroundStyle(Theme.label)
+          .textStyle(.label)
+          .foregroundStyle(Theme.muted)
         TimelineView(.periodic(from: startedAt, by: 1)) { _ in
           Text(RestActivityController.text(rest.remaining))
-            .font(.system(size: Theme.bigNumberSize, weight: .medium).monospacedDigit())
-            .tracking(Theme.bigNumberTracking)
-            .foregroundStyle(Theme.text)
+            .textStyle(.big)
+            .foregroundStyle(Theme.ink)
             .accessibilityIdentifier("workout.rest.countdown")
             .accessibilityValue("\(Int(startedAt.timeIntervalSince1970))")
         }
-        HStack(spacing: 12) {
+        HStack(spacing: Theme.spaceMd) {
           restButton("-15 s", id: "workout.rest.minus") { self.rest?.adjust(by: -15) }
           restButton("+15 s", id: "workout.rest.plus") { self.rest?.adjust(by: 15) }
           restButton("Skip", id: "workout.rest.skip") { self.rest?.skip() }
         }
       }
-      .padding(16)
+      .padding(Theme.spaceLg)
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+      .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
       .task(id: rest.endsAt) {
         guard let endsAt = self.rest?.endsAt else { return }
         try? await Task.sleep(for: .seconds(max(0, endsAt.timeIntervalSinceNow)))
@@ -222,10 +221,10 @@ struct WorkoutLoggerView: View {
 
   private func restButton(_ title: String, id: String, action: @escaping () -> Void) -> some View {
     Button(title, action: action)
-      .font(.system(size: 17, weight: .semibold))
-      .foregroundStyle(Theme.text)
-      .frame(maxWidth: .infinity, minHeight: 48)
-      .overlay(Capsule().strokeBorder(Theme.text, lineWidth: 1))
+      .textStyle(.headline)
+      .foregroundStyle(Theme.ink)
+      .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+      .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 1))
       .buttonStyle(.plain)
       .accessibilityIdentifier(id)
   }
@@ -237,8 +236,7 @@ struct WorkoutLoggerView: View {
     HStack {
       stepButton(up: false, id: id, enabled: enabled, step: step)
       Text(value)
-        .font(.system(size: Theme.bigNumberSize, weight: .medium))
-        .tracking(Theme.bigNumberTracking)
+        .textStyle(.big)
         .frame(maxWidth: .infinity)
         .accessibilityIdentifier(id)
       stepButton(up: true, id: id, enabled: enabled, step: step)
@@ -249,9 +247,9 @@ struct WorkoutLoggerView: View {
     up: Bool, id: String, enabled: Bool, step: @escaping (Bool) -> Void
   ) -> some View {
     Button(up ? "+" : "-") { step(up) }
-      .font(.system(size: 24, weight: .semibold))
+      .textStyle(.title2)
       .frame(width: 48, height: 48)
-      .overlay(Circle().strokeBorder(Theme.invertedText, lineWidth: 1))
+      .overlay(Circle().strokeBorder(Theme.onInvert, lineWidth: 1))
       .disabled(!enabled)
       .opacity(enabled ? 1 : 0.4)
       .accessibilityIdentifier("\(id).\(up ? "plus" : "minus")")

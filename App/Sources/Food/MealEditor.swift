@@ -30,16 +30,16 @@ struct MealEditor: View {
       if let searching { search(searching) } else { list }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .background(Theme.background)
+    .background(Theme.ground)
     .presentationDetents([.medium, .large], selection: $detent)
     .onChange(of: searching) { _, target in if target != nil { detent = .large } }
   }
 
   private var list: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 10) {
+      VStack(alignment: .leading, spacing: Theme.spaceSm) {
         HStack(alignment: .firstTextBaseline) {
-          Text("Meal").font(.system(size: Theme.subtitleSize, weight: .semibold))
+          Text("Meal").textStyle(.subtitle, weight: .semibold)
             .accessibilityIdentifier("food.match.title")
           Spacer()
           Text(PhotoMatchSheet.range(edit.totalKcal, unit: "kcal"))
@@ -61,27 +61,27 @@ struct MealEditor: View {
             .disabled(edit.items.isEmpty)
         }
       }
-      .padding(16)
+      .padding(Theme.spaceLg)
     }
     .scrollIndicators(.hidden)
   }
 
   private func stepper(_ index: Int, id: String) -> some View {
-    HStack(spacing: 8) {
+    HStack(spacing: Theme.spaceSm) {
       ForEach([false, true], id: \.self) { up in
         Button {
           edit.step(index, up: up)
         } label: {
-          Image(systemName: up ? "plus" : "minus").font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(Theme.text).frame(width: 36, height: 32)
-            .background(Capsule().fill(Color.white))
+          Image(systemName: up ? "plus" : "minus").textStyle(.subtitle, weight: .semibold)
+            .foregroundStyle(Theme.ink).frame(width: 36, height: 32)
+            .background(Capsule().fill(Theme.surfaceRaised))
         }
         .accessibilityLabel(up ? "Half serving more" : "Half serving less")
         .accessibilityIdentifier("\(id).\(up ? "plus" : "minus")")
       }
       Spacer()
       Button("Remove") { edit.remove(index) }
-        .font(.system(size: Theme.labelSize, weight: .medium)).foregroundStyle(Theme.label)
+        .textStyle(.label, weight: .medium).foregroundStyle(Theme.muted)
         .accessibilityIdentifier("\(id).remove")
     }
   }
@@ -90,24 +90,25 @@ struct MealEditor: View {
     _ title: String, id: String, inverted: Bool, action: @escaping () -> Void
   ) -> some View {
     Button(title, action: action)
-      .font(.system(size: Theme.subtitleSize, weight: .semibold))
-      .foregroundStyle(inverted ? Theme.invertedText : Theme.text)
-      .padding(.horizontal, 22).frame(height: 44)
-      .background(Capsule().fill(inverted ? Theme.invertedCard : Color.white))
+      .textStyle(.subtitle, weight: .semibold)
+      .foregroundStyle(inverted ? Theme.onInvert : Theme.ink)
+      .padding(.horizontal, Theme.spaceXl).frame(height: Theme.sizeTarget)
+      .background(Capsule().fill(inverted ? Theme.invert : Theme.surfaceRaised))
       .accessibilityIdentifier(id)
   }
 
   /// The same search as the camera's (S-014), inside the sheet; a pick returns to the list.
   private func search(_ target: SearchTarget) -> some View {
     let text = query.trimmingCharacters(in: .whitespaces)
-    return VStack(alignment: .leading, spacing: 8) {
+    return VStack(alignment: .leading, spacing: Theme.spaceSm) {
       HStack {
         TextField("Search food", text: $query).focused($focused).autocorrectionDisabled()
-          .font(.system(size: Theme.subtitleSize)).foregroundStyle(Theme.text)
-          .padding(.horizontal, 16).frame(height: 44).background(Capsule().fill(Theme.card))
+          .textStyle(.subtitle).foregroundStyle(Theme.ink)
+          .padding(.horizontal, Theme.spaceLg).frame(height: Theme.sizeTarget)
+          .background(Capsule().fill(Theme.surface))
           .accessibilityIdentifier("food.edit.search.field")
         Button("Cancel") { (searching, query) = (nil, "") }
-          .foregroundStyle(Theme.text).accessibilityIdentifier("food.edit.search.cancel")
+          .foregroundStyle(Theme.ink).accessibilityIdentifier("food.edit.search.cancel")
       }
       if !text.isEmpty {
         FoodSearchPanel(query: text) { item in
@@ -120,7 +121,7 @@ struct MealEditor: View {
         }
       }
     }
-    .padding(16)
+    .padding(Theme.spaceLg)
     .onAppear { focused = true }
   }
 }
