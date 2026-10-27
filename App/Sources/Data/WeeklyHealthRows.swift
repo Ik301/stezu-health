@@ -10,7 +10,7 @@ struct WeeklyHealthRows: View {
   @State private var week: WeeklyHealth?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: Theme.spaceSm) {
       row("Steps", "steps", week?.steps, of: "days") { "\(Int($0.rounded()))" }
       row("Sleep", "sleep", week?.sleep, of: "nights", context: true) {
         "\(Int($0 / 3600))h \(Int($0 / 60) % 60)m"
@@ -37,9 +37,9 @@ struct WeeklyHealthRows: View {
         label(HealthSources.deniedHint).accessibilityIdentifier("data.health.hint")
       }
     }
-    .padding(16)
+    .padding(Theme.spaceLg)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
     .task { week = await WeeklyHealth.load(from: environment.healthStore, now: environment.now()) }
   }
 
@@ -52,23 +52,23 @@ struct WeeklyHealthRows: View {
       stat.map { stat in unit.map { "\(stat.coverage) of 7 \($0)" } ?? "\(stat.coverage) samples" }
     let value = stat?.value.map(format) ?? "--"
     return HStack(alignment: .firstTextBaseline) {
-      VStack(alignment: .leading, spacing: 2) {
-        HStack(spacing: 6) {
-          Text(title).font(.system(size: 17, weight: .semibold))
+      VStack(alignment: .leading, spacing: Theme.space2xs) {
+        HStack(spacing: Theme.spaceXs) {
+          Text(title).textStyle(.headline)
           if context { label("context").accessibilityIdentifier("data.\(id).context") }
         }
         label(coverage ?? "--").accessibilityIdentifier("data.\(id).coverage")
       }
       Spacer()
-      Text(value).font(.system(size: 17, weight: .medium)).accessibilityIdentifier(
+      Text(value).textStyle(.value).accessibilityIdentifier(
         "data.\(id).value")
       // The strap rows have no history view yet (S-024 covers the S-022 metrics only).
       if let metric = Metric(rawValue: id) { MetricOpenButton(metric: metric, open: open) }
     }
-    .foregroundStyle(Theme.text)
+    .foregroundStyle(Theme.ink)
   }
 
   private func label(_ text: String) -> some View {
-    Text(text).font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+    Text(text).textStyle(.label).foregroundStyle(Theme.muted)
   }
 }

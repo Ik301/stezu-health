@@ -1415,3 +1415,37 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Continue needs no workout in progress and a template still in the library; the logger file is saved while continuing as for any session, so a relaunch resumes it and its Finish still replaces by id.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift, WorkoutRotation.swift, WorkoutFinish.swift, HealthStore.swift, App/Sources/Workout/WorkoutView.swift, WorkoutHistoryView.swift, HealthWorkoutReplace.swift, WorkoutRotationTests/testContinuedSessionKeepsIdAndAppendsSets (commit on wt/S-036).
 - Reverse if: continuing older sessions is wanted (D-090), or HealthKit refuses the delete on device; then save the continuation as its own workout.
+
+## D-102 Colour tokens are dynamic UIColors in one Swift file shared by the app and the extension, checked against tokens.json by G7
+
+- Status: proposed by night agent, 2026-10-26 (infra/tokens-v2).
+- Problem: every colour in design/system/tokens.json has a Light and a Dark value, the app and the RestActivity extension both draw with them, and the values must not drift from tokens.json, though Linux CI cannot build SwiftUI.
+- Given: tokens.json lists 27 colours (two with alpha, one a reference to `ink`), 8 spacings, 4 radii, 6 sizes. project.yml compiles App/Shared into both targets; the extension has no asset catalog, and project.yml is outside an infra card that does not ask for it. G4 already reads every Swift file on Linux.
+- Constraints:
+  - Asset-catalog colorsets split the values over 27 Contents.json files, need a second catalog for the extension, and are JSON a reviewer cannot read side by side with tokens.json.
+  - Keeping Theme.swift in App/Sources leaves the extension without tokens, so its countdown font stays a literal.
+  - Values typed by hand drift from tokens.json with no compiler to notice.
+- Options:
+  - (a) App/Shared/Theme.swift: each colour is `Color(uiColor: UIColor { traits in ... })`, picking the Light or Dark 0xRRGGBB (and alpha) from `userInterfaceStyle` when the view draws. G7 parses tokens.json and fails unless Theme.swift has every colour, spacing, radius, size and type style with the same values, and greps App/Sources, App/RestActivity and App/Shared for `Color.white/black`, `.white/.black`, `Color(red:/hex:/white:/.sRGB`, 6-digit hex and `.system(size:` outside Theme.swift.
+  - (b) Colorsets in Assets.xcassets, plus one in a new extension catalog.
+  - (c) `@Environment(\.colorScheme)` switches in each view.
+- Decision: (a). One file, readable next to tokens.json, no project change, and the extension shares it. `UIColor` drawing in PhotoSource (the synthetic plate's pixels) is not UI and is outside the grep (`UIColor.white` does not match `\bColor`).
+- Evidence: App/Shared/Theme.swift, scripts/gate-linux.sh (g7_token_lint), App/RestActivity/RestActivityWidget.swift (commit on infra/tokens-v2).
+- Reverse if: a designer wants to edit colours in Xcode's catalog editor, or tokens.json gains a high-contrast variant (then colorsets carry the extra appearance natively).
+
+## D-103 Type styles are one view modifier that scales a fixed size with `@ScaledMetric(relativeTo:)`
+
+- Status: proposed by night agent, 2026-10-26 (infra/tokens-v2).
+- Problem: the 11 type styles (t-hero to t-axis) must follow Dynamic Type, keep their exact default sizes, weights and tracking, and give numbers tabular digits, while v1 set every font as `.system(size:)`, which never scales.
+- Given: some styles match an iOS text style at the default size (17 headline, 15 subheadline, 12 caption 1, 11 caption 2), others do not (76, 42, 28 medium). `Font.system(size:)` has no `relativeTo:`; `Font.custom(_:size:relativeTo:)` needs a font name. Tracking is a view modifier, not part of `Font`.
+- Constraints:
+  - Built-in text styles (`.headline`, `.body`) cover only some sizes and carry their own weights and tracking.
+  - A `Font` computed once from `UIFontMetrics` does not update when the text size changes while the app runs.
+  - A style without its tracking lets the big numbers drift from v1, which applied `bigNumberTracking` by hand next to each font.
+- Options:
+  - (a) `View.textStyle(_:weight:)`: a ViewModifier holding `@ScaledMetric(wrappedValue: size, relativeTo: style's iOS text style)`, which SwiftUI updates on a text size change, then `.font(.system(size: scaled, weight:))`, `.monospacedDigit()` for number styles and `.tracking` when the token has one. `weight:` overrides the style's weight where v1 had a medium or semibold variant.
+  - (b) `Font` statics using built-in text styles where they match and `Font.custom("", size:relativeTo:)` elsewhere.
+  - (c) `@ScaledMetric` properties in each view.
+- Decision: (a). Every font outside Theme.swift is now `.textStyle(...)`; the size, relative style, weight, tracking and tabular flag of each style live in `Theme.TextStyle` and G7 checks their sizes, weights and tracking against tokens.json.
+- Evidence: App/Shared/Theme.swift (`Theme.TextStyle`, `ThemeTextStyle`), every view in App/Sources, App/RestActivity/RestActivityWidget.swift (commit on infra/tokens-v2).
+- Reverse if: a style needs a line height (tokens.json has them; SwiftUI applies them only as `lineSpacing`), or Text concatenation needs styled `Text` values, since the modifier returns a view.

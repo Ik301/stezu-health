@@ -14,33 +14,33 @@ struct ExerciseLibraryView: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 12) {
+      VStack(alignment: .leading, spacing: Theme.spaceMd) {
         Text("Exercises")
-          .font(.system(size: 28, weight: .semibold))
+          .textStyle(.title2)
           .accessibilityIdentifier("workout.library.title")
         field("Search", text: $query, id: "workout.library.search")
         if adding {
           form
         } else {
           Button("New exercise") { adding = true }
-            .font(.system(size: 17, weight: .semibold))
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .overlay(Capsule().strokeBorder(Theme.text, lineWidth: 1))
+            .textStyle(.headline)
+            .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+            .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 1))
             .accessibilityIdentifier("workout.library.new")
         }
         ForEach(library.groupedByMuscle(query), id: \.muscle) { group in
           Text(group.muscle)
-            .font(.system(size: Theme.labelSize))
-            .foregroundStyle(Theme.label)
+            .textStyle(.label)
+            .foregroundStyle(Theme.muted)
           ForEach(group.exercises, id: \.key) { row($0) }
         }
       }
-      .padding(20)
+      .padding(Theme.spaceCard)
     }
     .scrollIndicators(.hidden)
     .buttonStyle(.plain)
-    .foregroundStyle(Theme.text)
-    .background(Theme.background.ignoresSafeArea())
+    .foregroundStyle(Theme.ink)
+    .background(Theme.ground.ignoresSafeArea())
     .onAppear { library = ExerciseLibraryStore(storage: environment.storage).load() }
   }
 
@@ -50,14 +50,14 @@ struct ExerciseLibraryView: View {
       pick(exercise)
     } label: {
       HStack {
-        Text(exercise.name).font(.system(size: Theme.subtitleSize))
+        Text(exercise.name).textStyle(.subtitle)
         Spacer()
         Text((exercise.isCustom ? "Custom   " : "") + last)
-          .font(.system(size: Theme.labelSize))
-          .foregroundStyle(Theme.label)
+          .textStyle(.label)
+          .foregroundStyle(Theme.muted)
       }
-      .padding(16)
-      .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+      .padding(Theme.spaceLg)
+      .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
     }
     .accessibilityLabel(exercise.isCustom ? "\(exercise.name), custom" : exercise.name)
     .accessibilityValue(last)
@@ -65,17 +65,17 @@ struct ExerciseLibraryView: View {
   }
 
   private var form: some View {
-    VStack(spacing: 8) {
+    VStack(spacing: Theme.spaceSm) {
       field("Name", text: $fields[0], id: "workout.library.custom.name")
       field("Equipment", text: $fields[1], id: "workout.library.custom.equipment")
       field("Muscle", text: $fields[2], id: "workout.library.custom.muscle")
       field("Rest seconds", text: $fields[3], id: "workout.library.custom.rest")
         .keyboardType(.numberPad)
       Button("Save") { save() }
-        .font(.system(size: 17, weight: .semibold))
-        .foregroundStyle(Theme.invertedText)
-        .frame(maxWidth: .infinity, minHeight: 48)
-        .background(Capsule().fill(Theme.invertedCard))
+        .textStyle(.headline)
+        .foregroundStyle(Theme.onInvert)
+        .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+        .background(Capsule().fill(Theme.invert))
         .accessibilityIdentifier("workout.library.custom.save")
     }
   }

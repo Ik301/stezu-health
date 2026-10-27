@@ -29,6 +29,8 @@ struct AppEnvironment: Sendable {
     static let persist = "-uitest-persist"
     /// Empty that folder first.
     static let reset = "-uitest-reset"
+    /// Force the dark appearance, for dark screenshots.
+    static let dark = "-uitest-dark"
   }
 
   var isUITest: Bool
@@ -64,6 +66,9 @@ struct AppEnvironment: Sendable {
   /// S-032: CoreLocation or a scenario's events, and the log they are saved to (D-076).
   var locationSource: any LocationSource = FixtureLocationSource(events: [])
   var places = LocationRecorder { _ in }
+  /// `-uitest-dark`: the app draws in Dark whatever the simulator's setting. Otherwise Light and
+  /// Dark follow the phone.
+  var forcesDark = false
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -124,6 +129,7 @@ struct AppEnvironment: Sendable {
       scenario = arguments[index + 1]
     }
     var environment = fakes(scenario: scenario, offline: arguments.contains(Argument.offline))
+    environment.forcesDark = arguments.contains(Argument.dark)
     if arguments.contains(Argument.persist) {
       let folder = FileManager.default.temporaryDirectory
         .appendingPathComponent("stezu-uitest-store", isDirectory: true)

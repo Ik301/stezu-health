@@ -8,14 +8,14 @@ struct PlacesRow: View {
 
   var body: some View {
     HStack {
-      Text("Places").font(.system(size: 17, weight: .semibold))
+      Text("Places").textStyle(.headline)
       Spacer()
       Text(places.map { "\($0.visits) visits, \($0.daysWithData) of 7 days" } ?? "--")
-        .font(.system(size: 17, weight: .medium)).accessibilityIdentifier("data.places.value")
+        .textStyle(.value).accessibilityIdentifier("data.places.value")
     }
-    .foregroundStyle(Theme.text)
-    .padding(16)
-    .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+    .foregroundStyle(Theme.ink)
+    .padding(Theme.spaceLg)
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
     .task {
       places = await environment.places.log.week(WeeklyStats.week(containing: environment.now()))
     }

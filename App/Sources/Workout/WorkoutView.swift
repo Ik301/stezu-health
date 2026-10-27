@@ -172,14 +172,14 @@ struct WorkoutView: View {
       (library?.days ?? []).filter { resumable != nil || $0.key != next?.key }
       + [Self.emptyWorkout]
     let week = WorkoutFinish.week(containing: Date(), in: finished ?? [])
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
       if let resumable {
         resumeCard(resumable)
       } else if let next {
         nextCard(next)
       }
       if let continuable { continueRow(continuable) }
-      HStack(spacing: 12) {
+      HStack(spacing: Theme.spaceMd) {
         stat("Sessions this week", week.isEmpty ? nil : week.count, id: "workout.week.sessions")
         stat(
           "Working sets", week.isEmpty ? nil : week.reduce(0) { $0 + $1.workingSets },
@@ -189,9 +189,9 @@ struct WorkoutView: View {
         showHistory = true
       } label: {
         Text("History")
-          .font(.system(size: Theme.subtitleSize))
-          .foregroundStyle(Theme.text)
-          .padding(16)
+          .textStyle(.subtitle)
+          .foregroundStyle(Theme.ink)
+          .padding(Theme.spaceLg)
           .frame(maxWidth: .infinity, alignment: .leading)
           .background(card(inverted: false))
       }
@@ -205,9 +205,9 @@ struct WorkoutView: View {
           start(template)
         } label: {
           Text(template.name)
-            .font(.system(size: Theme.subtitleSize))
-            .foregroundStyle(Theme.text)
-            .padding(16)
+            .textStyle(.subtitle)
+            .foregroundStyle(Theme.ink)
+            .padding(Theme.spaceLg)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(card(inverted: false))
         }
@@ -217,8 +217,8 @@ struct WorkoutView: View {
       // Above the button, so it shows where the button was when the list ends below the fold.
       if let importMessage {
         Text(importMessage)
-          .font(.system(size: Theme.labelSize))
-          .foregroundStyle(Theme.text)
+          .textStyle(.label)
+          .foregroundStyle(Theme.ink)
           .accessibilityIdentifier("workout.import.message")
       }
       Button {
@@ -228,9 +228,9 @@ struct WorkoutView: View {
         }
       } label: {
         Text("Import program")
-          .font(.system(size: Theme.subtitleSize))
-          .foregroundStyle(Theme.label)
-          .frame(maxWidth: .infinity, minHeight: 48)
+          .textStyle(.subtitle)
+          .foregroundStyle(Theme.muted)
+          .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
       }
       .buttonStyle(.plain)
       .accessibilityIdentifier("workout.import")
@@ -238,29 +238,29 @@ struct WorkoutView: View {
   }
 
   private func nextCard(_ template: WorkoutTemplate) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: Theme.spaceSm) {
       Text(template.name)
-        .font(.system(size: 28, weight: .semibold))
+        .textStyle(.title2)
         .accessibilityIdentifier("workout.today.name")
       ForEach(Array(template.exercises.enumerated()), id: \.offset) { index, exercise in
         Text("\(exercise.name)  \(exercise.sets) x \(exercise.repRange)")
-          .font(.system(size: Theme.subtitleSize))
+          .textStyle(.subtitle)
           .accessibilityIdentifier("workout.today.exercise.\(index)")
       }
       Button {
         start(template)
       } label: {
         Text("Start")
-          .font(.system(size: 17, weight: .semibold))
-          .foregroundStyle(Theme.text)
-          .frame(maxWidth: .infinity, minHeight: 48)
-          .background(Capsule().fill(Theme.invertedText))
+          .textStyle(.headline)
+          .foregroundStyle(Theme.ink)
+          .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+          .background(Capsule().fill(Theme.onInvert))
       }
       .buttonStyle(.plain)
       .accessibilityIdentifier("workout.today.start")
     }
-    .foregroundStyle(Theme.invertedText)
-    .padding(18)
+    .foregroundStyle(Theme.onInvert)
+    .padding(Theme.spaceCard)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(card(inverted: true))
   }
@@ -268,27 +268,27 @@ struct WorkoutView: View {
   /// The black card while a workout is in progress: its template, sets so far, and Resume.
   private func resumeCard(_ logger: SetLogger) -> some View {
     let sets = logger.session.exercises.reduce(0) { $0 + $1.sets.count }
-    return VStack(alignment: .leading, spacing: 8) {
+    return VStack(alignment: .leading, spacing: Theme.spaceSm) {
       Text(logger.template.name)
-        .font(.system(size: 28, weight: .semibold))
+        .textStyle(.title2)
         .accessibilityIdentifier("workout.resume.name")
       Text("\(sets) \(sets == 1 ? "set" : "sets") logged")
-        .font(.system(size: Theme.subtitleSize))
+        .textStyle(.subtitle)
         .accessibilityIdentifier("workout.resume.sets")
       Button {
         (resuming, active, resumable) = (logger, logger.template, nil)
       } label: {
         Text("Resume")
-          .font(.system(size: 17, weight: .semibold))
-          .foregroundStyle(Theme.text)
-          .frame(maxWidth: .infinity, minHeight: 48)
-          .background(Capsule().fill(Theme.invertedText))
+          .textStyle(.headline)
+          .foregroundStyle(Theme.ink)
+          .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+          .background(Capsule().fill(Theme.onInvert))
       }
       .buttonStyle(.plain)
       .accessibilityIdentifier("workout.resume")
     }
-    .foregroundStyle(Theme.invertedText)
-    .padding(18)
+    .foregroundStyle(Theme.onInvert)
+    .padding(Theme.spaceCard)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(card(inverted: true))
   }
@@ -301,9 +301,9 @@ struct WorkoutView: View {
       continueSession(workout)
     } label: {
       Text("Continue \(name), \(sets) \(sets == 1 ? "set" : "sets")")
-        .font(.system(size: Theme.subtitleSize, weight: .semibold))
-        .foregroundStyle(Theme.text)
-        .padding(16)
+        .textStyle(.subtitle, weight: .semibold)
+        .foregroundStyle(Theme.ink)
+        .padding(Theme.spaceLg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(card(inverted: false))
     }
@@ -318,38 +318,37 @@ struct WorkoutView: View {
     let sets = workout.workingSets
     return HStack {
       Text("\(name)   \(sets) \(sets == 1 ? "set" : "sets")")
-        .font(.system(size: Theme.subtitleSize))
-        .foregroundStyle(Theme.text)
+        .textStyle(.subtitle)
+        .foregroundStyle(Theme.ink)
         .accessibilityIdentifier(id)
       Spacer()
       Text(workout.inHealth ? "In Health" : "Not in Health")
-        .font(.system(size: Theme.labelSize))
-        .foregroundStyle(Theme.label)
+        .textStyle(.label)
+        .foregroundStyle(Theme.muted)
         .accessibilityIdentifier("\(id).health")
     }
-    .padding(16)
+    .padding(Theme.spaceLg)
     .background(card(inverted: false))
   }
 
   /// A weekly number; with no finished session this week it is missing: "--", never 0.
   private func stat(_ label: String, _ value: Int?, id: String) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(label).font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+    VStack(alignment: .leading, spacing: Theme.spaceXs) {
+      Text(label).textStyle(.label).foregroundStyle(Theme.muted)
       Text(value.map(String.init) ?? "--")
-        .font(.system(size: Theme.bigNumberSize, weight: .medium))
-        .tracking(Theme.bigNumberTracking)
-        .foregroundStyle(Theme.text)
+        .textStyle(.big)
+        .foregroundStyle(Theme.ink)
         .accessibilityIdentifier(id)
     }
-    .padding(16)
+    .padding(Theme.spaceLg)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(card(inverted: false))
   }
 
   private func card(inverted: Bool) -> some View {
-    let shape = RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-    return shape.fill(inverted ? Theme.invertedCard : Theme.card)
-      .overlay(shape.strokeBorder(inverted ? Color.clear : Theme.cardBorder, lineWidth: 1))
+    let shape = RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
+    return shape.fill(inverted ? Theme.invert : Theme.surface)
+      .overlay(shape.strokeBorder(inverted ? Color.clear : Theme.edge, lineWidth: 1))
   }
 }
 

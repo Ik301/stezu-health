@@ -31,22 +31,23 @@ struct BarcodeStatusView: View {
   let searchInstead: () -> Void
 
   var body: some View {
-    VStack(spacing: 16) {
-      RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color.white, lineWidth: 3)
+    VStack(spacing: Theme.spaceLg) {
+      RoundedRectangle(cornerRadius: Theme.radiusCard).stroke(Theme.onCamera, lineWidth: 3)
         .frame(width: 260, height: 140)
-      VStack(spacing: 10) {
-        Text(state.message).font(.system(size: Theme.subtitleSize, weight: .semibold))
+      VStack(spacing: Theme.spaceSm) {
+        Text(state.message).textStyle(.subtitle, weight: .semibold)
           .accessibilityIdentifier("food.barcode.status")
         if state == .notFound || state == .failed {
           Button("Search instead", action: searchInstead)
-            .font(.system(size: Theme.labelSize, weight: .semibold))
-            .foregroundStyle(Theme.invertedText).padding(.horizontal, 14).padding(.vertical, 8)
-            .background(Capsule().fill(Theme.invertedCard))
+            .textStyle(.label, weight: .semibold)
+            .foregroundStyle(Theme.onInvert)
+            .padding(.horizontal, Theme.spaceMd).padding(.vertical, Theme.spaceSm)
+            .background(Capsule().fill(Theme.invert))
             .accessibilityIdentifier("food.barcode.search")
         }
       }
-      .foregroundStyle(Theme.text).padding(14)
-      .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+      .foregroundStyle(Theme.ink).padding(Theme.spaceMd)
+      .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
     }
   }
 }

@@ -16,7 +16,7 @@ struct DataView: View {
     AreaScaffold(area: .data, title: "This week", goHome: goHome) {
       if connected ?? environment.healthConnection.isConnected {
         ScrollView {
-          VStack(spacing: 12) {
+          VStack(spacing: Theme.spaceMd) {
             WeightRow { metric = $0 }
             WeeklyHealthRows { metric = $0 }
             WeeklyFoodWorkoutRows()
@@ -34,7 +34,7 @@ struct DataView: View {
             + "weigh-ins, meals and strength workouts so they sit in Health with everything else. "
             + "Health asks once, for all of them."
         )
-        .font(.system(size: Theme.subtitleSize)).foregroundStyle(Theme.text)
+        .textStyle(.subtitle).foregroundStyle(Theme.ink)
         pill("Connect Apple Health", id: "data.connect", inverted: true) {
           Task {
             let health = environment.healthConnection
@@ -54,10 +54,10 @@ struct DataView: View {
     -> some View
   {
     Button(action: action) {
-      Text(title).font(.system(size: 17, weight: .semibold))
-        .foregroundStyle(inverted ? Theme.invertedText : Theme.text)
+      Text(title).textStyle(.headline)
+        .foregroundStyle(inverted ? Theme.onInvert : Theme.ink)
         .frame(maxWidth: .infinity, minHeight: 50)
-        .background(inverted ? Theme.invertedCard : Color.white, in: Capsule())
+        .background(inverted ? Theme.invert : Theme.surfaceRaised, in: Capsule())
     }
     .accessibilityIdentifier(id)
   }

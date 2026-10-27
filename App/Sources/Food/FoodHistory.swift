@@ -16,9 +16,9 @@ struct FoodHistory: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 14) {
+      VStack(alignment: .leading, spacing: Theme.spaceMd) {
         HStack {
-          Text("History").font(.system(size: Theme.subtitleSize, weight: .semibold))
+          Text("History").textStyle(.subtitle, weight: .semibold)
             .accessibilityAddTraits(.isHeader).accessibilityIdentifier("food.history.title")
           Spacer()
           Button("Done") { dismiss() }.accessibilityIdentifier("food.history.done")
@@ -28,10 +28,10 @@ struct FoodHistory: View {
           dayView(day, id: "food.history.day.\(index)")
         }
       }
-      .padding(16)
+      .padding(Theme.spaceLg)
     }
     .scrollIndicators(.hidden)
-    .foregroundStyle(Theme.text).background(Theme.background)
+    .foregroundStyle(Theme.ink).background(Theme.ground)
     .task { await load() }
     .sheet(item: $editing) { meal in
       MealEditor(match: PhotoMatch(mealId: "\(meal.id)", items: meal.items), action: "Save") {
@@ -42,10 +42,10 @@ struct FoodHistory: View {
   }
 
   private func dayView(_ day: FoodDay, id: String) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: Theme.spaceSm) {
       Text(day.day.formatted(.dateTime.weekday(.wide).month().day()))
-        .font(.system(size: 17, weight: .semibold)).accessibilityIdentifier(id)
-      HStack(spacing: 12) {
+        .textStyle(.headline).accessibilityIdentifier(id)
+      HStack(spacing: Theme.spaceMd) {
         Text(PhotoMatchSheet.range(day.kcal, unit: "kcal")).accessibilityIdentifier("\(id).kcal")
         Text(PhotoMatchSheet.range(day.proteinG, unit: "g protein"))
           .accessibilityIdentifier("\(id).protein")
@@ -61,13 +61,13 @@ struct FoodHistory: View {
           )
           .contentShape(Rectangle()).onTapGesture { editing = meal }
           Button("Delete") { Task { await change(meal, delete: true) } }
-            .font(.system(size: Theme.labelSize, weight: .medium)).padding(.horizontal, 12)
-            .frame(minHeight: 32).background(Color.white, in: Capsule())
+            .textStyle(.label, weight: .medium).padding(.horizontal, Theme.spaceMd)
+            .frame(minHeight: 32).background(Theme.surfaceRaised, in: Capsule())
             .accessibilityIdentifier("\(id).meal.\(index).delete")
         }
       }
     }
-    .font(.system(size: Theme.subtitleSize))
+    .textStyle(.subtitle)
   }
 
   /// "240-340 kcal, 6-9 g protein", then "12:30 PM, North Hall, In Health".
@@ -89,22 +89,24 @@ struct FoodHistory: View {
     _ photoID: UUID, id: String, _ title: String,
     _ lines: [String] = ["-- kcal, -- g protein", "Photo saved on this phone"]
   ) -> some View {
-    HStack(alignment: .top, spacing: 10) {
-      Color.white.frame(width: 48, height: 48)
+    HStack(alignment: .top, spacing: Theme.spaceSm) {
+      Theme.surfaceRaised.frame(width: 48, height: 48)
         .overlay { photos[photoID].map { Image(uiImage: $0).resizable().scaledToFill() } }
-        .clipShape(RoundedRectangle(cornerRadius: 10)).accessibilityElement(children: .ignore)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusInner))
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(photos[photoID] == nil ? "No photo" : "Photo")
         .accessibilityIdentifier("\(id).photo")
-      VStack(alignment: .leading, spacing: 2) {
-        Text(title).font(.system(size: Theme.subtitleSize, weight: .medium))
+      VStack(alignment: .leading, spacing: Theme.space2xs) {
+        Text(title).textStyle(.subtitle, weight: .medium)
           .accessibilityIdentifier("\(id).items")
         Text(lines[0]).accessibilityIdentifier("\(id).ranges")
-        Text(lines[1]).foregroundStyle(Theme.label).accessibilityIdentifier("\(id).source")
+        Text(lines[1]).foregroundStyle(Theme.muted).accessibilityIdentifier("\(id).source")
       }
-      .font(.system(size: Theme.labelSize)).multilineTextAlignment(.leading)
+      .textStyle(.label).multilineTextAlignment(.leading)
       Spacer(minLength: 0)
     }
-    .padding(10).background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+    .padding(Theme.spaceSm)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
   }
 
   private func load() async {

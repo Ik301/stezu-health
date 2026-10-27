@@ -53,27 +53,27 @@ struct AreaScaffold<Content: View>: View {
   @ViewBuilder var content: Content
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
       Button {
         goHome()
       } label: {
         Image(systemName: "house")
-          .font(.system(size: 17, weight: .medium))
-          .foregroundStyle(Theme.text)
-          .frame(width: 44, height: 44)
+          .textStyle(.value)
+          .foregroundStyle(Theme.ink)
+          .frame(width: Theme.sizeTarget, height: Theme.sizeTarget)
       }
       .accessibilityLabel("Home")
       .accessibilityIdentifier("nav.home")
       Text(title)
-        .font(.system(size: 34, weight: .semibold))
-        .foregroundStyle(Theme.text)
+        .textStyle(.title1)
+        .foregroundStyle(Theme.ink)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("screen.\(area.rawValue).title")
       content
       Spacer(minLength: 0)
     }
-    .padding(16)
+    .padding(Theme.spaceLg)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .background(Theme.background.ignoresSafeArea())
+    .background(Theme.ground.ignoresSafeArea())
   }
 }

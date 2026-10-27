@@ -57,7 +57,7 @@ struct RestLockScreenView: View {
 
   var body: some View {
     HStack {
-      VStack(alignment: .leading, spacing: 2) {
+      VStack(alignment: .leading, spacing: Theme.space2xs) {
         Text("Rest")
           .font(.caption)
           .foregroundStyle(.secondary)
@@ -69,9 +69,9 @@ struct RestLockScreenView: View {
       }
       Spacer()
       RestCountdown(state: state)
-        .font(.system(size: 40, weight: .semibold).monospacedDigit())
+        .textStyle(.big, weight: .semibold)
         .multilineTextAlignment(.trailing)
     }
-    .padding(16)
+    .padding(Theme.spaceLg)
   }
 }

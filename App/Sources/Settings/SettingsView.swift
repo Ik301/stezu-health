@@ -17,9 +17,9 @@ struct SettingsView: View {
   @State private var backgroundText = "--"
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
       Text("Settings")
-        .font(.system(size: 34, weight: .semibold))
+        .textStyle(.title1)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("screen.settings.title")
       label("Server address")
@@ -31,12 +31,12 @@ struct SettingsView: View {
         Spacer()
         Text(stored.maskedToken).accessibilityIdentifier("settings.token.saved")
       }
-      HStack(spacing: 12) {
+      HStack(spacing: Theme.spaceMd) {
         pill("Save", id: "settings.save", action: save)
         pill("Test connection", id: "settings.test") { Task { await test() } }
       }
       Text(status)
-        .font(.system(size: Theme.subtitleSize))
+        .textStyle(.subtitle)
         .accessibilityIdentifier("settings.status")
       HStack {
         label("Hermes sync")  // S-028
@@ -53,10 +53,10 @@ struct SettingsView: View {
       }
       Spacer(minLength: 0)
     }
-    .foregroundStyle(Theme.text)
-    .padding(16)
+    .foregroundStyle(Theme.ink)
+    .padding(Theme.spaceLg)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .background(Theme.background.ignoresSafeArea())
+    .background(Theme.ground.ignoresSafeArea())
     .onAppear {
       stored = environment.serverSettings.load()
       address = stored.address
@@ -96,7 +96,7 @@ struct SettingsView: View {
   }
 
   private func label(_ text: String) -> some View {
-    Text(text).font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
+    Text(text).textStyle(.label).foregroundStyle(Theme.muted)
   }
 
   private func field(_ content: some View, id: String) -> some View {
@@ -104,18 +104,18 @@ struct SettingsView: View {
       .accessibilityIdentifier(id)
       .textInputAutocapitalization(.never)
       .autocorrectionDisabled()
-      .padding(12)
-      .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
-      .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.cardBorder))
+      .padding(Theme.spaceMd)
+      .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
+      .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard).strokeBorder(Theme.edge))
   }
 
   private func pill(_ title: String, id: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Text(title)
-        .foregroundStyle(Theme.invertedText)
-        .padding(.horizontal, 18)
-        .frame(minHeight: 44)
-        .background(Capsule().fill(Theme.invertedCard))
+        .foregroundStyle(Theme.onInvert)
+        .padding(.horizontal, Theme.spaceCard)
+        .frame(minHeight: Theme.sizeTarget)
+        .background(Capsule().fill(Theme.invert))
     }
     .buttonStyle(.plain)
     .accessibilityIdentifier(id)

@@ -17,14 +17,15 @@ struct FoodSearchPanel: View {
   ]
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: Theme.spaceSm) {
       Button("Estimate from text") { Task { await estimate() } }
-        .font(.system(size: Theme.labelSize, weight: .semibold))
-        .foregroundStyle(Theme.invertedText).padding(.horizontal, 14).padding(.vertical, 8)
-        .background(Capsule().fill(Theme.invertedCard))
+        .textStyle(.label, weight: .semibold)
+        .foregroundStyle(Theme.onInvert)
+        .padding(.horizontal, Theme.spaceMd).padding(.vertical, Theme.spaceSm)
+        .background(Capsule().fill(Theme.invert))
         .accessibilityIdentifier("food.search.estimate")
       ScrollView {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.spaceSm) {
           Text(status).accessibilityIdentifier("food.search.status")
           ForEach(Self.sections.indices, id: \.self) { index in
             if let group = groups?.first(where: { $0.source == Self.sections[index].source }),
@@ -37,33 +38,33 @@ struct FoodSearchPanel: View {
       }
       .scrollIndicators(.hidden)
     }
-    .font(.system(size: Theme.labelSize)).foregroundStyle(Theme.label)
-    .padding(12)
-    .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.background))
+    .textStyle(.label).foregroundStyle(Theme.muted)
+    .padding(Theme.spaceMd)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.ground))
     .task(id: query) { await search() }
   }
 
   @ViewBuilder private func groupView(_ group: FoodSearchGroup, title: String) -> some View {
     let id = "food.search.group.\(group.source.rawValue)"
-    Text(title).font(.system(size: Theme.labelSize, weight: .semibold))
+    Text(title).textStyle(.label, weight: .semibold)
       .accessibilityAddTraits(.isHeader).accessibilityIdentifier(id)
     if group.status == "error" || group.items.isEmpty {
       Text(group.status == "error" ? "Could not load" : "No matches")
     }
     ForEach(Array(group.items.enumerated()), id: \.offset) { index, item in
       let id = "food.search.result.\(group.source.rawValue).\(index)"
-      VStack(alignment: .leading, spacing: 2) {
+      VStack(alignment: .leading, spacing: Theme.space2xs) {
         HStack {
-          Text(item.name).font(.system(size: Theme.subtitleSize, weight: .medium))
-            .foregroundStyle(Theme.text).accessibilityIdentifier("\(id).name")
+          Text(item.name).textStyle(.subtitle, weight: .medium)
+            .foregroundStyle(Theme.ink).accessibilityIdentifier("\(id).name")
           Spacer()
-          Text(PhotoMatchSheet.range(item.kcal, unit: "kcal")).foregroundStyle(Theme.text)
+          Text(PhotoMatchSheet.range(item.kcal, unit: "kcal")).foregroundStyle(Theme.ink)
             .accessibilityIdentifier("\(id).kcal")
         }
         Text(Self.detail(item)).accessibilityIdentifier("\(id).detail")
       }
-      .padding(10)
-      .background(RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.card))
+      .padding(Theme.spaceSm)
+      .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
       .contentShape(Rectangle()).onTapGesture { pick(item) }
       .accessibilityElement(children: .contain).accessibilityAddTraits(.isButton)
     }
