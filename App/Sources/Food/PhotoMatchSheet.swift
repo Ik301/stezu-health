@@ -70,6 +70,7 @@ struct PhotoMatchSheet: View {
   var today: String?
   /// The Log tap with the edited items.
   var log: ([MatchedItem]) -> Void = { _ in }
+  @Environment(\.dismiss) private var dismiss
 
   var body: some View {
     switch state {
@@ -87,9 +88,10 @@ struct PhotoMatchSheet: View {
   }
 
   private func status(_ title: String, id: String, detail: String) -> some View {
-    VStack(spacing: Theme.spaceMd) {
-      Text(title).textStyle(.subtitle, weight: .semibold)
-        .foregroundStyle(Theme.ink).accessibilityIdentifier(id)
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
+      TopBar(
+        title: title, titleID: id,
+        action: .init(title: "Done", id: "food.match.done") { dismiss() })
       Text(detail).textStyle(.label)
         .foregroundStyle(Theme.muted).accessibilityIdentifier("food.captured.saved")
       if let today {
@@ -97,7 +99,10 @@ struct PhotoMatchSheet: View {
           .foregroundStyle(Theme.ink).accessibilityIdentifier("food.today")
       }
     }
-    .presentationDetents([.fraction(0.3)])
+    .padding(Theme.spaceLg)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .presentationDetents([.medium])
+    .presentationDragIndicator(.visible)
   }
 
   /// One item: a tap on the name opens search to replace it (S-015); `controls` go below.

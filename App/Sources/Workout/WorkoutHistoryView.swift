@@ -11,12 +11,13 @@ struct WorkoutHistoryView: View {
   let names: [String: String]
   var continuable: (WorkoutSession) -> Bool = { _ in false }
   var onContinue: (WorkoutSession) -> Void = { _ in }
-  @Environment(\.dismiss) private var dismiss
 
   var body: some View {
     NavigationStack {
-      page {
-        title("History", id: "workout.history.title")
+      HistoryPage(
+        title: "History", id: "workout.history.title", rung: "Done",
+        rungID: "workout.history.done"
+      ) {
         let weeks = WeeklyHistory.weeks(sessions)
         if weeks.isEmpty {
           Text("No sessions yet").foregroundStyle(Theme.muted)
@@ -44,19 +45,17 @@ struct WorkoutHistoryView: View {
           }
         }
       }
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button("Done") { dismiss() }.accessibilityIdentifier("workout.history.done")
-        }
-      }
     }
     .tint(Theme.ink)
+    .presentationDragIndicator(.visible)
   }
 
   /// One session: each exercise with its sets as weight x reps.
   private func detail(_ session: WorkoutSession) -> some View {
-    page {
-      title("\(name(session))   \(Self.day(session.startedAt))", id: "history.session.title")
+    HistoryPage(
+      title: "\(name(session))   \(Self.day(session.startedAt))", id: "history.session.title",
+      rung: "History", rungID: "history.session.back"
+    ) {
       if continuable(session) {
         Button("Continue") { onContinue(session) }
           .textStyle(.headline)
@@ -67,7 +66,7 @@ struct WorkoutHistoryView: View {
       ForEach(Array(session.exercises.enumerated()), id: \.offset) { index, log in
         VStack(alignment: .leading, spacing: Theme.spaceXs) {
           NavigationLink {
-            exercise(log.exercise)
+            exercise(log.exercise, rung: name(session))
           } label: {
             Text(log.exercise).textStyle(.subtitle, weight: .semibold)
           }
@@ -84,29 +83,16 @@ struct WorkoutHistoryView: View {
   }
 
   /// Every session with this exercise, newest first, with that session's sets of it.
-  private func exercise(_ name: String) -> some View {
-    page {
-      title(name, id: "history.exercise.title")
+  private func exercise(_ name: String, rung: String) -> some View {
+    HistoryPage(
+      title: name, id: "history.exercise.title", rung: rung, rungID: "history.exercise.back"
+    ) {
       let past = WeeklyHistory.sessions(with: name, in: sessions)
       ForEach(Array(past.enumerated()), id: \.offset) { index, session in
         row("\(Self.day(session.startedAt))   \(Self.sets(session.sets(for: name) ?? []))")
           .accessibilityIdentifier("history.past.\(index)")
       }
     }
-  }
-
-  private func page(@ViewBuilder _ content: () -> some View) -> some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: Theme.spaceMd, content: content).padding(Theme.spaceCard)
-    }
-    .scrollIndicators(.hidden)
-    .buttonStyle(.plain)
-    .foregroundStyle(Theme.ink)
-    .background(Theme.ground.ignoresSafeArea())
-  }
-
-  private func title(_ text: String, id: String) -> some View {
-    Text(text).textStyle(.title2).accessibilityIdentifier(id)
   }
 
   private func row(_ text: String) -> some View {
@@ -131,5 +117,31 @@ struct WorkoutHistoryView: View {
   static func sets(_ sets: [WorkoutSet]) -> String {
     sets.map { "\($0.pounds.map { String(format: "%g", $0) } ?? "BW") x \($0.reps)" }
       .joined(separator: ", ")
+  }
+}
+
+/// One History page under its TopBar. The rung on the right goes back a page, or closes the
+/// sheet on the first page (`dismiss` does either); the navigation bar stays hidden.
+private struct HistoryPage<Content: View>: View {
+  let title: String
+  let id: String
+  let rung: String
+  let rungID: String
+  @ViewBuilder let content: Content
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.spaceMd) {
+        TopBar(title: title, titleID: id, action: .init(title: rung, id: rungID) { dismiss() })
+        content
+      }
+      .padding(Theme.spaceCard)
+    }
+    .scrollIndicators(.hidden)
+    .buttonStyle(.plain)
+    .foregroundStyle(Theme.ink)
+    .background(Theme.ground.ignoresSafeArea())
+    .toolbar(.hidden, for: .navigationBar)
   }
 }

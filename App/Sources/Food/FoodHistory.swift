@@ -17,12 +17,9 @@ struct FoodHistory: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
-        HStack {
-          Text("History").textStyle(.subtitle, weight: .semibold)
-            .accessibilityAddTraits(.isHeader).accessibilityIdentifier("food.history.title")
-          Spacer()
-          Button("Done") { dismiss() }.accessibilityIdentifier("food.history.done")
-        }
+        TopBar(
+          title: "Meals", titleID: "food.history.title",
+          action: .init(title: "Done", id: "food.history.done") { dismiss() })
         if days?.isEmpty == true { Text("--").accessibilityIdentifier("food.history.empty") }
         ForEach(Array((days ?? []).enumerated()), id: \.element.day) { index, day in
           dayView(day, id: "food.history.day.\(index)")
@@ -32,6 +29,7 @@ struct FoodHistory: View {
     }
     .scrollIndicators(.hidden)
     .foregroundStyle(Theme.ink).background(Theme.ground)
+    .presentationDragIndicator(.visible)
     .task { await load() }
     .sheet(item: $editing) { meal in
       MealEditor(match: PhotoMatch(mealId: "\(meal.id)", items: meal.items), action: "Save") {

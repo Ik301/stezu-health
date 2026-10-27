@@ -17,15 +17,9 @@ struct MetricDetailView: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
-        if openDay != nil {
-          Button("Week") { openDay = nil }.accessibilityIdentifier("metric.day.back")
-        } else if openWeek == nil {
-          Button("Done") { dismiss() }.accessibilityIdentifier("metric.close")
-        } else {
-          Button("8 weeks") { openWeek = nil }.accessibilityIdentifier("metric.back")
-        }
-        Text(openDay?.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()) ?? metric.title)
-          .textStyle(.title1).accessibilityIdentifier("metric.title")
+        TopBar(
+          title: openDay?.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+            ?? metric.title, titleID: "metric.title", action: rung)
         if let openDay {
           DayView(day: openDay).padding(Theme.spaceLg).background(Theme.surface, in: shape)
         } else if let history, let index = openWeek {
@@ -45,6 +39,13 @@ struct MetricDetailView: View {
       history = await MetricHistory.load(
         metric, from: environment.weightHealth, now: environment.now())
     }
+  }
+
+  /// Done on the 8 weeks; the rung above on a week or a day.
+  private var rung: TopBar.Action {
+    if openDay != nil { return .init(title: "Week", id: "metric.day.back") { openDay = nil } }
+    if openWeek != nil { return .init(title: "8 weeks", id: "metric.back") { openWeek = nil } }
+    return .init(title: "Done", id: "metric.close") { dismiss() }
   }
 
   private func weeks(_ history: MetricHistory) -> some View {

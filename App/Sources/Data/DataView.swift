@@ -13,8 +13,11 @@ struct DataView: View {
   @State private var metric: Metric?
 
   var body: some View {
-    AreaScaffold(area: .data, title: "This week", goHome: goHome) {
-      if connected ?? environment.healthConnection.isConnected {
+    let isConnected = connected ?? environment.healthConnection.isConnected
+    AreaScaffold(
+      area: .data, title: "This week", action: isConnected ? sources : nil, goHome: goHome
+    ) {
+      if isConnected {
         ScrollView {
           VStack(spacing: Theme.spaceMd) {
             WeightRow { metric = $0 }
@@ -24,9 +27,6 @@ struct DataView: View {
           }
         }
         .scrollIndicators(.hidden)
-        pill("Sources", id: "data.sources", inverted: false) {
-          Task { (notInHealth, sourcesOpen) = (await environment.weighInsNotInHealth(), true) }
-        }
       } else {
         Text(
           "Ingest reads weight, steps, heart rate, HRV, resting heart rate, sleep, blood oxygen, "
@@ -48,6 +48,12 @@ struct DataView: View {
         .presentationDragIndicator(.visible)
     }
     .sheet(item: $metric) { MetricDetailView(metric: $0).presentationDragIndicator(.visible) }
+  }
+
+  private var sources: TopBar.Action {
+    .init(title: "Sources", id: "data.sources") {
+      Task { (notInHealth, sourcesOpen) = (await environment.weighInsNotInHealth(), true) }
+    }
   }
 
   private func pill(_ title: String, id: String, inverted: Bool, action: @escaping () -> Void)
