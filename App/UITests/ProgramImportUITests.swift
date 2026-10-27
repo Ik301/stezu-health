@@ -106,7 +106,8 @@ final class ProgramImportUITests: XCTestCase {
     alert.buttons["Cancel"].firstMatch.tap()
     let closed = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: alert)
     wait(for: [closed], timeout: 10)
-    XCTAssertEqual(app.element("workout.today.name").label, "Day 1 Push", "Cancel changed it")
+    // D-089: Next follows the Day 3 session just finished.
+    XCTAssertEqual(app.element("workout.today.name").label, "Day 4 Upper", "Cancel changed it")
     XCTAssertTrue(app.element("workout.template.day-3").exists, "Cancel removed Day 3")
     XCTAssertFalse(app.element("workout.template.pull").exists, "Cancel added Pull")
     XCTAssertFalse(app.element("workout.import.message").exists, "Cancel imported")

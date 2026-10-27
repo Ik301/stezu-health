@@ -148,6 +148,9 @@ public struct WeighInHealth: HealthStore {
   public func saveStrengthWorkout(start: Date, end: Date, externalID: String) async throws {
     try await base.saveStrengthWorkout(start: start, end: end, externalID: externalID)
   }
+  public func deleteStrengthWorkout(externalID: String) async throws {
+    try await base.deleteStrengthWorkout(externalID: externalID)
+  }
   public func saveBodyMass(pounds: Double, at date: Date, id: String) async throws {
     try await base.saveBodyMass(pounds: pounds, at: date, id: id)
   }

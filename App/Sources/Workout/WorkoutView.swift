@@ -2,9 +2,10 @@ import StezuCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Workout area: the next template in the rotation as the black card, a row for each other
-/// template and Empty workout, and this week's numbers. Start opens the logger. Keep the
-/// "screen.workout.title" id on the title; the smoke UI test finds it.
+/// The Workout area: the next template in the rotation as the black card, Continue for a
+/// session finished in the last 12 hours, a row for each other template and Empty workout, and
+/// this week's numbers. Start opens the logger. Keep the "screen.workout.title" id on the
+/// title; the smoke UI test finds it.
 struct WorkoutView: View {
   var goHome: () -> Void = {}
   @Environment(\.appEnvironment) private var environment
@@ -23,7 +24,7 @@ struct WorkoutView: View {
   @State private var showHistory = false  // the History sheet (S-010)
 
   private static let emptyWorkout = WorkoutTemplate(
-    key: "empty", name: "Empty workout", exercises: [])
+    key: WorkoutRotation.emptyKey, name: "Empty workout", exercises: [])
 
   var body: some View {
     AreaScaffold(area: .workout, title: "Workout", goHome: goHome) {
@@ -46,7 +47,10 @@ struct WorkoutView: View {
       if active == nil { loadSaved() }
     }
     .sheet(isPresented: $showHistory) {
-      WorkoutHistoryView(sessions: history, names: library?.names ?? [:])
+      WorkoutHistoryView(
+        sessions: history, names: library?.names ?? [:],
+        continuable: { continuing($0) != nil },
+        onContinue: { continuing($0).map(continueSession) })
     }
     .alert(
       pending.map(WorkoutTemplateStore.question) ?? "",
@@ -116,18 +120,40 @@ struct WorkoutView: View {
     (resumable, resuming, active) = (nil, nil, template)
   }
 
+  /// The finished session behind a History session, while it can still be continued and no
+  /// workout is in progress (D-090).
+  private func continuing(_ session: WorkoutSession) -> FinishedWorkout? {
+    guard resumable == nil, let library else { return nil }
+    return (finished ?? []).first {
+      $0.session.startedAt == session.startedAt
+        && WorkoutRotation.canContinue($0, library: library, now: Date())
+    }
+  }
+
+  /// Reopens the logger on a finished session: same id, its sets shown, new sets appended.
+  private func continueSession(_ done: FinishedWorkout) {
+    guard let library,
+      let logger = WorkoutRotation.reopen(done, library: library, history: history)
+    else { return }
+    (showHistory, resumable, resuming, active) = (false, nil, logger, logger.template)
+  }
+
   /// Saves the session on the phone, queues its record, then copies it to Health (D-076); the
-  /// row shows once Health answered. A session with no sets is dropped.
+  /// row shows once Health answered. A session with no sets is dropped. A continued session
+  /// replaces its earlier copy under the same id, here and in Health (D-090).
   private func keep(_ session: WorkoutSession, endedAt end: Date) {
     guard let done = WorkoutFinish.close(session, at: end) else { return }
     let store = FinishedWorkoutStore(storage: environment.storage)
-    let saved = (finished ?? store.load()) + [done]
+    let before = finished ?? store.load()
+    let replacing = before.contains { $0.externalID == done.externalID && $0.inHealth }
+    let saved = WorkoutRotation.keep(done, in: before)
     store.save(saved)
     Task {
       await environment.syncWorkout(done)
       var copied = done
-      copied.inHealth = await WorkoutFinish.write(done, to: environment.healthStore)
-      let updated = Array(saved.dropLast()) + [copied]
+      copied.inHealth = await WorkoutFinish.write(
+        done, to: environment.healthStore, replacing: replacing)
+      let updated = WorkoutRotation.keep(copied, in: saved)
       finished = updated
       store.save(updated)
       environment.syncHermesInBackground()
@@ -136,8 +162,12 @@ struct WorkoutView: View {
 
   @ViewBuilder
   private var today: some View {
-    // No session history is stored yet, so the rotation starts at the first template.
-    let next = library?.next(after: nil)
+    let next = library.flatMap { WorkoutRotation.next(in: $0, finished: finished ?? []) }
+    let continuable =
+      resumable == nil
+      ? library.flatMap {
+        WorkoutRotation.continuable(finished ?? [], library: $0, now: Date())
+      } : nil
     let others =
       (library?.days ?? []).filter { resumable != nil || $0.key != next?.key }
       + [Self.emptyWorkout]
@@ -148,6 +178,7 @@ struct WorkoutView: View {
       } else if let next {
         nextCard(next)
       }
+      if let continuable { continueRow(continuable) }
       HStack(spacing: 12) {
         stat("Sessions this week", week.isEmpty ? nil : week.count, id: "workout.week.sessions")
         stat(
@@ -260,6 +291,24 @@ struct WorkoutView: View {
     .padding(18)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(card(inverted: true))
+  }
+
+  /// "Continue Push, 4 sets": one tap reopens the logger on that finished session.
+  private func continueRow(_ workout: FinishedWorkout) -> some View {
+    let name = workout.session.templateKey.flatMap { library?.names[$0] } ?? "Workout"
+    let sets = workout.workingSets
+    return Button {
+      continueSession(workout)
+    } label: {
+      Text("Continue \(name), \(sets) \(sets == 1 ? "set" : "sets")")
+        .font(.system(size: Theme.subtitleSize, weight: .semibold))
+        .foregroundStyle(Theme.text)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(card(inverted: false))
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier("workout.continue")
   }
 
   /// A finished session this week: its template, sets, and whether Health has it.

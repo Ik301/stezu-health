@@ -46,9 +46,13 @@ public enum WorkoutFinish {
       session: session, endedAt: end, externalID: externalID(for: session), inHealth: false)
   }
 
-  /// Copies a saved session to Health; false when the write was denied or failed.
-  public static func write(_ done: FinishedWorkout, to health: any HealthStore) async -> Bool {
+  /// Copies a saved session to Health; false when the write was denied or failed. `replacing`
+  /// (a continued session already in Health) deletes this app's workout with the same id first.
+  public static func write(
+    _ done: FinishedWorkout, to health: any HealthStore, replacing: Bool = false
+  ) async -> Bool {
     do {
+      if replacing { try await health.deleteStrengthWorkout(externalID: done.externalID) }
       try await health.saveStrengthWorkout(
         start: done.session.startedAt, end: done.endedAt, externalID: done.externalID)
       return true

@@ -1250,7 +1250,7 @@
         "s036-continue-row"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-038",

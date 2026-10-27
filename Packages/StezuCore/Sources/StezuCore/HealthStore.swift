@@ -20,6 +20,9 @@ public protocol HealthStore: Sendable {
   /// Writes one traditional strength training workout with no energy samples. A workout with
   /// the same `externalID` already in Health is not written again, so a retry is safe.
   func saveStrengthWorkout(start: Date, end: Date, externalID: String) async throws
+  /// Deletes the strength workout Stezu wrote with this external id, so a continued session
+  /// can be written again (S-036). Other apps' workouts are never touched.
+  func deleteStrengthWorkout(externalID: String) async throws
 
   /// Writes one body-mass sample, Stezu as its source, tagged with the weigh-in `id` (S-031).
   func saveBodyMass(pounds: Double, at date: Date, id: String) async throws
@@ -104,6 +107,11 @@ public actor FakeHealthStore: HealthStore {
     if failsWrites { throw FakeHealthStoreError.writeFailed }
     guard !savedWorkouts.contains(where: { $0.externalID == externalID }) else { return }
     savedWorkouts.append(SavedWorkout(start: start, end: end, externalID: externalID))
+  }
+
+  public func deleteStrengthWorkout(externalID: String) async throws {
+    if failsWrites { throw FakeHealthStoreError.writeFailed }
+    savedWorkouts.removeAll { $0.externalID == externalID }
   }
 
   public func saveBodyMass(pounds: Double, at date: Date, id: String) async throws {

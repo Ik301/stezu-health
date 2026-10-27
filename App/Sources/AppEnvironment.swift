@@ -132,6 +132,10 @@ struct AppEnvironment: Sendable {
       }
       environment.storage = .temporary(folder)
       environment.mealCaptures = MealCaptureStore(storage: environment.storage)
+      let finished = FinishedWorkoutStore(storage: environment.storage)
+      if scenario == UITestFixtures.rotationScenario, finished.load().isEmpty {
+        finished.save(UITestFixtures.rotationFinished())
+      }
     }
     return environment
   }
