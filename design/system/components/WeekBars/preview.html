@@ -1,0 +1,17 @@
+<!-- @dsCard group="Charts" height=300 -->
+<!doctype html>
+<html lang="en">
+<head><link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../bundle.css"><script src="../bundle.js"></script><meta charset="utf-8"><title>WeekBars</title></head>
+<body>
+<div class="ig-demo">
+  <div class="ig-well" style="width:340px"><span class="t-label ig-muted">Steps, mean per day</span><div class="ig-chart" id="a"></div></div>
+  <div class="ig-well" style="width:340px"><span class="t-label ig-muted">Energy, mean of logged days</span><div class="ig-chart" id="b"></div><div class="ig-legend"><span><i style="background:var(--data-energy-band)"></i>low to high</span><span><i style="background:var(--data-energy)"></i>midpoint</span></div></div>
+</div>
+<script>
+Ingest.hydrate(); Ingest.iconAll();
+var L=['9/1','9/8','9/15','9/22','9/29','10/6','10/13','10/20'];
+Ingest.weekBars('#a',[7200,8100,6900,null,9400,8800,7600,8140].map(function(v,i){return {v:v,label:L[i],cov:v===null?'0/7':[7,6,7,0,7,7,5,7][i]+'/7'};}),{label:'Steps, 8 weeks'});
+Ingest.weekBars('#b',[[1900,2200],[2050,2400],null,[1800,2150],[2000,2350],[2100,2450],[1950,2300],[1980,2320]].map(function(r,i){return r?{lo:r[0],hi:r[1],v:(r[0]+r[1])/2,label:L[i]}:{v:null,label:L[i]};}),{color:'data-energy',floor:1200,label:'Energy, 8 weeks'});
+</script>
+</body>
+</html>

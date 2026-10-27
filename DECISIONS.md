@@ -1329,3 +1329,55 @@ The research notes cited here are kept private, because they contain personal he
 - What: a timeline above the existing list. It shows recorded data only, with no placeholders.
 - Why: it is the one view that connects the domains, which Apple Health cannot show.
 - Reverse if: it stays mostly empty once meals and places are logging.
+
+## D-096 The Ingest design system v2 is the visual source of truth
+
+- Status: decided by Isaac, 2026-10-26 (he supplied the design system). Building it is planned below.
+- What: `design/system/` holds the tokens (Light and Dark), type scale, spacing, 23 components and clickable walkthroughs for every area. DESIGN.md now points to it.
+- Changes from v1:
+  - Dark mode follows the phone.
+  - Type scales with Dynamic Type.
+  - Labels move from #8A8A8A (3.0:1, fails AA) to `muted`.
+  - Colour is allowed, but only for data marks: energy, protein, heart and sleep stages. Chrome stays grayscale.
+  - Whole rows are buttons.
+  - Charts use Swift Charts, a system framework.
+- Order: tokens first (an infra PR, because it touches every view), so every new screen is built on them. Then the shared TopBar and chart components, then the four areas.
+- Reverses: the grayscale-only rule for data marks, and DESIGN.md's "Food is photo only, no keyboard, ever", which went stale with D-035.
+
+## D-097 Home cards follow GlanceCard; the Data card leads with last night's sleep and keeps the week's weight small
+
+- Status: decided by Isaac, 2026-10-26, in the design system's walkthrough. It amends D-091, which had removed weight from Home.
+- What: each card has three rows: area and time frame, one centred number with a small picture, and a detail row. There are no buttons inside cards; the card is the control.
+  - Data: last night's time asleep, 7-night bars, "Usual", and the week's trend weight.
+  - Food: today's kcal range, protein and meals.
+  - Workout: sessions this week with Monday to Sunday dots, the next template and working sets.
+- Display rule: Home shows two daily numbers, today's intake and last night's sleep.
+
+## D-098 Sleep and Day follow the walkthrough: a fixed 14-night window, one overnight line, and a folding Day timeline with named places
+
+- Status: decided by Isaac, 2026-10-26, in the design system. It amends D-094 and D-095.
+- Sleep:
+  - The window is fixed at 14 nights, with no 7/14/30 switch.
+  - The bedtime and wake "usual" lines carry their own labels.
+  - The stage times sit on the hypnogram's lanes, and wake-ups are written out.
+  - Heart rate, breathing and HRV are one line of three numbers; the two range charts are gone.
+- Day:
+  - A summary sits at the top, with previous and next day arrows.
+  - Empty hours fold to a thin band.
+  - Sleep is a normal card with a stage stripe, not the black block.
+  - There is no steps lane; steps go in the summary.
+  - Places are named on the phone by reverse geocoding. The names never leave the phone: they are not synced and not logged.
+
+## D-099 Food and Workout follow their walkthroughs: the match sheet with half-step servings, an inline rest, and a summary after Finish
+
+- Status: decided by Isaac, 2026-10-26, in the design system.
+- Food:
+  - The camera's text sits on a scrim.
+  - The match sheet shows totals first, in the data colours. Servings change in half steps, and Log is at the bottom.
+  - The Food Today screen shows the day's ranges, the meals, and the week as daily bands.
+- Workout:
+  - The rest countdown sits inside the black logger card, with -15, +15 and Skip. Log never moves.
+  - The next set shows last time's numbers as a dashed row.
+  - The area nav is hidden while logging.
+  - Finish opens a summary: duration, working sets, volume, In Health, and each exercise's best set against the last session of the same template. The summary has an Undo.
+- Strength progress is history, not advice (D-032).

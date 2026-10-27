@@ -1,0 +1,28 @@
+<!-- @dsCard group="Surfaces" height=620 -->
+<!doctype html>
+<html lang="en">
+<head><link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../bundle.css"><script src="../bundle.js"></script><meta charset="utf-8"><title>GlanceCard</title></head>
+<body>
+<div class="ig-demo"><div class="ig-col" style="width:345px">
+  <button class="ig-glance" aria-label="Data. Slept 5 hours 38 minutes last night, usual 6 hours 9 minutes. Weight 172.4 pounds this week.">
+    <span class="ig-glance-top"><b>Data</b><span>Last night</span></span>
+    <span class="ig-glance-mid"><span class="t-big">5<span class="ig-glance-u is-tight">h</span>38<span class="ig-glance-u is-tight">m</span></span><span data-spark="6.7,8.0,6.1,-,5.9,6.2,5.6" data-bars aria-label="7 nights"></span></span>
+    <span class="ig-glance-foot"><span>Usual 6h 9m</span><span>Weight <b>172.4 lb</b></span></span>
+  </button>
+  <button class="ig-glance is-invert" aria-label="Food. Today 420 to 560 kilocalories, 28 to 36 grams protein, 1 meal.">
+    <span class="ig-glance-top"><b>Food</b><span>Today</span></span>
+    <span class="ig-glance-mid"><span class="t-big">420–560<span class="ig-glance-u">kcal</span></span></span>
+    <span class="ig-glance-foot"><span><b>28–36 g</b> protein, 1 meal</span></span>
+  </button>
+  <button class="ig-glance" aria-label="Workout. 3 sessions this week. Next Day 3, Legs.">
+    <span class="ig-glance-top"><b>Workout</b><span>This week</span></span>
+    <span class="ig-glance-mid"><span class="t-big">3<span class="ig-glance-u">sessions</span></span><span class="ig-wk" aria-hidden="true"><span>M<i class="is-on"></i></span><span>T<i></i></span><span>W<i class="is-on"></i></span><span>T<i></i></span><span>F<i class="is-on"></i></span><span>S<i></i></span><span>S<i class="is-today"></i></span></span></span>
+    <span class="ig-glance-foot"><span>Next <b>Day 3, Legs</b></span><span>49 sets</span></span>
+  </button>
+</div></div>
+<script>
+Ingest.hydrate();
+document.querySelectorAll('.ig-glance svg.ig-spark').forEach(function (s) { s.style.width = '98px'; s.style.height = '40px'; });
+</script>
+</body>
+</html>

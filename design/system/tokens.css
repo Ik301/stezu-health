@@ -1,0 +1,120 @@
+/* Ingest — generated from tokens.json */
+:root, [data-theme="light"] {
+  --ground: #e6e6e6;
+  --surface: #efefef;
+  --surface-raised: #ffffff;
+  --edge: #ffffff;
+  --ink: #0b0b0b;
+  --muted: #5e5e5e;
+  --invert: #0b0b0b;
+  --on-invert: #ffffff;
+  --on-invert-muted: #9c9c9c;
+  --track: #d4d4d4;
+  --focus: #0b0b0b;
+  --camera: #000000;
+  --on-camera: #ffffff;
+  --camera-scrim: rgba(0, 0, 0, 0.55);
+  --data-energy: #a04b17;
+  --data-energy-band: rgba(160, 75, 23, 0.18);
+  --data-protein: #0e6b66;
+  --data-protein-band: rgba(14, 107, 102, 0.18);
+  --data-heart: #b3363a;
+  --data-sample: #7a7a7a;
+  --data-trend: var(--ink);
+  --sleep-deep: #1b2f5c;
+  --sleep-core: #3a64a8;
+  --sleep-rem: #6f95d1;
+  --sleep-awake: #b8650a;
+  --signal-error: #a6261e;
+  --signal-pending: #8a5a00;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --ground: #111111;
+  --surface: #1a1a1a;
+  --surface-raised: #262626;
+  --edge: #2c2c2c;
+  --ink: #f2f2f2;
+  --muted: #a3a3a3;
+  --invert: #f2f2f2;
+  --on-invert: #0b0b0b;
+  --on-invert-muted: #5e5e5e;
+  --track: #2e2e2e;
+  --focus: #f2f2f2;
+  --camera: #000000;
+  --on-camera: #ffffff;
+  --camera-scrim: rgba(0, 0, 0, 0.55);
+  --data-energy: #e8954f;
+  --data-energy-band: rgba(232, 149, 79, 0.22);
+  --data-protein: #5cc3ba;
+  --data-protein-band: rgba(92, 195, 186, 0.22);
+  --data-heart: #f07a7a;
+  --data-sample: #8c8c8c;
+  --data-trend: var(--ink);
+  --sleep-deep: #4a6fb8;
+  --sleep-core: #7ba3e0;
+  --sleep-rem: #b5d0f5;
+  --sleep-awake: #e3a33b;
+  --signal-error: #ff8a80;
+  --signal-pending: #e8b44c;
+} }
+[data-theme="dark"] {
+  --ground: #111111;
+  --surface: #1a1a1a;
+  --surface-raised: #262626;
+  --edge: #2c2c2c;
+  --ink: #f2f2f2;
+  --muted: #a3a3a3;
+  --invert: #f2f2f2;
+  --on-invert: #0b0b0b;
+  --on-invert-muted: #5e5e5e;
+  --track: #2e2e2e;
+  --focus: #f2f2f2;
+  --camera: #000000;
+  --on-camera: #ffffff;
+  --camera-scrim: rgba(0, 0, 0, 0.55);
+  --data-energy: #e8954f;
+  --data-energy-band: rgba(232, 149, 79, 0.22);
+  --data-protein: #5cc3ba;
+  --data-protein-band: rgba(92, 195, 186, 0.22);
+  --data-heart: #f07a7a;
+  --data-sample: #8c8c8c;
+  --data-trend: var(--ink);
+  --sleep-deep: #4a6fb8;
+  --sleep-core: #7ba3e0;
+  --sleep-rem: #b5d0f5;
+  --sleep-awake: #e3a33b;
+  --signal-error: #ff8a80;
+  --signal-pending: #e8b44c;
+}
+:root {
+  --space-2xs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-card: 18px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --radius-card: 18px;
+  --radius-inner: 12px;
+  --radius-chip: 8px;
+  --radius-pill: 999px;
+  --size-target: 44px;
+  --size-control: 48px;
+  --size-nav: 58px;
+  --size-shutter: 74px;
+  --size-spark: 28px;
+  --size-chart: 140px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Helvetica Neue", Arial, sans-serif;
+}
+.t-hero { font-family: var(--font-sans); font-size: 76px; line-height: 1; font-weight: 500; letter-spacing: -1.5px; }
+.t-big { font-family: var(--font-sans); font-size: 42px; line-height: 1.05; font-weight: 500; letter-spacing: -1px; }
+.t-stat { font-family: var(--font-sans); font-size: 28px; line-height: 1.1; font-weight: 500; letter-spacing: -0.5px; }
+.t-title-1 { font-family: var(--font-sans); font-size: 34px; line-height: 1.12; font-weight: 600; letter-spacing: normal; }
+.t-title-2 { font-family: var(--font-sans); font-size: 28px; line-height: 1.15; font-weight: 600; letter-spacing: normal; }
+.t-headline { font-family: var(--font-sans); font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: normal; }
+.t-value { font-family: var(--font-sans); font-size: 17px; line-height: 22px; font-weight: 500; letter-spacing: normal; }
+.t-body { font-family: var(--font-sans); font-size: 17px; line-height: 22px; font-weight: 400; letter-spacing: normal; }
+.t-subtitle { font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 400; letter-spacing: normal; }
+.t-label { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0.1px; }
+.t-axis { font-family: var(--font-sans); font-size: 11px; line-height: 13px; font-weight: 500; letter-spacing: normal; }

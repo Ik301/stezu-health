@@ -1,6 +1,6 @@
 # Agents
 
-Read this first. SPEC.md says what to build (for v1, D-032 to D-035 override it where they differ), DESIGN.md how it looks, DECISIONS.md why. features.json is the work list, and each card works on exactly one entry.
+Read this first. SPEC.md says what to build (for v1, D-032 to D-035 override it where they differ), DESIGN.md how it looks (its source of truth is the Ingest design system in design/system/; read design/system/AGENTS.md before any UI work), DECISIONS.md why. features.json is the work list, and each card works on exactly one entry.
 
 ## Layout
 

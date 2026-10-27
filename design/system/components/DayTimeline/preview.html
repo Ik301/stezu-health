@@ -1,0 +1,12 @@
+<!-- @dsCard group="Charts" height=300 -->
+<!doctype html>
+<html lang="en">
+<head><link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../bundle.css"><script src="../bundle.js"></script><meta charset="utf-8"><title>DayTimeline</title></head>
+<body>
+<div class="ig-demo"><div class="ig-well" style="width:380px"><span class="t-label ig-muted">Tue, Oct 21</span><div class="ig-chart" id="d"></div></div></div>
+<script>
+Ingest.hydrate(); Ingest.iconAll();
+Ingest.dayTimeline('#d',Ingest.synthDay(5),{label:'Day timeline'});
+</script>
+</body>
+</html>

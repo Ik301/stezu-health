@@ -1,0 +1,19 @@
+<!-- @dsCard group="Charts" height=260 -->
+<!doctype html>
+<html lang="en">
+<head><link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../bundle.css"><script src="../bundle.js"></script><meta charset="utf-8"><title>WeightChart</title></head>
+<body>
+<div class="ig-demo"><div class="ig-well" style="width:360px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="t-stat" id="t"></span><span class="ig-tag">Medium, 5 weigh-ins this week</span></div>
+  <div class="ig-chart" id="w"></div>
+  <div class="ig-legend"><span><i style="background:var(--data-sample);border-radius:50%"></i>weigh-in</span><span><i style="background:var(--data-trend);height:2px;vertical-align:3px"></i>trend</span></div>
+</div></div>
+<script>
+Ingest.hydrate(); Ingest.iconAll();
+var r=Ingest.rng(3),pts=[],lb=171.2;
+for(var d=0;d<56;d++){ if(d%7===2||d%7===6) continue; if(r()<0.12) continue; lb+=0.03; pts.push({day:d,lb:+(lb+(r()-0.5)*1.8).toFixed(1)}); }
+var out=Ingest.weightChart('#w',pts,{days:56,weekLabels:['9/1','','9/15','','9/29','','10/13',''],label:'Weight, 8 weeks: weigh-ins and trend'});
+document.getElementById('t').innerHTML=out.last.trend.toFixed(1)+'<span class="ig-range-unit">lb</span>';
+</script>
+</body>
+</html>
