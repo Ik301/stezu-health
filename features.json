@@ -1253,6 +1253,68 @@
       "passes": false
     },
     {
+      "id": "S-038",
+      "kind": "story",
+      "area": "shell",
+      "title": "One TopBar on every area screen and sheet: Home on the left, one text action on the right, the title beneath",
+      "steps": [
+        "Build TopBar per design/system/components/TopBar/README.md. Home is a 44 pt `house` symbol in ink with no fill; on the camera it sits on a surface disc. The right slot holds one text button in t-headline (\"Finish\", \"Sources\", \"Done\"). The screen title sits beneath, in t-title-1, and says what the screen holds now (\"This week\", \"Resting HR\", \"Tue, Oct 21\").",
+        "Sheets show a drag indicator and a TopBar with Done, or the rung above it, on the right. Sheets have no toolbar items: iOS 26 draws those as floating glass pills, which caused the shadowed Done Isaac flagged.",
+        "Use TopBar on every area screen and every sheet (find them all: `.sheet`, `.fullScreenCover`, `NavigationStack` titles). Keep each control's accessibility id (nav.home, screen.<area>.title, each Done).",
+        "Swipe down still closes every sheet, except where a sheet blocks it on purpose because of unsaved edits.",
+        "UI test: open each sheet in turn. Assert its Done is hittable at the top right (frame maxX within 40 pt of the screen width) and closes the sheet, and that every area screen shows nav.home at the top left."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-036"
+      ],
+      "core_tests": [],
+      "ui_tests": [
+        "AppUITests.SheetHeaderUITests/testEverySheetHasDoneTopRight"
+      ],
+      "screenshots": [
+        "s038-workout-history",
+        "s038-food-history",
+        "s038-metric",
+        "s038-sources"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-042",
+      "kind": "story",
+      "area": "data",
+      "title": "Chart components (Sparkline, WeekBars, CoverageDots, WeightChart) and the metric detail screen for every Data metric",
+      "steps": [
+        "Build reusable SwiftUI views per design/system/components: Sparkline (72 x 28), WeekBars, CoverageDots and WeightChart. Port WeightChart from the Canvas version to Swift Charts. Use only Swift Charts, a system framework. Every chart has an accessibilityChartDescriptor.",
+        "Sparkline: Monday to Sunday. Lines for levels, bars for counts. A missing day is a dashed track slot, never zero. Today is at full strength with a dot; older days step back.",
+        "WeekBars: 8 weekly bars, oldest on the left, each labelled with its week and coverage. The current week is at full strength and past weeks at 55%. An estimate (food) is a band from low to high with a 3 px midpoint. A week without data is a dashed slot with \"--\" above it. Two light gridlines, no y-axis numbers.",
+        "Colours: data-energy for kcal, data-protein for protein, data-heart for heart rate and resting HR, and ink for steps, sets and weight. Raw dots use data-sample. Energy and protein are never in one plot.",
+        "The metric detail screen (MetricDetailView): TopBar, then a WeekBars well (140 tall on surface), the weeks list, and finally sources and method. Tapping a bar does the same as tapping its row, which opens that week's days. Every This week metric uses it: weight, steps, workouts (working sets), food (energy and protein as two panels), HRV, resting HR and breathing. Sleep is excluded, because S-040 builds its own screen.",
+        "Launch with -uitest and generic fixtures. Open Steps: 8 bars, one of them a dashed absent week showing \"--\". Open Food: two separate panels. Each chart has an accessibility label."
+      ],
+      "tap_budget": "1 tap per metric",
+      "depends_on": [
+        "S-024",
+        "S-038"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ChartSeriesTests/testWeekBarsKeepAbsentWeeksAsNil",
+        "StezuCoreTests.ChartSeriesTests/testRangeBandsSumLowsAndHighsSeparately"
+      ],
+      "ui_tests": [
+        "AppUITests.MetricDetailUITests/testWeekBarsShowAbsentWeekAndFoodPanels"
+      ],
+      "screenshots": [
+        "s042-steps-detail",
+        "s042-food-detail",
+        "s042-weight-detail-dark"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
       "id": "S-037",
       "kind": "story",
       "area": "data",
@@ -1283,35 +1345,6 @@
       "screenshots": [
         "s037-home-light",
         "s037-home-dark"
-      ],
-      "needs_server": false,
-      "passes": false
-    },
-    {
-      "id": "S-038",
-      "kind": "story",
-      "area": "shell",
-      "title": "One TopBar on every area screen and sheet: Home on the left, one text action on the right, the title beneath",
-      "steps": [
-        "Build TopBar per design/system/components/TopBar/README.md. Home is a 44 pt `house` symbol in ink with no fill; on the camera it sits on a surface disc. The right slot holds one text button in t-headline (\"Finish\", \"Sources\", \"Done\"). The screen title sits beneath, in t-title-1, and says what the screen holds now (\"This week\", \"Resting HR\", \"Tue, Oct 21\").",
-        "Sheets show a drag indicator and a TopBar with Done, or the rung above it, on the right. Sheets have no toolbar items: iOS 26 draws those as floating glass pills, which caused the shadowed Done Isaac flagged.",
-        "Use TopBar on every area screen and every sheet (find them all: `.sheet`, `.fullScreenCover`, `NavigationStack` titles). Keep each control's accessibility id (nav.home, screen.<area>.title, each Done).",
-        "Swipe down still closes every sheet, except where a sheet blocks it on purpose because of unsaved edits.",
-        "UI test: open each sheet in turn. Assert its Done is hittable at the top right (frame maxX within 40 pt of the screen width) and closes the sheet, and that every area screen shows nav.home at the top left."
-      ],
-      "tap_budget": "unchanged",
-      "depends_on": [
-        "S-036"
-      ],
-      "core_tests": [],
-      "ui_tests": [
-        "AppUITests.SheetHeaderUITests/testEverySheetHasDoneTopRight"
-      ],
-      "screenshots": [
-        "s038-workout-history",
-        "s038-food-history",
-        "s038-metric",
-        "s038-sources"
       ],
       "needs_server": false,
       "passes": false
@@ -1413,39 +1446,6 @@
       "screenshots": [
         "s041-day-light",
         "s041-day-dark"
-      ],
-      "needs_server": false,
-      "passes": false
-    },
-    {
-      "id": "S-042",
-      "kind": "story",
-      "area": "data",
-      "title": "Chart components (Sparkline, WeekBars, CoverageDots, WeightChart) and the metric detail screen for every Data metric",
-      "steps": [
-        "Build reusable SwiftUI views per design/system/components: Sparkline (72 x 28), WeekBars, CoverageDots and WeightChart. Port WeightChart from the Canvas version to Swift Charts. Use only Swift Charts, a system framework. Every chart has an accessibilityChartDescriptor.",
-        "Sparkline: Monday to Sunday. Lines for levels, bars for counts. A missing day is a dashed track slot, never zero. Today is at full strength with a dot; older days step back.",
-        "WeekBars: 8 weekly bars, oldest on the left, each labelled with its week and coverage. The current week is at full strength and past weeks at 55%. An estimate (food) is a band from low to high with a 3 px midpoint. A week without data is a dashed slot with \"--\" above it. Two light gridlines, no y-axis numbers.",
-        "Colours: data-energy for kcal, data-protein for protein, data-heart for heart rate and resting HR, and ink for steps, sets and weight. Raw dots use data-sample. Energy and protein are never in one plot.",
-        "The metric detail screen (MetricDetailView): TopBar, then a WeekBars well (140 tall on surface), the weeks list, and finally sources and method. Tapping a bar does the same as tapping its row, which opens that week's days. Every This week metric uses it: weight, steps, workouts (working sets), food (energy and protein as two panels), HRV, resting HR and breathing. Sleep is excluded, because S-040 builds its own screen.",
-        "Launch with -uitest and generic fixtures. Open Steps: 8 bars, one of them a dashed absent week showing \"--\". Open Food: two separate panels. Each chart has an accessibility label."
-      ],
-      "tap_budget": "1 tap per metric",
-      "depends_on": [
-        "S-024",
-        "S-038"
-      ],
-      "core_tests": [
-        "StezuCoreTests.ChartSeriesTests/testWeekBarsKeepAbsentWeeksAsNil",
-        "StezuCoreTests.ChartSeriesTests/testRangeBandsSumLowsAndHighsSeparately"
-      ],
-      "ui_tests": [
-        "AppUITests.MetricDetailUITests/testWeekBarsShowAbsentWeekAndFoodPanels"
-      ],
-      "screenshots": [
-        "s042-steps-detail",
-        "s042-food-detail",
-        "s042-weight-detail-dark"
       ],
       "needs_server": false,
       "passes": false
