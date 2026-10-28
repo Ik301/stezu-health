@@ -18,17 +18,9 @@ struct SourcesView: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
-        HStack {
-          Text("Sources")
-            .textStyle(.title1)
-            .foregroundStyle(Theme.ink)
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityIdentifier("screen.sources.title")
-          Spacer()
-          Button("Done") { dismiss() }
-            .foregroundStyle(Theme.ink)
-            .accessibilityIdentifier("sources.done")
-        }
+        TopBar(
+          title: "Sources", titleID: "screen.sources.title",
+          action: .init(title: "Done", id: "sources.done") { dismiss() })
         locationRow
         ForEach(rows ?? [], id: \.type) { row($0) }
         Text("Not in Health").textStyle(.headline)

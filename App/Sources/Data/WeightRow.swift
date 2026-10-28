@@ -45,7 +45,7 @@ struct WeightRow: View {
     .sheet(isPresented: $weighing) {
       // With nothing in Health the stepper needs some start; 150 is a generic default.
       WeighInSheet(pounds: loaded?.prefill ?? 150) { reloads += 1 }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium]).presentationDragIndicator(.visible)
     }
   }
 
@@ -74,6 +74,9 @@ private struct WeighInSheet: View {
 
   var body: some View {
     VStack(spacing: Theme.spaceXl) {
+      TopBar(
+        title: "Weigh-in", titleID: "data.weighIn.title",
+        action: .init(title: "Done", id: "data.weighIn.done") { dismiss() })
       Text(String(format: "%.1f lb", pounds))
         .textStyle(.hero)
         .accessibilityIdentifier("data.weighIn.value")
@@ -93,6 +96,7 @@ private struct WeighInSheet: View {
       .accessibilityIdentifier("data.weighIn.save")
     }
     .padding(Theme.spaceXl)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .foregroundStyle(Theme.ink)
   }
 }

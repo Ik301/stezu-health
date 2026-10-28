@@ -7,6 +7,7 @@ struct ExerciseLibraryView: View {
   let history: [WorkoutSession]
   let pick: (LibraryExercise) -> Void
   @Environment(\.appEnvironment) private var environment
+  @Environment(\.dismiss) private var dismiss
   @State private var library = ExerciseLibrary()
   @State private var query = ""
   @State private var adding = false
@@ -15,9 +16,9 @@ struct ExerciseLibraryView: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
-        Text("Exercises")
-          .textStyle(.title2)
-          .accessibilityIdentifier("workout.library.title")
+        TopBar(
+          title: "Exercises", titleID: "workout.library.title",
+          action: .init(title: "Done", id: "workout.library.done") { dismiss() })
         field("Search", text: $query, id: "workout.library.search")
         if adding {
           form
@@ -41,6 +42,7 @@ struct ExerciseLibraryView: View {
     .buttonStyle(.plain)
     .foregroundStyle(Theme.ink)
     .background(Theme.ground.ignoresSafeArea())
+    .presentationDragIndicator(.visible)
     .onAppear { library = ExerciseLibraryStore(storage: environment.storage).load() }
   }
 

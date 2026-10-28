@@ -1470,3 +1470,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). It is free, uses only Apple's own tools with the account already in Xcode, and also delivers every merged commit. It installs when main moved, when the last install is 5 or more days old, when the installed profile expires within 2 days, or with --force; otherwise it logs one line. A phone out of reach, an offline Mac or a locked phone exits 0 and the next hour retries; one notification a day warns when the signing has under 36 hours left. A commit that failed to build is not rebuilt again that day. The state changes only after a successful install. The devicectl JSON is checked for its shape (result.devices, connectionProperties, hardwareProperties) and the run fails with a message instead of guessing.
 - Evidence: mac/autoinstall/ (stezu_autoinstall.sh, com.ik301.stezu.autoinstall.plist, install.sh, uninstall.sh, README.md, Tests/ with stubbed git, xcrun, xcodebuild, xcodegen, osascript and security), scripts/gate-linux.sh G8. Tested on Linux under bash 5.2 and bash 3.2.57 with stubs only, and once with real git against a local clone; not yet run on a Mac or against a real iPhone. The JSON fields come from Flutter's, Expo's and KeepAlive's devicectl parsers; profile clearing follows KeepAlive.
 - Reverse if: Isaac buys the Developer Program (then TestFlight, option b), Apple stops issuing free profiles from the command line or limits how often, or the Mac is rarely on the same network as the phone for days at a time.
+
+## D-105 Every sheet closes or steps back through `dismiss` from a text button in its TopBar; History's navigation bar is hidden
+
+- Status: proposed by night agent, 2026-10-27 (S-038).
+- Problem: sheets put their Done in different places (a toolbar item in Workout History, a row button in Metric, an HStack in Sources and Food history, none in Settings, Exercises, Weigh-in, the meal editor or the Matching sheet), and on iOS 26 a toolbar item is drawn as a floating glass pill, which is the shadowed Done Isaac flagged.
+- Given: `@Environment(\.dismiss)` closes a sheet when read in its root view and pops a page when read in a view pushed onto a NavigationStack. Workout History is a NavigationStack inside a sheet, three pages deep. Metric steps back through local state (`openDay`, `openWeek`), not navigation.
+- Constraints:
+  - A toolbar item for Done brings the glass pill back.
+  - Hiding History's navigation bar removes the system back button and the edge swipe back, so every page needs its own way back.
+  - A Done that runs anything but `dismiss` (or the same state reset as before) would change behaviour, which the card rules out.
+- Options:
+  - (a) One `TopBar` view (AppShell.swift): an optional Home closure, an optional text action (title, id, closure) and the title beneath. Sheets pass Done -> `dismiss()`, or the rung above (Metric's "8 weeks" and "Week", History's previous page) -> the same state change as before; History hides its navigation bar and each page is a `HistoryPage` whose rung calls that page's own `dismiss`, which pops, or closes the sheet on the first page.
+  - (b) Keep the navigation bar in History with a custom plain back button as a toolbar item.
+  - (c) A sheet wrapper that adds Done around any content.
+- Decision: (a). Swipe down still closes every sheet: none sets `interactiveDismissDisabled`, and every sheet now shows the drag indicator.
+- Evidence: App/Sources/AppShell.swift (`TopBar`, `AreaScaffold`), App/Sources/Workout/WorkoutHistoryView.swift (`HistoryPage`), App/Sources/Data/MetricDetailView.swift (`rung`), App/UITests/SheetHeaderUITests.swift (commit on wt/S-038).
+- Reverse if: History needs the edge swipe back (then (b) with the bar's background hidden), or a sheet gets unsaved edits that Done must confirm.

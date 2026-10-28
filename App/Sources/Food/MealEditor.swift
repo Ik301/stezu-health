@@ -12,6 +12,7 @@ struct MealEditor: View {
   @State private var query = ""
   @State private var detent = PresentationDetent.medium
   @FocusState private var focused: Bool
+  @Environment(\.dismiss) private var dismiss
 
   /// What a search pick does: take an item's place, or join the list.
   enum SearchTarget: Equatable {
@@ -32,16 +33,17 @@ struct MealEditor: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(Theme.ground)
     .presentationDetents([.medium, .large], selection: $detent)
+    .presentationDragIndicator(.visible)
     .onChange(of: searching) { _, target in if target != nil { detent = .large } }
   }
 
   private var list: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceSm) {
-        HStack(alignment: .firstTextBaseline) {
-          Text("Meal").textStyle(.subtitle, weight: .semibold)
-            .accessibilityIdentifier("food.match.title")
-          Spacer()
+        TopBar(
+          title: "Meal", titleID: "food.match.title",
+          action: .init(title: "Done", id: "food.edit.done") { dismiss() })
+        HStack(spacing: Theme.spaceMd) {
           Text(PhotoMatchSheet.range(edit.totalKcal, unit: "kcal"))
             .accessibilityIdentifier("food.match.total.kcal")
           Text(PhotoMatchSheet.range(edit.totalProteinG, unit: "g protein"))
@@ -54,16 +56,20 @@ struct MealEditor: View {
             stepper(index, id: "food.match.item.\(index)")
           }
         }
-        HStack {
-          pill("+ Add item", id: "food.edit.add", inverted: false) { searching = .add }
-          Spacer()
-          pill(action, id: "food.edit.\(action.lowercased())", inverted: true) { log(edit.items) }
-            .disabled(edit.items.isEmpty)
-        }
       }
       .padding(Theme.spaceLg)
     }
     .scrollIndicators(.hidden)
+    // Pinned under the list, so Log stays on screen at the medium detent below the TopBar.
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      HStack {
+        pill("+ Add item", id: "food.edit.add", inverted: false) { searching = .add }
+        Spacer()
+        pill(action, id: "food.edit.\(action.lowercased())", inverted: true) { log(edit.items) }
+          .disabled(edit.items.isEmpty)
+      }
+      .padding(Theme.spaceLg).background(Theme.ground)
+    }
   }
 
   private func stepper(_ index: Int, id: String) -> some View {

@@ -6,6 +6,7 @@ import SwiftUI
 /// sends GET /health with the saved settings (the fake transport under `-uitest`).
 struct SettingsView: View {
   @Environment(\.appEnvironment) private var environment
+  @Environment(\.dismiss) private var dismiss
   /// Called after a save with the stored settings.
   var saved: (ServerSettings) -> Void = { _ in }
 
@@ -18,10 +19,9 @@ struct SettingsView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: Theme.spaceMd) {
-      Text("Settings")
-        .textStyle(.title1)
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityIdentifier("screen.settings.title")
+      TopBar(
+        title: "Settings", titleID: "screen.settings.title",
+        action: .init(title: "Done", id: "settings.done") { dismiss() })
       label("Server address")
       field(TextField("Server address", text: $address).keyboardType(.URL), id: "settings.address")
       label("Token")
