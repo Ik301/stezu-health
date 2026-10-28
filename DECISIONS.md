@@ -1570,3 +1570,36 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The dots sit to the left of the dates and coverage words, not on the coverage line itself.
 - Evidence: App/Sources/Charts/CoverageDots.swift, App/Sources/Data/MetricDetailView.swift (`weeks`), App/UITests/MetricDetailUITests.swift (testWorkoutsDetailShowsSetsAndCoverageDots), commit on wt/S-042b.
 - Reverse if: VoiceOver testing shows the dots column as a focus stop on a device, or the design wants the dots on the coverage line (then an alignment guide inside the button, with the UI test on a screenshot).
+
+## D-111 Home's sleep comes from one SleepSummary: last night is the SleepNights night keyed today, and the usual night is the median of up to 30 recorded nights in 60 days
+
+- Status: proposed by night agent, 2026-10-28 (S-037).
+- Problem: the Data card needs last night's time asleep, the week's nights and a "usual" night, and they must agree with the Data screen's Sleep row and stay absent, not 0, when Health has no night.
+- Given: `SleepNights.nights` keys each night by the day it ends on (a stage ending after 18:00 counts toward the next day) and drops in-bed and awake stages; This week's Sleep row and the metric detail already use it. Health returns sleep stages since a date.
+- Constraints:
+  - A second grouping rule would let Home and This week disagree about which night is "last night" (breaks the story's "same SleepNights code").
+  - "Up to 30 recorded nights" read over only 30 days gives fewer nights when some are missing (breaks the step's median).
+  - Reading all of Health's sleep history on every Home appearance is slow on a phone with years of stages.
+- Options:
+  - (a) `SleepSummary.make(intervals, now:)` in StezuCore: last night = `nights[startOfDay(now)]`; usual = the median of the latest 30 nights keyed today or earlier; week = Monday to Sunday in hours, nil where no night; confidence from the night count (14+ high, 5+ medium). `SleepSummary.load` reads 61 days of stages.
+  - (b) The same over a 30-day read, so "usual" is a 30-day median.
+  - (c) Home asks `MetricHistory.load(.sleep)` and derives last night and the median from its 8 weeks of days.
+- Decision: (a). A night ending tomorrow (stages after 18:00 today) is not last night and not in the usual yet.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SleepSummary.swift, App/Sources/HomeViewModel.swift (`HomeInputs.load`), Packages/StezuCore/Tests/StezuCoreTests/SleepNightTests.swift (testLastNightAsleepExcludesAwakeAndInBed, testUsualIsMedianOfRecordedNights, testNoNightIsAbsentNotZero), commit on wt/S-037.
+- Reverse if: S-040's Sleep screen defines "usual" differently (its walkthrough says the median of the 14-night window); then both should share one function.
+
+## D-112 Home runs its model on the launch's clock, and a saved workout in progress inverts the Workout card
+
+- Status: proposed by night agent, 2026-10-28 (S-037).
+- Problem: the Workout card's day dots and the Data card's "today" bar are computed in the view model from its clock, but a scenario's data sits in a fixed week; and the story wants the Workout card inverted while a workout is in progress, whatever the hour.
+- Given: `HomeViewModel.now` defaulted to `Date()`, while `AppEnvironment.now` is `Date()` live and a fixed Sunday under the data-week scenarios. The workout in progress is the file `WorkoutSessionStore` writes after every set and clears on Finish or discard.
+- Constraints:
+  - With the real clock the dots of a scenario week are all empty (breaks the story's UI test and the screenshots).
+  - Tracking "in progress" in memory would be lost when the app is relaunched mid-workout (breaks S-021's resume).
+- Options:
+  - (a) HomeView copies its model with `now = environment.now`, so the dots, today's bar and the time-of-day inversion all use the launch's clock; `HomeInputs.workoutInProgress` is `WorkoutSessionStore.load() != nil`, and `invertedCardID(workoutInProgress:)` returns Workout when it is true.
+  - (b) Move the dots into `HomeInputs.load` (which already has the environment's clock) and keep the model on the real clock.
+  - (c) Pass a "workout active" flag down from the Workout area through AppShell.
+- Decision: (a). Under a scenario clock the inverted card is now the scenario's hour (noon: Food), which also makes the screenshots repeatable.
+- Evidence: App/Sources/HomeView.swift (`clocked`), App/Sources/HomeViewModel.swift (`invertedCardID`, `HomeInputs.load`), App/Tests/HomeViewModelTests.swift (testTimeOfDayPicksInvertedCard), commit on wt/S-037.
+- Reverse if: the time-of-day inversion should follow the real clock even in scenarios, or the in-progress state moves out of the file.
