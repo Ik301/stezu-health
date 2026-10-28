@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// A This week row (design/system/components/MetricRow): title and coverage, a 72 x 28
-/// Sparkline, the value and a chevron, under a track rule unless `first`. The whole row (44 pt or
-/// more) is one button laid over the content, `data.<id>.open`, so the texts keep their own ids
-/// for UI tests. Without `open` (Places has no detail yet) there is no button or chevron.
+/// A This week row (design/system/components/MetricRow): title, coverage, a 72 x 28 Sparkline,
+/// value and chevron, under a track rule unless `first`. The whole row (44 pt or more) is one
+/// button laid over the content (`data.<id>.open`), so the texts keep their ids (D-111).
 struct MetricRow: View {
   let title, id, coverage: String
   let values: [Double?]
@@ -71,7 +70,6 @@ struct MetricCard<Content: View>: View {
       content
     }
     .foregroundStyle(Theme.ink).padding(.horizontal, Theme.spaceLg)
-    .padding(.bottom, Theme.spaceXs)
     .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
   }
 }

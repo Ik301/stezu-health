@@ -17,19 +17,22 @@ struct BodyCard: View {
         .accessibilityIdentifier("data.week.range")
       MetricCard(
         title: "Body and activity",
-        action: .init(title: "Weigh in", id: "data.weighIn") { weighing = true }
+        action: .init(title: "Weigh in", id: "data.weighIn") { Task { await weighIn() } }
       ) {
         WeeklyHealthRows(metrics: [.weight, .steps], reload: reloads, open: open)
       }
     }
-    .task(id: reloads) {
-      loaded = await WeeklyWeight.load(from: environment.weightHealth, now: environment.now())
-    }
-    .sheet(isPresented: $weighing) {
+    .sheet(isPresented: $weighing) { [loaded] in
       // With nothing in Health the stepper needs some start; 150 is a generic default.
       WeighInSheet(pounds: loaded?.prefill ?? 150) { reloads += 1 }
         .presentationDetents([.medium]).presentationDragIndicator(.visible)
     }
+  }
+
+  /// Reads the prefill before the sheet opens; the sheet captures it, as the body never reads it.
+  private func weighIn() async {
+    loaded = await WeeklyWeight.load(from: environment.weightHealth, now: environment.now())
+    weighing = true
   }
 
   private func weekRange(_ start: Date) -> String {

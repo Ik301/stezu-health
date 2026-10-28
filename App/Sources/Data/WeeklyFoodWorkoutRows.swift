@@ -1,10 +1,9 @@
 import StezuCore
 import SwiftUI
 
-/// This week's Food and Workouts rows (S-023, S-039). Food: the mean kcal range over the logged
-/// days, with each day's kcal as data-energy bars. Workouts: sessions from Stezu and Health, the
-/// week's working sets beneath, and each day's sets as bars, where a rest day is a real 0. No
-/// meals or no sessions this week show "--", never 0.
+/// This week's Food and Workouts rows (S-023, S-039). Food: the mean kcal range of the logged
+/// days, each day's kcal as data-energy bars. Workouts: sessions from Stezu and Health, working
+/// sets beneath, each day's sets as bars (a rest day is a real 0). No data shows "--", never 0.
 struct WeeklyFoodWorkoutRows: View {
   var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment

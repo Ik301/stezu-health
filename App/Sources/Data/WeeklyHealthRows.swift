@@ -1,9 +1,8 @@
 import StezuCore
 import SwiftUI
 
-/// This week's Health rows (S-022, S-039), each made from its metric's 8-week history, the same
-/// one its detail draws: the current week's value and coverage, and its days as the sparkline.
-/// No data shows "--" beside the coverage, never 0. With `hint`, a metric without data adds the
+/// This week's Health rows (S-022, S-039) from the same 8-week history as the detail (D-112). No
+/// data shows "--" beside the coverage, never 0; with `hint`, a metric without data adds the
 /// Sources hint. Blood oxygen and temperature have no row (D-093); Health still reads them.
 struct WeeklyHealthRows: View {
   let metrics: [Metric]
