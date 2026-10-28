@@ -53,6 +53,7 @@ Night cards use wt/F-xxx or wt/S-xxx, in a worktree under .worktrees/<id>/. infr
 - G4: `swift format lint --strict` over all Swift files. Fix with `swift format -i -r <paths>`.
 - G5: `server/run_tests.sh` when it exists; skipped with a notice otherwise.
 - G6: `mac/screentime/run_tests.sh` (the Mac Screen Time uploader's stdlib tests) when it exists.
+- G8: `mac/autoinstall/run_tests.sh`, stub tests for the Mac job that rebuilds and installs the app on Isaac's iPhone each morning so the free team's 7-day signing never lapses (D-104).
 - G7: token lint. UI code takes colours, fonts (`.textStyle(...)`), spacing, radii and sizes from App/Shared/Theme.swift only; G7 fails on colour or `.system(size:` literals elsewhere and on Theme.swift drifting from design/system/tokens.json. Light and Dark follow the phone; `UITestApp.launch(dark: true)` (`-uitest-dark`) forces Dark for screenshots.
 
 CI: `linux-core` runs the gates; `ios` builds the app and the extension, runs AppTests and AppUITests on a simulator, and uploads the xcresult and the screenshots. Both checks are required to merge.

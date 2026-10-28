@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Test stub: records where it ran and whether the signing team file was in place.
+team="none"
+if [ -f Config/Local.xcconfig ]; then team="$(grep -o 'DEVELOPMENT_TEAM.*' Config/Local.xcconfig)"; fi
+echo "xcodegen $* (cwd $PWD) ($team)" >>"$STUB_LOG"

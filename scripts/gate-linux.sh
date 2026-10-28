@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Linux gates G1 to G7. Works from the main checkout or any git worktree.
+# Linux gates G1 to G8. Works from the main checkout or any git worktree.
 # Usage: scripts/gate-linux.sh   (env: FEATURE_ID=F-xxx, BASE=origin/main)
 set -uo pipefail
 
@@ -57,6 +57,15 @@ g6_mac_uploader() {
     return 0
   fi
   bash mac/screentime/run_tests.sh
+}
+
+g8_mac_autoinstall() {
+  # The Mac auto-installer (mac/autoinstall, bash) brings its own tests with stubbed Xcode tools.
+  if [ ! -f mac/autoinstall/run_tests.sh ]; then
+    echo "notice: mac/autoinstall/run_tests.sh not found; G8 skipped"
+    return 0
+  fi
+  bash mac/autoinstall/run_tests.sh
 }
 
 g7_token_lint() {
@@ -151,6 +160,7 @@ run_gate "G4 format lint" g4_format
 run_gate "G5 server tests" g5_server
 run_gate "G6 mac uploader tests" g6_mac_uploader
 run_gate "G7 token lint" g7_token_lint
+run_gate "G8 mac autoinstall tests" g8_mac_autoinstall
 
 if [ "${#failed[@]}" -gt 0 ]; then
   printf 'gate-linux: FAILED:'
