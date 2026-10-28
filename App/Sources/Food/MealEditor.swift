@@ -31,7 +31,7 @@ struct MealEditor: View {
       if let searching { search(searching) } else { list }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .background(Theme.ground)
+    .background(Theme.surface)
     .presentationDetents([.medium, .large], selection: $detent)
     .presentationDragIndicator(.visible)
     .onChange(of: searching) { _, target in if target != nil { detent = .large } }
@@ -43,12 +43,15 @@ struct MealEditor: View {
         TopBar(
           title: "Meal", titleID: "food.match.title",
           action: .init(title: "Done", id: "food.edit.done") { dismiss() })
-        HStack(spacing: Theme.spaceMd) {
-          Text(PhotoMatchSheet.range(edit.totalKcal, unit: "kcal"))
-            .accessibilityIdentifier("food.match.total.kcal")
-          Text(PhotoMatchSheet.range(edit.totalProteinG, unit: "g protein"))
-            .accessibilityIdentifier("food.match.total.protein")
+        HStack(alignment: .top, spacing: Theme.spaceXl) {
+          PhotoMatchSheet.total(
+            "Energy", edit.totalKcal, unit: "kcal", spoken: "kcal", color: Theme.dataEnergy,
+            id: "food.match.total.kcal")
+          PhotoMatchSheet.total(
+            "Protein", edit.totalProteinG, unit: "g", spoken: "g protein",
+            color: Theme.dataProtein, id: "food.match.total.protein")
         }
+        .padding(.bottom, Theme.spaceXs)
         ForEach(Array(edit.items.enumerated()), id: \.offset) { index, item in
           PhotoMatchSheet.row(item, id: "food.match.item.\(index)") {
             searching = .replace(index)
@@ -56,19 +59,16 @@ struct MealEditor: View {
             stepper(index, id: "food.match.item.\(index)")
           }
         }
+        wide("+ Add item", id: "food.edit.add", inverted: false) { searching = .add }
       }
       .padding(Theme.spaceLg)
     }
     .scrollIndicators(.hidden)
-    // Pinned under the list, so Log stays on screen at the medium detent below the TopBar.
+    // Log, full width and pinned under the list, so it stays on screen at the medium detent.
     .safeAreaInset(edge: .bottom, spacing: 0) {
-      HStack {
-        pill("+ Add item", id: "food.edit.add", inverted: false) { searching = .add }
-        Spacer()
-        pill(action, id: "food.edit.\(action.lowercased())", inverted: true) { log(edit.items) }
-          .disabled(edit.items.isEmpty)
-      }
-      .padding(Theme.spaceLg).background(Theme.ground)
+      wide(action, id: "food.edit.\(action.lowercased())", inverted: true) { log(edit.items) }
+        .disabled(edit.items.isEmpty)
+        .padding(Theme.spaceLg).background(Theme.surface)
     }
   }
 
@@ -78,9 +78,9 @@ struct MealEditor: View {
         Button {
           edit.step(index, up: up)
         } label: {
-          Image(systemName: up ? "plus" : "minus").textStyle(.subtitle, weight: .semibold)
-            .foregroundStyle(Theme.ink).frame(width: 36, height: 32)
-            .background(Capsule().fill(Theme.surfaceRaised))
+          Image(systemName: up ? "plus" : "minus").textStyle(.value, weight: .semibold)
+            .foregroundStyle(Theme.ink).frame(width: Theme.sizeTarget, height: Theme.sizeTarget)
+            .overlay(Circle().stroke(Theme.track))
         }
         .accessibilityLabel(up ? "Half serving more" : "Half serving less")
         .accessibilityIdentifier("\(id).\(up ? "plus" : "minus")")
@@ -92,15 +92,17 @@ struct MealEditor: View {
     }
   }
 
-  private func pill(
+  /// A full-width pill: Log in `invert` at the bottom, + Add item in `surface-raised`.
+  private func wide(
     _ title: String, id: String, inverted: Bool, action: @escaping () -> Void
   ) -> some View {
-    Button(title, action: action)
-      .textStyle(.subtitle, weight: .semibold)
-      .foregroundStyle(inverted ? Theme.onInvert : Theme.ink)
-      .padding(.horizontal, Theme.spaceXl).frame(height: Theme.sizeTarget)
-      .background(Capsule().fill(inverted ? Theme.invert : Theme.surfaceRaised))
-      .accessibilityIdentifier(id)
+    Button(action: action) {
+      Text(title).textStyle(.headline)
+        .foregroundStyle(inverted ? Theme.onInvert : Theme.ink)
+        .frame(maxWidth: .infinity, minHeight: inverted ? Theme.sizeControl : Theme.sizeTarget)
+        .background(Capsule().fill(inverted ? Theme.invert : Theme.surfaceRaised))
+    }
+    .accessibilityIdentifier(id)
   }
 
   /// The same search as the camera's (S-014), inside the sheet; a pick returns to the list.

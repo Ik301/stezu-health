@@ -1480,7 +1480,7 @@
         "s043-food-today"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-044",

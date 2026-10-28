@@ -1521,7 +1521,23 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/ChartSeries.swift (`rangeBands`, `MetricHistory.food`), App/Sources/Data/MetricDetailView.swift (`panels`, `text(_:from:days:)`), Packages/StezuCore/Tests/StezuCoreTests/ChartSeriesTests.swift, commit on wt/S-042.
 - Reverse if: food needs per-day protein coverage different from kcal (a day with a known kcal total and an unknown protein item shows "--" for the whole row now), or a third estimate metric appears (then (c)).
 
-## D-108 Workouts' detail counts working sets per day from the phone's sessions; a day without a session is 0, a week without one is absent
+## D-108 Food Today always leads with today's day and draws its week from the meals already loaded for History
+
+- Status: proposed by night agent, 2026-10-27 (S-043).
+- Problem: History becomes Food Today, which must open on today's ranges and meals and a 7-day band chart even when nothing was logged today, while S-019's past days, their edit and delete, and their accessibility ids (`food.history.day.<n>`) keep working.
+- Given: `mealCaptures.days()` returns only days with a logged meal or a pending photo, newest first; `FoodDay.kcal` is the day's summed range, nil when a day has no meal or an item without a range. The S-019 and S-038 UI tests address today as `food.history.day.0`.
+- Constraints:
+  - A separate today screen with its own ids would duplicate the meal rows and break S-019's and S-038's tests.
+  - A week drawn from Health or a new store would add a second source for the same meals (absent is not zero: a day without meals must stay nil).
+- Options:
+  - (a) After loading, insert an empty `FoodDay` for today when the newest day is not today, so index 0 is always today; render index 0 as the large totals and its meals, then the week, then the other days as before. The week is the last 7 calendar days looked up in the same loaded days; a missing day is nil.
+  - (b) A new FoodTodayView with its own load and a "Past days" link to the old list.
+  - (c) A core helper returning the week's bands with coverage.
+- Decision: (a). It keeps one load, one list and the S-019 ids; the 7 lookups need no core code.
+- Evidence: App/Sources/Food/FoodHistory.swift (`load`, `week`, `todayView`), App/Sources/Food/FoodWeekBands.swift, App/UITests/FoodUITests.swift, commit on wt/S-043.
+- Reverse if: Food Today becomes a pushed screen instead of a sheet, or past days move to their own screen (then (b)).
+
+## D-109 Workouts' detail counts working sets per day from the phone's sessions; a day without a session is 0, a week without one is absent
 
 - Status: proposed by night agent, 2026-10-27 (S-042b).
 - Problem: the metric detail template needs a number per day and per week for Workouts, but sessions live on the phone in two stores that can hold the same session, and design/system says a rest day is a real 0 while AGENTS.md says absent is never 0.
@@ -1538,7 +1554,7 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/ChartSeries.swift (`MetricHistory.workouts`, `ChartSeries.coverage`), App/Sources/Data/MetricDetailView.swift, Packages/StezuCore/Tests/StezuCoreTests/ChartSeriesTests.swift (testWorkoutsWeekTotalsSetsAndDropsDuplicates), commit on wt/S-042b.
 - Reverse if: Isaac wants a sessionless week as 0 (then (b): give the week coverage 1 when it has any day up to now), or weeks before the first session ever should be absent rather than rest days.
 
-## D-109 CoverageDots sit beside the week row's button, hidden from VoiceOver except under -uitest, where they are one element
+## D-110 CoverageDots sit beside the week row's button, hidden from VoiceOver except under -uitest, where they are one element
 
 - Status: proposed by night agent, 2026-10-27 (S-042b).
 - Problem: the dots must be hidden from VoiceOver (the words carry the meaning), yet the story's UI test has to find them, and a SwiftUI Button folds everything in its label into one element.

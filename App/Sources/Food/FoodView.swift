@@ -42,12 +42,10 @@ struct FoodView: View {
         }
         if cameraAllowed == false { deniedMessage }
         if captureFailed {
-          Text("Could not take the photo.").foregroundStyle(Theme.onCamera)
-            .accessibilityIdentifier("food.error")
+          Text("Could not take the photo.").onScrim().accessibilityIdentifier("food.error")
         }
         if logFailed {
-          Text("Could not save the meal.").foregroundStyle(Theme.onCamera)
-            .accessibilityIdentifier("food.log.error")
+          Text("Could not save the meal.").onScrim().accessibilityIdentifier("food.log.error")
         }
         Spacer()
       } else {
@@ -161,7 +159,8 @@ struct FoodView: View {
     }
   }
 
-  /// Today's kcal and protein ranges and meal count, "--" with none; no target (D-032).
+  /// Today's kcal and protein ranges and meal count on the camera scrim, "--" with none; no
+  /// target (D-032).
   private var todayStrip: some View {
     HStack(spacing: Theme.spaceMd) {
       Text("Today").fontWeight(.semibold)
@@ -173,8 +172,7 @@ struct FoodView: View {
       Text(day?.mealCount.map { "\($0) meal\($0 == 1 ? "" : "s")" } ?? "-- meals")
         .accessibilityIdentifier("food.strip.meals")
     }
-    .textStyle(.label, weight: .medium).foregroundStyle(Theme.ink)
-    .padding(.horizontal, Theme.spaceMd).frame(height: 32).background(Capsule().fill(Theme.surface))
+    .onScrim().textStyle(.label, weight: .medium)
   }
 
   private func loadToday() async {
@@ -315,4 +313,12 @@ struct FoodView: View {
 struct PickedItem: Identifiable {
   let id = UUID()
   let item: MatchedItem
+}
+
+extension View {
+  /// Text over the camera sits on the scrim, never bare over the preview.
+  func onScrim() -> some View {
+    foregroundStyle(Theme.onCamera).padding(.horizontal, Theme.spaceLg)
+      .padding(.vertical, Theme.spaceSm).background(Capsule().fill(Theme.cameraScrim))
+  }
 }
