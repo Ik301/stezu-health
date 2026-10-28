@@ -18,7 +18,14 @@ final class SheetHeaderUITests: XCTestCase {
     gear.tap()
     let settings = app.element("screen.settings.title")
     XCTAssertTrue(settings.waitForExistence(timeout: 10), "Settings did not reopen")
-    settings.swipeDown(velocity: .fast)
+    // Drag the sheet by its grabber to the bottom of the screen; a swipe on the title text does
+    // not move a full-height sheet.
+    let grabber = app.buttons["Sheet Grabber"].firstMatch
+    let from = grabber.exists ? grabber : settings
+    from.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+      .press(
+        forDuration: 0.1,
+        thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
     XCTAssertTrue(settings.waitForNonExistence(timeout: 10), "swipe down did not close Settings")
 
     // Data: Sources sits in the TopBar's right slot; Sources, a metric and Weigh in.

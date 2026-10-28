@@ -56,16 +56,20 @@ struct MealEditor: View {
             stepper(index, id: "food.match.item.\(index)")
           }
         }
-        HStack {
-          pill("+ Add item", id: "food.edit.add", inverted: false) { searching = .add }
-          Spacer()
-          pill(action, id: "food.edit.\(action.lowercased())", inverted: true) { log(edit.items) }
-            .disabled(edit.items.isEmpty)
-        }
       }
       .padding(Theme.spaceLg)
     }
     .scrollIndicators(.hidden)
+    // Pinned under the list, so Log stays on screen at the medium detent below the TopBar.
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      HStack {
+        pill("+ Add item", id: "food.edit.add", inverted: false) { searching = .add }
+        Spacer()
+        pill(action, id: "food.edit.\(action.lowercased())", inverted: true) { log(edit.items) }
+          .disabled(edit.items.isEmpty)
+      }
+      .padding(Theme.spaceLg).background(Theme.ground)
+    }
   }
 
   private func stepper(_ index: Int, id: String) -> some View {
