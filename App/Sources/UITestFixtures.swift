@@ -124,7 +124,15 @@ enum UITestFixtures {
       (.inBed, -60, 420), (.asleepCore, -45, 180), (.asleepDeep, 180, 240),
       (.asleepREM, 240, 330), (.awake, 330, 340), (.asleepCore, 340, 405),
     ]
-    return [5, 6, 7, 9, 10].flatMap { day in
+    // "home-week" (S-037) adds last night, ending Sunday: 6h 15m asleep.
+    let lastNight: [(SleepStage, Double, Double)] = [
+      (.inBed, -60, 420), (.asleepCore, -30, 180), (.asleepDeep, 180, 240), (.awake, 240, 250),
+      (.asleepREM, 250, 355),
+    ]
+    let nights: [(Int, [(SleepStage, Double, Double)])] =
+      [5, 6, 7, 9, 10].map { ($0, stages) }
+      + (scenario == homeWeekScenario ? [(11, lastNight)] : [])
+    return nights.flatMap { day, stages in
       stages.map {
         let midnight = dataWeekDay(day, hour: 0)
         return (start: midnight + $0.1 * 60, end: midnight + $0.2 * 60, stage: $0.0)
