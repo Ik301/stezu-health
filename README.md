@@ -16,3 +16,6 @@ an argument), writes it to `Config/Local.xcconfig`, which git ignores, and runs 
 generate`. `Config/Signing.xcconfig` includes that file for the app and its Live Activity
 extension, so a regenerate no longer resets signing and you never pick the team in Xcode again.
 If the script cannot find a team, it prints where to look it up in Xcode.
+
+A free team's signing lasts 7 days. `mac/autoinstall/install.sh` sets up a launchd job that
+rebuilds main and installs it on the iPhone over Wi-Fi every morning (mac/autoinstall/README.md).

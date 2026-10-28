@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Test stub: xcrun devicectl. FAKE_DEVICES is the JSON that `list devices` writes;
+# FAKE_INSTALL_RC and FAKE_INSTALL_MSG fail `device install app`.
+echo "xcrun $*" >>"$STUB_LOG"
+[ "${1:-}" = devicectl ] || {
+  echo "xcrun stub: unexpected: $*" >&2
+  exit 1
+}
+shift
+case "$1 $2" in
+  "list devices")
+    out=""
+    while [ $# -gt 0 ]; do
+      if [ "$1" = --json-output ]; then out="$2"; fi
+      shift
+    done
+    cp "$FAKE_DEVICES" "$out"
+    echo "Devices:"
+    ;;
+  "device install")
+    if [ "${FAKE_INSTALL_RC:-0}" != 0 ]; then
+      echo "${FAKE_INSTALL_MSG:-ERROR: Failed to install the app on the device. (com.apple.dt.CoreDeviceError error 3002.)}" >&2
+      exit "$FAKE_INSTALL_RC"
+    fi
+    echo "App installed:"
+    ;;
+  *)
+    echo "xcrun stub: unexpected: devicectl $*" >&2
+    exit 1
+    ;;
+esac

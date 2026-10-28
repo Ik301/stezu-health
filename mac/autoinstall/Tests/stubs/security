@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Test stub: `security cms -D -i <file>`; test profiles are plain plists already.
+while [ $# -gt 0 ]; do
+  if [ "$1" = -i ]; then cat "$2"; exit $?; fi
+  shift
+done
+exit 1

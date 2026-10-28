@@ -1,0 +1,74 @@
+{
+  "info": {
+    "arguments": [
+      "devicectl",
+      "list",
+      "devices",
+      "--json-output",
+      "/tmp/out.json"
+    ],
+    "commandType": "devicectl.list.devices",
+    "environment": {
+      "TERM": "xterm-256color"
+    },
+    "jsonVersion": 99,
+    "outcome": "success",
+    "version": "477.29"
+  },
+  "devices": [
+    {
+      "capabilities": [
+        {
+          "featureIdentifier": "com.apple.coredevice.feature.installapp",
+          "name": "Install Application"
+        }
+      ],
+      "connectionProperties": {
+        "authenticationType": "manualPairing",
+        "isMobileDeviceOnly": false,
+        "lastConnectionDate": "2026-01-01T06:30:00.000Z",
+        "pairingState": "paired",
+        "potentialHostnames": [
+          "00000000-000A000000000001.coredevice.local",
+          "AAAAAAAA-0000-4000-8000-000000000001.coredevice.local"
+        ],
+        "tunnelState": "disconnected",
+        "transportType": "localNetwork",
+        "tunnelTransportProtocol": "tcp"
+      },
+      "deviceProperties": {
+        "bootedFromSnapshot": true,
+        "ddiServicesAvailable": true,
+        "developerModeStatus": "enabled",
+        "hasInternalOSBuild": false,
+        "name": "Test iPhone",
+        "osBuildUpdate": "23A000",
+        "osVersionNumber": "26.0",
+        "rootFileSystemIsWritable": false
+      },
+      "hardwareProperties": {
+        "cpuType": {
+          "name": "arm64e",
+          "subType": 2,
+          "type": 16777228
+        },
+        "deviceType": "iPhone",
+        "ecid": 1000000000000001,
+        "hardwareModel": "D00AP",
+        "marketingName": "iPhone 00",
+        "platform": "iOS",
+        "productType": "iPhone00,0",
+        "reality": "physical",
+        "serialNumber": "TESTSERIAL1",
+        "supportedDeviceFamilies": [
+          1
+        ],
+        "thinningProductType": "iPhone00,0",
+        "udid": "00000000-000A000000000001"
+      },
+      "identifier": "AAAAAAAA-0000-4000-8000-000000000001",
+      "tags": [],
+      "visibilityClass": "default"
+    }
+  ]
+}
