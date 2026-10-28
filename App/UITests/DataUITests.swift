@@ -64,6 +64,52 @@ final class DataUITests: XCTestCase {
     saveScreenshot("s039-this-week-dark", of: dark)
   }
 
+  /// S-048: with data-food-week (Sunday clock; synthetic visits on Monday, Stezu sessions on
+  /// Monday and Thursday, a Health run on Saturday) Home's Workout dots show the 7 days with
+  /// today, Sunday, outlined. This week has a Places card whose Visits row has a bar sparkline
+  /// (2 visits on 1 of 7 days) and no chevron, then a quiet Sources row naming the apps that
+  /// opens Sources.
+  @MainActor
+  func testPlacesRowSourcesRowAndWeekDots() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "data-food-week")
+    let workout = app.element("home.card.workout")
+    XCTAssertTrue(workout.waitForExistence(timeout: 30), "no Workout card on Home")
+    let loaded = NSPredicate(format: "label CONTAINS %@", "(Mon")
+    XCTAssertEqual(
+      XCTWaiter().wait(for: [expectation(for: loaded, evaluatedWith: workout)], timeout: 30),
+      .completed, "workout: \(workout.label)")
+    // 1 trained, 0 a ring, t today outlined (CoverageDots.marks): 7 positions, Monday first.
+    let dots = workout.value as? String ?? ""
+    XCTAssertEqual(dots.count, 7, "dots: \(dots)")
+    XCTAssertEqual(dots.first, "1", "Monday is trained: \(dots)")
+    XCTAssertEqual(dots.last, "t", "today (Sunday) is not outlined: \(dots)")
+    saveScreenshot("s048-home-dots", of: app)
+
+    app.element("home.card.data").tap()
+    let places = app.element("data.places.value")
+    XCTAssertTrue(places.waitForExistence(timeout: 10), "no Places row")
+    let two = NSPredicate(format: "label == %@", "2")
+    XCTAssertEqual(
+      XCTWaiter().wait(for: [expectation(for: two, evaluatedWith: places)], timeout: 30),
+      .completed, "visits: \(places.label)")
+    XCTAssertEqual(app.element("data.places.coverage").label, "1 of 7 days")
+    let spark = app.element("data.spark.places")
+    XCTAssertTrue(spark.exists, "no Places sparkline")
+    XCTAssertEqual(spark.value as? String, "6 of 7 days without data")
+    XCTAssertFalse(app.element("data.places.open").exists, "Places has no detail yet")
+
+    let sources = app.element("data.sources")
+    for _ in 0..<3 where !sources.isHittable { app.swipeUp() }
+    XCTAssertGreaterThan(sources.frame.minY, places.frame.maxY, "Sources is not under Places")
+    XCTAssertTrue(sources.label.hasPrefix("Sources, "), "sources: \(sources.label)")
+    XCTAssertFalse(sources.label.hasSuffix("--"), "no source apps: \(sources.label)")
+    saveScreenshot("s048-this-week", of: app)
+    sources.tap()
+    XCTAssertTrue(
+      app.element("screen.sources.title").waitForExistence(timeout: 10), "Sources did not open")
+  }
+
   /// Opens Data and waits until both the first and the last Health rows have loaded.
   @MainActor
   private func openData(_ app: XCUIApplication) {
@@ -74,7 +120,7 @@ final class DataUITests: XCTestCase {
       let coverage = app.element("data.\(id).coverage")
       let match = NSPredicate(format: "label == %@", label)
       XCTAssertEqual(
-        XCTWaiter().wait(for: [expectation(for: match, evaluatedWith: coverage)], timeout: 10),
+        XCTWaiter().wait(for: [expectation(for: match, evaluatedWith: coverage)], timeout: 30),
         .completed, "\(id) coverage: \(coverage.label)")
     }
   }

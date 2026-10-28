@@ -1801,3 +1801,36 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The name never enters the log, the queue or a log line; the timeline shows times for a visit without one. `-uitest` uses `FakeReverseGeocoder` (names by latitude for the fixture's made-up places).
 - Evidence: Packages/StezuCore/Sources/StezuCore/PlaceNames.swift, App/Sources/Data/LocationService.swift (AppleReverseGeocoder, placeNamesFile), App/Sources/Data/DayView.swift, Packages/StezuCore/Tests/StezuCoreTests/DayTimelineTests.swift (testPlaceNamesCachedByVisitIdNeverSynced), commit on wt/S-049.
 - Reverse if: Isaac turns D-119 off (then drop PlaceNames and place-names.json) or wants names in the history on the server (then they become a separate, opt-in record kind).
+
+## D-126 CoverageDots draws all 7 days from the days up to today plus a current-week flag, and a Home card hands its dots to UI tests as its value
+
+- Status: proposed by night agent, 2026-10-28 (S-048).
+- Problem: the dots must show the whole Monday to Sunday week with today outlined and days to come faint, on Home, the Workout screen and the Workouts detail, and a UI test must check Home's dots, which sit inside the card's single button element.
+- Given: `ChartSeries.coverage` and `HomeViewModel.dots` give the days from Monday up to today (all 7 for a past week), and their tests pin that. The Workout screen (outside this card) calls `CoverageDots(days:id:)`. A SwiftUI Button folds its label into one element, so nothing inside a Home card can be found by id.
+- Constraints:
+  - Changing the day arrays to 7 entries with a future state changes ChartSeriesTests, HomeViewModelTests and the Workout screen's call (breaks the card's boundaries).
+  - Inferring today from the array's length alone cannot tell a Sunday from a past week (breaks today on Sundays).
+  - Exposing the dots outside the card button gives Home a second element per card (breaks GlanceCard's one-control rule and the S-037 label checks).
+- Options:
+  - (a) Keep the arrays; CoverageDots pads to 7, takes `current` (default true; the detail passes `index == 0`), and marks each day 1, 0, t/T (today) or - (to come) in `CoverageDots.marks`. Under -uitest the dots' element and Home's card button carry those marks as their accessibility value.
+  - (b) A `[Bool?]` series from the core with nil for days to come.
+  - (c) Check Home's dots only on the screenshot.
+- Decision: (a). Outside -uitest the card's value is empty and the dots stay hidden from VoiceOver; the card's label already names the trained days.
+- Evidence: App/Sources/Charts/CoverageDots.swift, App/Sources/HomeView.swift, App/Sources/Data/MetricDetailView.swift, App/UITests/DataUITests.swift (testPlacesRowSourcesRowAndWeekDots), commit on wt/S-048.
+- Reverse if: a fourth caller needs the future state from the core, or VoiceOver users ask for the dots (then the card's label grows, not its value).
+
+## D-127 This week's Sources row names its apps from the same 7-day HealthSources read as the Sources screen
+
+- Status: proposed by night agent, 2026-10-28 (S-048).
+- Problem: the quiet Sources row shows the source app names on its right, but This week has no list of the apps that wrote its data.
+- Given: `HealthSources.load` reads each Health type's last 7 days and groups samples by source name for the Sources screen (S-020). The Places row's data comes from the phone, not Health.
+- Constraints:
+  - A new core type for app names adds a second way to count sources (breaks one source of truth).
+  - Listing every app overflows one row (breaks the quiet row).
+- Options:
+  - (a) The row runs `HealthSources.load` when it appears, sums each source's samples across types, and shows the top 3 by count (ties by name), "--" with none.
+  - (b) Collect the names from each card's own reads.
+  - (c) A fixed "Health" label.
+- Decision: (a). It costs one more pass over the Health types when This week opens, the same reads the Sources screen makes.
+- Evidence: App/Sources/Data/DataView.swift (`sourcesRow`), commit on wt/S-048.
+- Reverse if: the extra read slows This week on a device, or the row should name the phone's own sources (Location) too.

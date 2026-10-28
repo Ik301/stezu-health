@@ -11,6 +11,7 @@ struct DataView: View {
   @State private var sourcesOpen = false
   @State private var notInHealth: [String] = []
   @State private var metric: Metric?
+  @State private var apps: String?
 
   var body: some View {
     let isConnected = connected ?? environment.healthConnection.isConnected
@@ -26,10 +27,7 @@ struct DataView: View {
               }
             }
             PlacesRow()
-            Button("Sources", action: sources).textStyle(.subtitle).foregroundStyle(Theme.muted)
-              .buttonStyle(.plain)
-              .frame(maxWidth: .infinity, minHeight: Theme.sizeTarget, alignment: .leading)
-              .padding(.horizontal, Theme.spaceLg).accessibilityIdentifier("data.sources")
+            sourcesRow
           }
         }
         .scrollIndicators(.hidden)
@@ -56,6 +54,32 @@ struct DataView: View {
     .sheet(item: $metric) { metric in  // Sleep has its own screen (S-040)
       Group { if metric == .sleep { SleepDetailView() } else { MetricDetailView(metric: metric) } }
         .presentationDragIndicator(.visible)
+    }
+  }
+
+  /// S-048: a quiet row with a chevron and the apps that wrote the most this week on the right.
+  private var sourcesRow: some View {
+    Button(action: sources) {
+      HStack(spacing: Theme.spaceSm) {
+        Text("Sources").textStyle(.subtitle).foregroundStyle(Theme.ink)
+        Spacer()
+        Text(apps ?? "--").textStyle(.label).lineLimit(1)
+        Image(systemName: "chevron.right").textStyle(.label, weight: .semibold)
+      }
+      .foregroundStyle(Theme.muted).padding(.horizontal, Theme.spaceLg)
+      .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+      .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
+      .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard).strokeBorder(Theme.edge))
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain).accessibilityLabel("Sources, \(apps ?? "--")")
+    .accessibilityIdentifier("data.sources")
+    .task {
+      let rows = await HealthSources.load(from: environment.healthStore, now: environment.now())
+      let counts = Dictionary(
+        rows.flatMap(\.recentSources).map { ($0.name, $0.count) }, uniquingKeysWith: +)
+      let top = counts.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.prefix(3).map(\.key)
+      apps = top.isEmpty ? nil : top.joined(separator: ", ")
     }
   }
 

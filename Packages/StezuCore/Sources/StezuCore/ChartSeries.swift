@@ -69,7 +69,8 @@ extension MetricHistory {
 
   /// Working sets: a day's value is the sets of its Stezu sessions, a session in two stores
   /// (the same start within a second) counted once, and a week's is their total. A day up to
-  /// `now` without a session is a rest day, a real 0; a week without a session is absent.
+  /// `now` without a session is a rest day, a real 0, in a week with a session; a week without
+  /// a session is absent, its days too (D-120).
   public static func workouts(
     _ sessions: [WorkoutSession], now: Date, calendar: Calendar = .current
   ) -> MetricHistory {
@@ -82,8 +83,12 @@ extension MetricHistory {
       .mapValues { Double($0.reduce(0) { $0 + $1.workingSets }) }
     let current = WeeklyStats.week(containing: now, calendar: calendar).start
     let days = (-49..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: current) }
+    let monday = { WeeklyStats.week(containing: $0, calendar: calendar).start }
+    let trained = Set(sets.keys.map(monday))
     let daily = Dictionary(
-      uniqueKeysWithValues: days.filter { $0 <= now }.map { ($0, sets[$0] ?? 0) })
+      uniqueKeysWithValues: days.filter { $0 <= now && trained.contains(monday($0)) }.map {
+        ($0, sets[$0] ?? 0)
+      })
     return history(.workouts, daily: daily, now: now, sources: ["Stezu"], calendar: calendar) {
       week in
       let inWeek = unique.filter { week.contains($0.startedAt) }

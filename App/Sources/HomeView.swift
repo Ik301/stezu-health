@@ -50,6 +50,10 @@ struct HomeView: View {
             HomeCardView(card: card, inverted: card.id == inverted)
           }
           .buttonStyle(.plain)
+          // The card is one element, so a UI test reads Workout's dots from its value (S-048).
+          .accessibilityValue(
+            environment.isUITest ? card.dots.map { CoverageDots.marks($0) } ?? "" : ""
+          )
           .accessibilityIdentifier("home.card.\(card.id)")
         }
       }
@@ -123,7 +127,7 @@ struct HomeCardView: View {
     if let bars = card.bars {
       Sparkline(title: "Nights this week", values: bars, bars: true, today: card.today)
     } else if let dots = card.dots {
-      CoverageDots(days: dots, id: "home.\(card.id).dots")
+      CoverageDots(days: dots, id: "home.\(card.id).dots", size: 12)
     }
   }
 

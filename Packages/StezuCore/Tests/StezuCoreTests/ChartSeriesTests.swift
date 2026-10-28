@@ -98,11 +98,59 @@ final class ChartSeriesTests: XCTestCase {
     XCTAssertEqual(history.weeks[0].days.map(\.value), [3, 0, 0, 2, nil, nil, nil])
     XCTAssertEqual(history.weeks[1].stat.value, 1)
     XCTAssertNil(history.weeks[2].stat.value, "no session: absent, not 0")
-    XCTAssertEqual(history.weeks[2].days.map(\.value), Array(repeating: 0, count: 7))
+    // S-048 changed this expectation (D-120): a sessionless week's days are absent too.
+    XCTAssertEqual(history.weeks[2].days.map(\.value), Array(repeating: nil, count: 7))
     XCTAssertEqual(
       ChartSeries.coverage(history.weeks[0], of: .workouts, now: now), [true, false, false, true],
       "a dot is filled on a day with sets")
     XCTAssertEqual(history.sources, ["Stezu"])
+  }
+
+  /// S-048 (D-120): a week with no session is absent, its value and its days; a rest day inside
+  /// a week with a session is a real 0; days to come are absent.
+  func testSessionlessWeekIsAbsentNotZero() {
+    let now = day(8, hour: 20)  // Thursday
+    let history = MetricHistory.workouts([session(5, sets: 3)], now: now, calendar: calendar)
+    XCTAssertEqual(history.weeks[0].days.map(\.value), [3, 0, 0, 0, nil, nil, nil])
+    XCTAssertEqual(ChartSeries.sparkline(history), [3, 0, 0, 0, nil, nil, nil])
+    for week in history.weeks.dropFirst() {
+      XCTAssertNil(week.stat.value, "no session that week: absent, not 0")
+      XCTAssertEqual(week.days.map(\.value), Array(repeating: nil, count: 7))
+    }
+
+    // This week has no session yet: absent too, while last week's rest days stay 0.
+    let quiet = MetricHistory.workouts([session(2, sets: 2)], now: now, calendar: calendar)
+    XCTAssertNil(quiet.weeks[0].stat.value)
+    XCTAssertEqual(ChartSeries.sparkline(quiet), Array(repeating: nil, count: 7))
+    XCTAssertEqual(quiet.weeks[1].days.map(\.value), [0, 0, 0, 0, 2, 0, 0], "Friday the 2nd")
+    XCTAssertEqual(quiet.weeks[1].stat.value, 2)
+  }
+
+  /// S-048: Places' bar Sparkline counts the visits that arrived each day, Monday to Sunday; a
+  /// day with only a fix is a real 0, a day without location data (or still to come) is nil.
+  func testPlacesPerDayVisits() throws {
+    var log = LocationLog()
+    let visit = { (day: Int, hour: Int) -> LocationEvent in
+      .visit(
+        arrival: self.day(day, hour: hour), departure: self.day(day, hour: hour + 1),
+        latitude: 10.25, longitude: -30.5, accuracy: 40)
+    }
+    for event in [visit(5, 8), visit(5, 12), visit(7, 9), visit(3, 9)] {
+      _ = log.apply(event, at: day(9))
+    }
+    // A fix on Tuesday and the same visit reported again (its departure) on Wednesday.
+    _ = log.apply(
+      .fix(at: day(6, hour: 15), latitude: 10.5, longitude: -30.25, accuracy: 500, speed: nil),
+      at: day(9))
+    _ = log.apply(visit(7, 9), at: day(9))
+    let week = WeeklyStats.week(containing: day(9, hour: 12), calendar: calendar)
+    let places = try XCTUnwrap(log.week(week, calendar: calendar))
+    XCTAssertEqual(places.visits, 3, "Mon twice and Wed once; the Saturday before is not this week")
+    XCTAssertEqual(places.daysWithData, 3)
+    XCTAssertEqual(places.perDay, [2, 0, 1, nil, nil, nil, nil], "a gap is nil, never 0")
+    XCTAssertEqual(places.perDay.compactMap { $0 }.reduce(0, +), Double(places.visits))
+    let empty = WeeklyStats.week(containing: day(20), calendar: calendar)
+    XCTAssertNil(log.week(empty, calendar: calendar), "no location data: absent, not 0 visits")
   }
 
   /// A made-up session at 6 pm on `day` with `sets` sets of bench press.

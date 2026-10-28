@@ -128,9 +128,7 @@ struct MetricDetailView: View {
           if metric != .hrv {
             CoverageDots(
               days: ChartSeries.coverage(week, of: metric, now: environment.now()),
-              id: "metric.week.\(index).dots"
-            )
-            .frame(width: 54, alignment: .leading)
+              id: "metric.week.\(index).dots", current: index == 0)
           }
           Button {
             openWeek = index
@@ -184,30 +182,12 @@ struct MetricDetailView: View {
 
   private func range(_ start: Date) -> String {
     let end = Calendar.current.date(byAdding: .day, value: 6, to: start) ?? start
-    let style = Date.FormatStyle().weekday(.abbreviated).month(.abbreviated).day()
+    let style = Date.FormatStyle().month(.abbreviated).day()  // "Dec 29 to Jan 4", no wrap
     return "\(start.formatted(style)) to \(end.formatted(style))"
   }
 
   private func label(_ text: String) -> some View {
     Text(text).textStyle(.label).foregroundStyle(Theme.muted)
-  }
-}
-
-/// An overview row's way into its metric's weeks.
-struct MetricOpenButton: View {
-  let metric: Metric
-  let open: (Metric) -> Void
-
-  var body: some View {
-    Button {
-      open(metric)
-    } label: {
-      Image(systemName: "chevron.right").textStyle(.subtitle, weight: .semibold)
-        .foregroundStyle(Theme.muted).frame(width: Theme.sizeTarget, height: 22)
-        .contentShape(Rectangle())
-    }
-    .accessibilityLabel("\(metric.title) weeks")
-    .accessibilityIdentifier("data.\(metric.rawValue).open")
   }
 }
 
