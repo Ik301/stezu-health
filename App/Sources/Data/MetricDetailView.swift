@@ -22,7 +22,11 @@ struct MetricDetailView: View {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
         TopBar(
           title: openDay?.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
-            ?? metric.title, titleID: "metric.title", action: rung)
+            ?? metric.title, titleID: "metric.title", action: rung
+        )
+        .overlay(alignment: .topLeading) {  // S-049: the day arrows in the row above the date
+          if let openDay { DayArrows(day: Binding(get: { openDay }, set: { self.openDay = $0 })) }
+        }
         if let openDay {  // a Binding($openDay) would crash when Week sets it to nil
           DayView(day: Binding(get: { openDay }, set: { self.openDay = $0 }))
         } else if let history, let index = openWeek {

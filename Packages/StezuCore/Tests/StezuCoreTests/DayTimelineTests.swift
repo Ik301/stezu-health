@@ -75,4 +75,53 @@ final class DayTimelineTests: XCTestCase {
     XCTAssertEqual(staggered.marks.map { $0!.lane }, [0, 1, 0])
     XCTAssertEqual(staggered.marks.map { $0!.lanes }, [2, 2, 2])
   }
+
+  /// S-049 (D-119): a visit is named once by the geocoder and kept by its id; the fix is never
+  /// looked up, a saved name needs no lookup after a relaunch, and the name never joins the log
+  /// or the sync queue.
+  func testPlaceNamesCachedByVisitIdNeverSynced() async throws {
+    let sync = HealthSync(state: SyncState(deviceID: "DEVICE-1"))
+    let recorder = LocationRecorder { _ in }
+    for event in [
+      LocationEvent.visit(
+        arrival: at(480), departure: at(710), latitude: 10.25, longitude: -30.5, accuracy: 40),
+      .fix(at: at(720), latitude: 10.5, longitude: -30.25, accuracy: 500, speed: nil),
+      .visit(arrival: at(730), departure: nil, latitude: 10.75, longitude: -30.5, accuracy: 40),
+    ] {
+      await recorder.record(event, into: sync, at: at(1000))
+    }
+    let log = await recorder.log
+    let visit = log.places[0].id
+    let geocoder = FakeReverseGeocoder(names: [10.25: "Library"])
+    let saved = Saved()
+    let names = PlaceNames(geocoder: geocoder) { saved.value = $0 }
+
+    let first = await names.name(log.places)
+    let again = await names.name(log.places)
+    XCTAssertEqual(first, [visit: "Library"])
+    XCTAssertEqual(again, first)
+    let lookups = await geocoder.lookups
+    XCTAssertEqual(lookups, 2, "each visit once, the unnamed one included; never the fix")
+    XCTAssertEqual(saved.value, [visit: "Library"])
+
+    // A relaunch reads place-names.json and looks nothing up for the named visit.
+    let relaunched = FakeReverseGeocoder(names: [:])
+    let reread = await PlaceNames(names: saved.value, geocoder: relaunched).name([log.places[0]])
+    XCTAssertEqual(reread, [visit: "Library"])
+    let relookups = await relaunched.lookups
+    XCTAssertEqual(relookups, 0)
+
+    // The name is in neither the location log nor anything queued for /sync.
+    let queued = try JSONEncoder().encode(await sync.state)
+    let stored = try JSONEncoder().encode(log)
+    for data in [queued, stored] {
+      XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("Library"))
+    }
+    let records = await sync.state.pending.flatMap { $0.records ?? [] }
+    XCTAssertEqual(records.count, 3, "the visits and the fix were queued")
+  }
+}
+
+private final class Saved: @unchecked Sendable {
+  var value: [String: String] = [:]
 }

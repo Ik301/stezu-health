@@ -11,7 +11,8 @@ struct DayView: View {
   @State private var meals: [LoggedMeal] = []
   @State private var sessions: [WorkoutSession] = []
   @State private var night: SleepNight?
-  @State private var visits: [DateInterval] = []
+  @State private var places: [PlaceRecord] = []  // the day's visits
+  @State private var names: [String: String] = [:]  // S-049: by visit id, on the phone only
   @State private var sleepOpen = false
   /// Deleted this visit; a scenario's seeded meals and sessions live only in memory.
   @State private var removed: [DayRecord.Owner] = []
@@ -22,27 +23,26 @@ struct DayView: View {
   var body: some View {
     ScrollViewReader { proxy in
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
-        HStack {
-          Spacer()
-          ForEach([-1, 1], id: \.self) { step in
-            Button {
-              day = Calendar.current.date(byAdding: .day, value: step, to: day) ?? day
-            } label: {
-              Image(systemName: step < 0 ? "chevron.left" : "chevron.right").textStyle(.value)
-                .frame(width: Theme.sizeTarget, height: Theme.sizeTarget)
+        let cells = summary
+        Grid(
+          alignment: .topLeading, horizontalSpacing: Theme.spaceMd, verticalSpacing: Theme.spaceMd
+        ) {
+          ForEach([0, 2], id: \.self) { row in
+            GridRow {
+              cell(cells[row])
+              cell(cells[row + 1])
             }
-            .accessibilityLabel(step < 0 ? "Previous day" : "Next day")
-            .accessibilityIdentifier(step < 0 ? "day.previous" : "day.next")
-            .disabled(
-              step > 0 && Calendar.current.startOfDay(for: day) + 86_400 > environment.now())
           }
         }
-        Text(summary).textStyle(.subtitle).lineSpacing(Theme.spaceXs).padding(Theme.spaceLg)
-          .frame(maxWidth: .infinity, alignment: .leading).background(Theme.surface, in: shape)
-          .accessibilityIdentifier("day.summary")
+        .padding(Theme.spaceLg).background(Theme.surface, in: shape)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("day.summary")
         DayTimelineView(
           day: day, marks: marks { proxy.scrollTo("day.record.\($0)", anchor: .top) },
-          visits: visits
+          visits: places.compactMap { place in
+            guard let from = place.times.first, let to = place.times.last else { return nil }
+            return .init(span: DateInterval(start: from, end: to), name: names[place.id])
+          }
         )
         .padding(Theme.spaceMd).background(Theme.surface, in: shape)
         .sheet(isPresented: $sleepOpen) { [day] in
@@ -66,8 +66,8 @@ struct DayView: View {
     }
   }
 
-  /// S-041: the day's totals, "--" for what is missing.
-  private var summary: String {
+  /// S-041, S-049: the day's totals as Slept, Food, Training and Steps; "--" for what is missing.
+  private var summary: [(name: String, value: String, unit: String, more: String?)] {
     let all = records ?? []
     let eaten = meals.filter { Calendar.current.isDate($0.loggedAt, inSameDayAs: day) }
     let total = { (part: KeyPath<MatchedItem, FoodRange?>) in
@@ -77,11 +77,32 @@ struct DayView: View {
     let sets = trained.reduce(0) { $0 + $1.workingSets }
     let steps = all.first { $0.kind == .steps }.flatMap { Int($0.detail)?.formatted() }
     return [
-      "Slept \(night.map { hm($0.asleep) } ?? "--")",
-      "Food \(total(\.kcal)) kcal, \(total(\.proteinG)) g protein",
-      "Training \(trained.first.map { "\(name($0)), \(sets) sets" } ?? "--")",
-      "Steps \(steps ?? "--"), visits \(visits.isEmpty ? "--" : "\(visits.count)")",
-    ].joined(separator: "\n")
+      ("Slept", night.map { hm($0.asleep) } ?? "--", "", nil),
+      ("Food", total(\.kcal), "kcal", "\(total(\.proteinG)) g protein"),
+      ("Training", trained.first.map { name($0) } ?? "--", "\(sets) sets", nil),
+      ("Steps", steps ?? "--", "", nil),
+    ]
+  }
+
+  /// A summary cell: its name small, the value large and its unit small; "--" has no unit.
+  private func cell(_ cell: (name: String, value: String, unit: String, more: String?)) -> some View
+  {
+    let known = cell.value != "--"
+    return VStack(alignment: .leading, spacing: Theme.space2xs) {
+      Text(cell.name).textStyle(.label).foregroundStyle(Theme.muted)
+      HStack(alignment: .firstTextBaseline, spacing: Theme.spaceXs) {
+        Text(cell.value).textStyle(.value, weight: .medium)
+        if known { Text(cell.unit).textStyle(.label).foregroundStyle(Theme.muted) }
+      }
+      if known, let more = cell.more { Text(more).textStyle(.label).foregroundStyle(Theme.muted) }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      [cell.name, cell.value, known ? cell.unit : ""].filter { !$0.isEmpty }.joined(separator: " ")
+        + (known ? cell.more.map { ", \($0)" } ?? "" : "")
+    )
+    .accessibilityIdentifier("day.summary.\(cell.name.lowercased())")
   }
 
   /// The night, then each weigh-in, meal and workout; a tap scrolls the list to its record.
@@ -180,11 +201,15 @@ struct DayView: View {
       day, from: environment.weightHealth, meals: meals, sessions: sessions)
     let start = Calendar.current.startOfDay(for: day)
     night = await SleepDetail.load(from: environment.healthStore, now: day).nights[start]
-    visits = await environment.places.log.places.compactMap { place in
-      guard place.at == nil, let from = place.times.first, let to = place.times.last, to >= start,
-        from < start + 86_400
-      else { return nil }
-      return DateInterval(start: from, end: to)
+    places = await environment.places.log.places.filter { place in
+      guard place.at == nil, let from = place.times.first, let to = place.times.last else {
+        return false
+      }
+      return to >= start && from < start + 86_400
+    }
+    // D-119: looked up only while the app is open, once a visit; the names stay on the phone.
+    if UIApplication.shared.applicationState == .active {
+      names = await environment.placeNames.name(places)
     }
   }
 
@@ -214,5 +239,28 @@ struct DayView: View {
       await environment.syncMeal(meal, id: meal.id, edited: true)
     }
     await load()
+  }
+}
+
+/// S-049: the previous and next day, in the TopBar's row above the date (1 tap per day).
+struct DayArrows: View {
+  @Binding var day: Date
+  @Environment(\.appEnvironment) private var environment
+
+  var body: some View {
+    HStack(spacing: 0) {
+      ForEach([-1, 1], id: \.self) { step in
+        Button {
+          day = Calendar.current.date(byAdding: .day, value: step, to: day) ?? day
+        } label: {
+          Image(systemName: step < 0 ? "chevron.left" : "chevron.right").textStyle(.value)
+            .frame(width: Theme.sizeTarget, height: Theme.sizeTarget)
+        }
+        .accessibilityLabel(step < 0 ? "Previous day" : "Next day")
+        .accessibilityIdentifier(step < 0 ? "day.previous" : "day.next")
+        .disabled(step > 0 && Calendar.current.startOfDay(for: day) + 86_400 > environment.now())
+      }
+    }
+    .buttonStyle(.plain).foregroundStyle(Theme.ink)
   }
 }
