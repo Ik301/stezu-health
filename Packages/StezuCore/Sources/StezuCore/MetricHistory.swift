@@ -1,8 +1,10 @@
 import Foundation
 
-/// A metric on the Data overview. Each one opens the same detail (S-024).
+/// A metric on the Data overview. Each one opens the same detail (S-024, S-042). Breathing's
+/// raw value is its overview row's id.
 public enum Metric: String, CaseIterable, Sendable, Identifiable {
-  case weight, steps, sleep, hrv, restingHR
+  case weight, steps, sleep, hrv, restingHR, food
+  case breathing = "respiratory"
 
   public var id: String { rawValue }
 
@@ -16,6 +18,10 @@ public enum Metric: String, CaseIterable, Sendable, Identifiable {
     case .sleep: "Mean time asleep over the nights ending in the week. Context only."
     case .hrv: "Median of every reading in the week; a day shows its own median. Context only."
     case .restingHR: "Mean of each day's resting heart rate over the days with data."
+    case .food:
+      "Mean of the logged days. A day's range adds its meals' lows and highs; a day with an "
+        + "unknown item is left out."
+    case .breathing: "Median of every reading of the nights ending in the week. Context only."
     }
   }
 }
@@ -106,6 +112,18 @@ public struct MetricHistory: Sendable, Equatable {
         .compactMapValues { WeeklyStats.median($0, in: span).value }
       return history(metric, daily: daily, now: now, sources: names(samples), calendar: calendar) {
         WeeklyStats.median(samples, in: $0)
+      }
+    case .breathing:
+      let samples = (try? await store.samples(of: .respiratoryRate, since: first - 86_400)) ?? []
+      let nights = Dictionary(grouping: samples) { calendar.startOfDay(for: $0.date + 6 * 3600) }
+        .compactMapValues { WeeklyStats.median($0.compactMap(\.value)) }
+      return history(metric, daily: nights, now: now, sources: names(samples), calendar: calendar) {
+        WeeklyStats.nightlyMedian(samples, in: $0, calendar: calendar)
+      }
+    case .food:
+      // Logged meals are on the phone, not in Health: see MetricHistory.food.
+      return history(metric, daily: [:], now: now, calendar: calendar) {
+        WeeklyStats.meanPerDay([:], in: $0)
       }
     }
   }

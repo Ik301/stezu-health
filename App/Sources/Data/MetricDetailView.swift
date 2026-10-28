@@ -4,12 +4,14 @@ import SwiftUI
 /// One detail for every metric (S-024): the last 8 weeks, newest first, each with its value and
 /// coverage, then the sources and how the value is made. Weight adds weigh-in dots and the trend
 /// line. A tap on a week lists its days, Monday to Sunday; a day without data shows "--". A
-/// day's chevron opens everything recorded on it (S-025).
+/// day's chevron opens everything recorded on it (S-025). S-042 draws the weeks above the list
+/// as WeekBars (food as two panels, energy and protein); a bar opens its week as its row does.
 struct MetricDetailView: View {
   let metric: Metric
   @Environment(\.appEnvironment) private var environment
   @Environment(\.dismiss) private var dismiss
   @State private var history: MetricHistory?
+  @State private var meals: [LoggedMeal] = []
   @State private var openWeek: Int?
   @State private var openDay: Date?
   private let shape = RoundedRectangle(cornerRadius: Theme.radiusCard)
@@ -25,6 +27,9 @@ struct MetricDetailView: View {
         } else if let history, let index = openWeek {
           days(history.weeks[index]).padding(Theme.spaceLg).background(Theme.surface, in: shape)
         } else if let history {
+          ForEach(panels(history), id: \.id) { panel in
+            panel.padding(Theme.spaceLg).background(Theme.surface, in: shape)
+          }
           if metric == .weight {
             TrendChart(history: history).padding(Theme.spaceLg).background(Theme.surface, in: shape)
           }
@@ -36,9 +41,63 @@ struct MetricDetailView: View {
     .scrollIndicators(.hidden)
     .background(Theme.ground.ignoresSafeArea())
     .task {
-      history = await MetricHistory.load(
-        metric, from: environment.weightHealth, now: environment.now())
+      let now = environment.now()
+      switch metric {
+      case .food:
+        meals = await environment.mealCaptures.logged() + environment.mealHistory
+        history = MetricHistory.food(meals, now: now)
+      default:
+        history = await MetricHistory.load(metric, from: environment.weightHealth, now: now)
+      }
     }
+  }
+
+  /// One WeekBars well per plot: food's energy and protein are two, never one.
+  private func panels(_ history: MetricHistory) -> [WeekBars] {
+    let (now, ofSeven) = (environment.now(), metric != .hrv)
+    let describe: (Int) -> String = { summary(history.weeks[$0]).label }
+    let open: (Int) -> Void = { openWeek = $0 }
+    guard metric == .food else {
+      return [
+        WeekBars(
+          title: metric.title, bars: ChartSeries.weekBars(history), color: metric.color,
+          id: "metric.weekbars", ofSeven: ofSeven, describe: describe, open: open)
+      ]
+    }
+    return [
+      WeekBars(
+        title: "Energy, kcal per logged day", bars: ChartSeries.rangeBands(meals, \.kcal, now: now),
+        color: Theme.dataEnergy, band: Theme.dataEnergyBand, id: "metric.energy",
+        describe: describe, open: open),
+      WeekBars(
+        title: "Protein, g per logged day",
+        bars: ChartSeries.rangeBands(meals, \.protein, now: now),
+        color: Theme.dataProtein, band: Theme.dataProteinBand, id: "metric.protein",
+        describe: describe, open: open),
+    ]
+  }
+
+  /// A week's dates, coverage and value, and the words VoiceOver reads for its row and its bar.
+  private func summary(_ week: MetricWeek) -> (
+    dates: String, covered: String, value: String, label: String
+  ) {
+    let dates = range(week.start)
+    let unit = metric == .sleep || metric == .breathing ? "nights" : "days"
+    let covered =
+      metric == .hrv ? "\(week.stat.coverage) samples" : "\(week.stat.coverage) of 7 \(unit)"
+    let value = text(week.stat.value, from: week.start, days: 7)
+    return (dates, covered, value, "\(dates), \(covered), \(value)")
+  }
+
+  /// Food shows its energy and protein ranges ("1,000–1,320 kcal, 52–68 g"); the rest a value.
+  private func text(_ value: Double?, from start: Date, days: Double) -> String {
+    guard metric == .food else { return value.map(metric.format) ?? "--" }
+    let food = WeeklyIntake.food(meals, in: DateInterval(start: start, duration: days * 86_400))
+    guard let kcal = food.kcal.value, let protein = food.protein.value else { return "--" }
+    let ranged = { (range: FoodRange) in
+      "\(Int(range.low.rounded()).formatted())–\(Int(range.high.rounded()).formatted())"
+    }
+    return "\(ranged(kcal)) kcal, \(ranged(protein)) g"
   }
 
   /// Done on the 8 weeks; the rung above on a week or a day.
@@ -51,11 +110,7 @@ struct MetricDetailView: View {
   private func weeks(_ history: MetricHistory) -> some View {
     VStack(alignment: .leading, spacing: Theme.spaceMd) {
       ForEach(Array(history.weeks.enumerated()), id: \.offset) { index, week in
-        let dates = range(week.start)
-        let unit = metric == .sleep ? "nights" : "days"
-        let covered =
-          metric == .hrv ? "\(week.stat.coverage) samples" : "\(week.stat.coverage) of 7 \(unit)"
-        let value = week.stat.value.map(metric.format) ?? "--"
+        let (dates, covered, value, words) = summary(week)
         Button {
           openWeek = index
         } label: {
@@ -70,7 +125,7 @@ struct MetricDetailView: View {
           .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(dates), \(covered), \(value)")
+        .accessibilityLabel(words)
         .accessibilityIdentifier("metric.week.\(index)")
       }
       let sources = history.sources.joined(separator: ", ")
@@ -88,7 +143,7 @@ struct MetricDetailView: View {
           Text(day.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
             .accessibilityIdentifier("metric.day.\(index).name")
           Spacer()
-          Text(day.value.map(metric.format) ?? "--").textStyle(.value)
+          Text(text(day.value, from: day.day, days: 1)).textStyle(.value)
             .accessibilityIdentifier("metric.day.\(index).value")
           Button {
             openDay = day.day
@@ -175,6 +230,8 @@ extension Metric {
     case .sleep: "Sleep"
     case .hrv: "HRV"
     case .restingHR: "Resting HR"
+    case .food: "Food"
+    case .breathing: "Breathing"
     }
   }
 
@@ -185,6 +242,13 @@ extension Metric {
     case .sleep: "\(Int(value / 3600))h \(Int(value / 60) % 60)m"
     case .hrv: "\(Int(value.rounded())) ms"
     case .restingHR: "\(Int(value.rounded())) bpm"
+    case .food: "\(Int(value.rounded())) kcal"
+    case .breathing: String(format: "%.1f br/min", value)
     }
+  }
+
+  /// data-heart for resting HR, data-energy for food, ink for the rest (S-042).
+  var color: Color {
+    self == .restingHR ? Theme.dataHeart : self == .food ? Theme.dataEnergy : Theme.ink
   }
 }
