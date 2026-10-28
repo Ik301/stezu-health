@@ -1516,6 +1516,194 @@
       ],
       "needs_server": false,
       "passes": true
+    },
+    {
+      "id": "S-045",
+      "kind": "story",
+      "area": "workout",
+      "title": "Workout screen finishing: a This week card with day dots, Next in your program, and when each other day was last done",
+      "steps": [
+        "Finish what S-044 left on the Workout screen (PROGRESS.md, S-044 'Left undone'), per design/system/walkthroughs/workout.html.",
+        "Add a This week card: the session count and working sets, with the same CoverageDots as Home's Workout card.",
+        "Label the black card \"Next in your program\".",
+        "Under it, list each other day with when it was last done (\"Pull, 3 days ago\", \"Pull, today\", or \"not done yet\"). Add `WorkoutSummary.daysSince`. Each row keeps its one-tap Start, and the Continue row (S-036) stays.",
+        "Summary after Finish: a date and time line under the title (\"Sun 25 Oct, 12:14 to 13:06\"). \"In Health\" or \"Not in Health\" becomes an outlined tag. The Undo toast moves to the top of the summary.",
+        "UI test with generic fixtures. The Workout screen shows the This week card with dots and \"Next in your program\"; another day reads \"2 days ago\". After Finish, the summary shows the date line and the In Health tag.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-044"
+      ],
+      "core_tests": [
+        "StezuCoreTests.WorkoutSummaryTests/testDaysSinceLastDoneByTemplate"
+      ],
+      "ui_tests": [
+        "AppUITests.WorkoutScreenUITests/testWeekCardNextLabelAndLastDone"
+      ],
+      "screenshots": [
+        "s045-workout-screen",
+        "s045-summary"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-046",
+      "kind": "story",
+      "area": "workout",
+      "title": "Logger finishing: Finish and the template name in the TopBar, Skip exercise, a progress bar, and no area nav while logging",
+      "steps": [
+        "Finish what S-044 left in the logger, per design/system/walkthroughs/workout.html and components/SetLogger and TopBar.",
+        "While logging, the TopBar title is the template name and its right slot is Finish. Remove the separate Finish row. Lift whatever logger or rest state WorkoutView needs to make that work, and keep the ids.",
+        "Hide the area nav while a workout is being logged, so a stray tap can't leave the session. Home stays at the top left. The nav lives in AppShell.swift.",
+        "Add Skip exercise to the ellipsis menu beside Swap (`SetLogger.skipExercise`): it moves to the next exercise without logging; a skipped exercise with no sets is left out of the session.",
+        "Under the logged sets, a thin bar of segments, one per exercise, shows progress across exercises, with \"Up next: <exercise>\".",
+        "UI test: start a template. The nav circles are gone and the TopBar shows the template name and Finish. Skip the first exercise: the logger moves on and the progress bar advances. Finish from the TopBar.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "Finish stays 1 tap",
+      "depends_on": [
+        "S-045"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SetLoggerTests/testSkipExerciseMovesOnWithoutLogging"
+      ],
+      "ui_tests": [
+        "AppUITests.WorkoutLoggerUITests/testTopBarFinishSkipAndHiddenNav"
+      ],
+      "screenshots": [
+        "s046-logger-topbar",
+        "s046-progress"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-047",
+      "kind": "story",
+      "area": "data",
+      "title": "Sleep finishing: the overnight line, the night as a day, and window clock ticks",
+      "steps": [
+        "Finish what S-040 left (PROGRESS.md, S-040 'Left undone'), per design/system/walkthroughs/data.html (the Sleep screen).",
+        "Draw the overnight line under the stages: heart rate low\u2013high in bpm (data-heart), breathing in br/min and HRV in ms, from the already-built `Overnight`. Anything missing shows \"--\". Add strap readings (heart rate, respiratory rate, HRV) to the home-week fixture so it shows numbers.",
+        "Add a \"<Weekday, Mon d> as a day\" row with a chevron at the bottom. It opens the Day view (S-041) for the picked night's wake date, with a back rung in the TopBar, the way MetricDetailView opens a day.",
+        "Window: clock ticks every 3 hours (00, 03, 06...) with light gridlines. \"woke HH:MM\" beside the picked night's name. Awake marks are at least 3 pt wide. The Stages header carries the night's date (\"Stages, Sun 11\").",
+        "UI test: open Sleep. The overnight line shows the fixture's heart rate range, and the \"as a day\" row opens that date's Day view.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-040",
+        "S-041"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SleepDetailTests/testOvernightLineFromFixtureReadings"
+      ],
+      "ui_tests": [
+        "AppUITests.SleepDetailUITests/testOvernightLineAndOpenAsDay"
+      ],
+      "screenshots": [
+        "s047-sleep-overnight",
+        "s047-sleep-as-day"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-048",
+      "kind": "story",
+      "area": "data",
+      "title": "This week and Home finishing: Places as a metric row, a quiet Sources row, CoverageDots for the whole week",
+      "steps": [
+        "Finish what S-039 and S-042b left (PROGRESS.md), per design/system/walkthroughs/data.html (This week) and components/MetricRow, CoverageDots and GlanceCard.",
+        "Places becomes a MetricRow under a Places header: visits this week as the value, \"n of 7 days\" coverage, and a bar Sparkline of visits per day from `LocationLog`. It has no detail screen yet, so no chevron.",
+        "Sources becomes a quiet row with a chevron and the source app names on the right (\"Health, Zepp\").",
+        "Remove the unused `MetricOpenButton`. Hide each row's texts from VoiceOver beside its row button, so a row reads once (D-115).",
+        "CoverageDots show all 7 days Monday to Sunday: trained filled, untrained past days as a track ring, today outlined in ink, and days to come faint. Home's Workout card and the Workouts detail use the same component.",
+        "Workouts detail: a week with no sessions shows \"--\", not 0. A rest day inside a week with sessions stays a 0 stub (Isaac, D-120).",
+        "Weight detail: stop long week dates wrapping beside the value (shorter date format \"Dec 29 to Jan 4\").",
+        "UI test: This week has a Places row with data.spark.places and a Sources row that opens Sources. Home's Workout dots show 7 positions with today outlined.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-039",
+        "S-037"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ChartSeriesTests/testPlacesPerDayVisits",
+        "StezuCoreTests.ChartSeriesTests/testSessionlessWeekIsAbsentNotZero"
+      ],
+      "ui_tests": [
+        "AppUITests.DataUITests/testPlacesRowSourcesRowAndWeekDots"
+      ],
+      "screenshots": [
+        "s048-this-week",
+        "s048-home-dots"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-049",
+      "kind": "story",
+      "area": "data",
+      "title": "Day finishing: place names resolved on the phone, the summary as a grid, the date beside the arrows",
+      "steps": [
+        "Finish what S-041 left (PROGRESS.md, S-041 'Left undone'), per design/system/walkthroughs/data.html (the Day screen) and components/DayTimeline.",
+        "Place names (approved by Isaac, D-119). Add a `ReverseGeocoder` protocol with CLGeocoder live and a fake under -uitest. Keep a `PlaceNames` cache by visit id in place-names.json next to location-log.json. Look each visit up once, and only while the app is in the foreground. Names show on the timeline's visits (two lines at most). They are never queued, synced, logged or put in PR text. A visit without a name shows its times.",
+        "Summary as the walkthrough's grid: Slept, Food, Training and Steps, each with its value large and the unit small.",
+        "The date as the large title beside the previous and next arrows, a \"Where / What\" column header, and dashed lines at folds.",
+        "UI test with a fake geocoder: visits show the fake names, the summary shows four cells, and the arrows still move a day.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-041",
+        "S-047"
+      ],
+      "core_tests": [
+        "StezuCoreTests.DayTimelineTests/testPlaceNamesCachedByVisitIdNeverSynced"
+      ],
+      "ui_tests": [
+        "AppUITests.DayUITests/testPlaceNamesAndSummaryGrid"
+      ],
+      "screenshots": [
+        "s049-day"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-050",
+      "kind": "story",
+      "area": "food",
+      "title": "Food finishing: en dash ranges everywhere, the item stepper beside the name, and the walkthrough's toast",
+      "steps": [
+        "Finish what S-043 left (PROGRESS.md, S-043 'Deviations'), per design/system/walkthroughs/food.html and components/RangeValue, MealItem and UndoToast.",
+        "Show every food range with an en dash and thousands commas (\"1,240\u20131,480 kcal\"), on the camera strip, match sheet, Food Today, History and Day. Use one shared formatter, and update the tests that assert hyphens (test files don't count against the budget).",
+        "Match sheet items: the stepper sits to the right of the item name, with the serving count between - and + (\"1.5\"); Remove moves to swipe-to-remove.",
+        "After Log, the toast reads \"<Meal> logged, in Health\" (or \"Not in Health\") for 5 seconds, with Undo. Meals have no names, so use the time of day: Breakfast before 11, Lunch before 16, Dinner after.",
+        "UI test: the match sheet shows \"1.5\" between - and +, ranges use an en dash, and the toast says \"Lunch logged\" for a fixture meal at 12:30.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-043"
+      ],
+      "core_tests": [
+        "StezuCoreTests.MealServingTests/testRangeFormatterUsesEnDashAndGrouping"
+      ],
+      "ui_tests": [
+        "AppUITests.FoodUITests/testEnDashStepperAndToast"
+      ],
+      "screenshots": [
+        "s050-match-sheet",
+        "s050-toast"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }

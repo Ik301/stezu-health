@@ -1705,3 +1705,15 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A mark wholly outside the day has no place; one that crosses midnight is clipped. Visits show their times only on this card; place names are left for a later card (see PROGRESS.md).
 - Evidence: Packages/StezuCore/Sources/StezuCore/DayTimeline.swift, Packages/StezuCore/Tests/StezuCoreTests/DayTimelineTests.swift, App/Sources/Data/DayView.swift, App/Sources/Data/DayTimelineView.swift, commit on wt/S-041.
 - Reverse if: a day has so many overlapping marks that lanes become too narrow to read (then cap lanes and stack), or Isaac wants visits to open hours too.
+
+## D-119 Place names come from Apple's reverse geocoding on the phone and never reach the server
+
+- Status: decided by Isaac, 2026-10-28 (S-049).
+- What: CLGeocoder looks each visit up once, in the foreground. The names are cached on the phone by visit id. They are never queued, synced or logged.
+- Accepted cost: the coordinates go to Apple's geocoding service for the lookup.
+- Reverse if: he wants no third-party lookups. Then visits show their times only.
+
+## D-120 A week with no workouts reads "--"; a rest day inside a week with sessions is 0
+
+- Status: decided by Isaac, 2026-10-28 (S-048).
+- Why: absent is not zero (DESIGN.md). A week without any session is missing data, not a measured zero. A rest day sits between sessions, so it counts as a 0.
