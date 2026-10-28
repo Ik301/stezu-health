@@ -79,4 +79,18 @@ public struct WorkoutSummary: Sendable, Equatable {
       [.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)
     ).day ?? 0
   }
+
+  /// Calendar days since the newest session of a template up to `now`; nil if never done.
+  public static func daysSince(
+    _ key: String, in history: [WorkoutSession], now: Date, calendar: Calendar = .current
+  ) -> Int? {
+    history.filter { $0.templateKey == key && $0.startedAt <= now }.map(\.startedAt).max()
+      .map { days(from: $0, to: now, calendar: calendar) }
+  }
+
+  /// "today", "1 day ago", "3 days ago", or "not done yet" when there is no session.
+  public static func lastDone(_ days: Int?) -> String {
+    guard let days else { return "not done yet" }
+    return days == 0 ? "today" : "\(days) \(days == 1 ? "day" : "days") ago"
+  }
 }

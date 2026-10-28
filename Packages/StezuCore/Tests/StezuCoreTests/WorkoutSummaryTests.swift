@@ -122,4 +122,30 @@ final class WorkoutSummaryTests: XCTestCase {
 
     XCTAssertNil(summary.undo(at: start + 608), "Undo is gone after 8 s")
   }
+
+  /// S-045: each other day on the Workout screen says when its template was last done, in
+  /// calendar days on the phone's clock, from the newest session of that template only.
+  func testDaysSinceLastDoneByTemplate() {
+    var utc = Calendar(identifier: .gregorian)
+    utc.timeZone = TimeZone(identifier: "UTC")!
+    let history = [
+      past("push", daysAgo: 9, [("Press", 50, 8)]),
+      past("push", daysAgo: 3, [("Press", 55, 8)]),
+      past("pull", daysAgo: 0.01, [("Row", 60, 8)]),
+      past("legs", daysAgo: 1, [("Squat", 80, 5)]),
+      past("legs", daysAgo: -2, [("Squat", 85, 5)]),  // after now: not yet done
+    ]
+    let since = { (key: String) in
+      WorkoutSummary.daysSince(key, in: history, now: self.start, calendar: utc)
+    }
+    XCTAssertEqual(since("push"), 3, "the newest Push, not the older one")
+    XCTAssertEqual(since("pull"), 0)
+    XCTAssertEqual(since("legs"), 1, "a session after now does not count")
+    XCTAssertNil(since("arms"), "never done is absent, not 0")
+
+    XCTAssertEqual(WorkoutSummary.lastDone(since("push")), "3 days ago")
+    XCTAssertEqual(WorkoutSummary.lastDone(since("pull")), "today")
+    XCTAssertEqual(WorkoutSummary.lastDone(since("legs")), "1 day ago")
+    XCTAssertEqual(WorkoutSummary.lastDone(since("arms")), "not done yet")
+  }
 }
