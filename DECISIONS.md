@@ -1520,3 +1520,37 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Energy and protein are two WeekBars wells; the list and day rows show both ranges.
 - Evidence: Packages/StezuCore/Sources/StezuCore/ChartSeries.swift (`rangeBands`, `MetricHistory.food`), App/Sources/Data/MetricDetailView.swift (`panels`, `text(_:from:days:)`), Packages/StezuCore/Tests/StezuCoreTests/ChartSeriesTests.swift, commit on wt/S-042.
 - Reverse if: food needs per-day protein coverage different from kcal (a day with a known kcal total and an unknown protein item shows "--" for the whole row now), or a third estimate metric appears (then (c)).
+
+## D-108 Workouts' detail counts working sets per day from the phone's sessions; a day without a session is 0, a week without one is absent
+
+- Status: proposed by night agent, 2026-10-27 (S-042b).
+- Problem: the metric detail template needs a number per day and per week for Workouts, but sessions live on the phone in two stores that can hold the same session, and design/system says a rest day is a real 0 while AGENTS.md says absent is never 0.
+- Given: Stezu sessions come from `environment.workoutHistory` (seeded) plus `FinishedWorkoutStore` (finished-workouts.json). `WeeklyIntake.workouts` already treats two Stezu sessions starting within a second as one. `WeeklyStat` makes a week with coverage 0 absent. This week's Workouts row shows "--" with no session (S-023).
+- Constraints:
+  - Counting a session found in both stores twice doubles the week (breaks the total).
+  - Drawing a day with no session as "--" would hide rest days, which S-039 draws as a baseline stub.
+  - Showing a sessionless week as 0 would contradict This week's "--".
+- Options:
+  - (a) `MetricHistory.workouts(sessions, now:)`: drop repeated starts within 1 s, a day's value is its sessions' sets, every day up to `now` without a session is 0 and later days nil; a week's value is the total with coverage = its session count, so a sessionless week is absent ("--").
+  - (b) The same, but a sessionless week is 0.
+  - (c) Days without a session are nil too, so only training days have values.
+- Decision: (a). CoverageDots for Workouts fill only days with sets (`ChartSeries.coverage`). Whether a sessionless week should be 0 is Isaac's call (PROGRESS.md).
+- Evidence: Packages/StezuCore/Sources/StezuCore/ChartSeries.swift (`MetricHistory.workouts`, `ChartSeries.coverage`), App/Sources/Data/MetricDetailView.swift, Packages/StezuCore/Tests/StezuCoreTests/ChartSeriesTests.swift (testWorkoutsWeekTotalsSetsAndDropsDuplicates), commit on wt/S-042b.
+- Reverse if: Isaac wants a sessionless week as 0 (then (b): give the week coverage 1 when it has any day up to now), or weeks before the first session ever should be absent rather than rest days.
+
+## D-109 CoverageDots sit beside the week row's button, hidden from VoiceOver except under -uitest, where they are one element
+
+- Status: proposed by night agent, 2026-10-27 (S-042b).
+- Problem: the dots must be hidden from VoiceOver (the words carry the meaning), yet the story's UI test has to find them, and a SwiftUI Button folds everything in its label into one element.
+- Given: each week row is a Button whose accessibility label is the row's words; MetricDetailUITests reads that label and taps it. `AppEnvironment.isUITest` is true only under `-uitest`.
+- Constraints:
+  - Dots inside the button label can never be found by XCUITest (breaks the test).
+  - A hidden view is gone from the accessibility tree that XCUITest reads too.
+  - Restructuring the row away from a Button risks the existing label and tap checks.
+- Options:
+  - (a) The dots go before the row's button in an HStack (a fixed 54 pt column so rows line up) and are `accessibilityHidden(!isUITest)`; under -uitest they are one element `metric.week.<n>.dots` labelled "filled of shown".
+  - (b) Keep them inside the label and assert only on a screenshot.
+  - (c) Expose the dots' state as the row's accessibilityValue under -uitest.
+- Decision: (a). The dots sit to the left of the dates and coverage words, not on the coverage line itself.
+- Evidence: App/Sources/Charts/CoverageDots.swift, App/Sources/Data/MetricDetailView.swift (`weeks`), App/UITests/MetricDetailUITests.swift (testWorkoutsDetailShowsSetsAndCoverageDots), commit on wt/S-042b.
+- Reverse if: VoiceOver testing shows the dots column as a focus stop on a device, or the design wants the dots on the coverage line (then an alignment guide inside the button, with the UI test on a screenshot).
