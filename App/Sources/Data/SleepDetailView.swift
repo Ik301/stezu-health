@@ -9,6 +9,7 @@ struct SleepDetailView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var detail: SleepDetail?
   @State private var picked: Date?
+  @State private var openDay: Date?  // S-047: the picked night's wake day as a day
   private let shape = RoundedRectangle(cornerRadius: Theme.radiusCard)
 
   init(night: Date? = nil) { _picked = State(initialValue: night) }  // S-041: a wake day picked
@@ -17,12 +18,16 @@ struct SleepDetailView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
         TopBar(
-          title: "Sleep", titleID: "sleep.title",
-          action: TopBar.Action(title: "Done", id: "sleep.close") { dismiss() })
-        if let detail, let today = detail.days.last {
+          title: openDay.map(long) ?? "Sleep", titleID: "sleep.title", action: rung)
+        if let openDay {  // not Binding($openDay), which crashes when the back rung sets nil
+          DayView(day: Binding(get: { openDay }, set: { self.openDay = $0 }))
+        } else if let detail, let today = detail.days.last {
           let day = picked ?? today
           let night = detail.nights[day]
-          muted(day == today ? "Last night" : long(day)).accessibilityIdentifier("sleep.night")
+          HStack {
+            muted(day == today ? "Last night" : long(day)).accessibilityIdentifier("sleep.night")
+            if let night { muted("woke \(clock(night.wakeMinutes))") }
+          }
           Text(night.map { hm($0.asleep) } ?? "--").textStyle(.big)
             .accessibilityIdentifier("sleep.asleep")
           if let night {
@@ -31,7 +36,23 @@ struct SleepDetailView: View {
           let usual = "Usual \(detail.usual.map(hm) ?? "--"), your median of \(detail.usualNights)"
           muted(usual + " nights").accessibilityIdentifier("sleep.usual")
           window(detail, day).padding(Theme.spaceLg).background(Theme.surface, in: shape)
-          if let night { stages(night).padding(Theme.spaceLg).background(Theme.surface, in: shape) }
+          if let night {
+            stages(night).padding(Theme.spaceLg).background(Theme.surface, in: shape)
+            overnight(detail.overnight[day]).padding(Theme.spaceLg)
+              .background(Theme.surface, in: shape)
+          }
+          Button {
+            openDay = day
+          } label: {
+            HStack {
+              Text("\(long(day)) as a day").textStyle(.body).foregroundStyle(Theme.ink)
+              Spacer()
+              Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
+            }
+            .padding(.horizontal, Theme.spaceLg).frame(minHeight: Theme.sizeControl)
+            .background(Theme.surface, in: shape).contentShape(shape)
+          }
+          .accessibilityIdentifier("sleep.asday")
           muted("Nights are named by the morning you woke up. Tracking only: no score, no target.")
             .accessibilityIdentifier("sleep.footer")
         }
@@ -40,6 +61,12 @@ struct SleepDetailView: View {
     }
     .scrollIndicators(.hidden).background(Theme.ground.ignoresSafeArea())
     .task { detail = await SleepDetail.load(from: environment.healthStore, now: environment.now()) }
+  }
+
+  /// Done on the night; back to it from its day.
+  private var rung: TopBar.Action {
+    if openDay != nil { return .init(title: "Sleep", id: "sleep.day.back") { openDay = nil } }
+    return .init(title: "Done", id: "sleep.close") { dismiss() }
   }
 
   /// Bedtime to final wake per night on one clock axis; usual lines labelled; picked in ink.
@@ -51,6 +78,8 @@ struct SleepDetailView: View {
     }
     let usual = [detail.usualBed.map { ($0, "usual ") }, detail.usualWake.map { ($0, "") }]
       .compactMap { $0 }
+    let ticks = Array(  // every 3 hours on the clock: 00, 03, 06
+      stride(from: (axis.lowerBound / 180).rounded(.up) * 180, through: axis.upperBound, by: 180))
     return VStack(spacing: 0) {
       head("Sleep window", "\(detail.nights.count) of \(SleepDetail.windowNights) nights")
       GeometryReader { geo in
@@ -66,6 +95,9 @@ struct SleepDetailView: View {
           Text(day, format: .dateTime.weekday(.abbreviated).day()).frame(
             width: 55, alignment: .leading)
           GeometryReader { geo in
+            ForEach(ticks, id: \.self) {
+              Theme.track.frame(width: 1, height: 24).offset(x: x($0, geo.size.width))
+            }
             ForEach(usual, id: \.0) { minutes, _ in
               Path { $0.addLines([.zero, CGPoint(x: 0, y: 24)]) }
                 .stroke(Theme.ink, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
@@ -91,6 +123,13 @@ struct SleepDetailView: View {
           }
         }
       }
+      GeometryReader { geo in
+        ForEach(ticks, id: \.self) {
+          Text(clock($0).prefix(2)).textStyle(.axis).foregroundStyle(Theme.muted)
+            .position(x: x($0, geo.size.width), y: 8)
+        }
+      }
+      .padding(.horizontal, 55).frame(height: 16)
     }
   }
 
@@ -99,13 +138,30 @@ struct SleepDetailView: View {
     let lane = { (lane: SleepLane) in "\(lane.rawValue) \(hm(night.totals[lane] ?? 0))" }
     let (n, awake) = (night.wakeUps, hm(night.awakeAfterOnset))
     return VStack(alignment: .leading, spacing: Theme.spaceSm) {
-      head("Stages", "Estimated by the strap")
-      Chart(Array(night.stages.enumerated()), id: \.offset) { _, stage in
-        BarMark(
-          xStart: .value("From", stage.start), xEnd: .value("To", stage.end),
-          y: .value("Stage", lane(stage.lane))
-        )
-        .foregroundStyle(Self.color(stage.lane)).cornerRadius(3)
+      head(
+        "Stages, \(night.day.formatted(.dateTime.weekday(.abbreviated).day()))",
+        "Estimated by the strap")
+      Chart {
+        ForEach(SleepLane.allCases, id: \.self) {  // each lane's track in ground
+          BarMark(
+            xStart: .value("From", night.bedtime), xEnd: .value("To", night.wake),
+            y: .value("Stage", lane($0))
+          )
+          .foregroundStyle(Theme.ground).cornerRadius(5)
+        }
+        ForEach(Array(night.stages.enumerated()), id: \.offset) { _, stage in
+          BarMark(
+            xStart: .value("From", stage.start), xEnd: .value("To", stage.end),
+            y: .value("Stage", lane(stage.lane)), height: .ratio(0.8)
+          )
+          .foregroundStyle(Self.color(stage.lane)).cornerRadius(3)
+          if stage.lane == .awake {  // a short wake-up is still at least 3 pt wide
+            RectangleMark(
+              x: .value("At", stage.start + stage.end.timeIntervalSince(stage.start) / 2),
+              y: .value("Stage", lane(stage.lane)), width: .fixed(3), height: .ratio(0.8)
+            ).foregroundStyle(Self.color(stage.lane))
+          }
+        }
       }
       .chartYScale(domain: SleepLane.allCases.map(lane))
       .chartYAxis { AxisMarks(position: .leading) }
@@ -116,6 +172,31 @@ struct SleepDetailView: View {
           + " after falling asleep"
       )
       .accessibilityIdentifier("sleep.wakeups")
+    }
+  }
+
+  /// Heart rate in data-heart, breathing and HRV in ink, each "--" when the strap has none.
+  private func overnight(_ overnight: Overnight?) -> some View {
+    VStack(alignment: .leading, spacing: Theme.spaceSm) {
+      head("Overnight", "")
+      HStack(alignment: .top) {
+        ForEach(overnight?.line ?? [], id: \.id) { reading in
+          VStack(alignment: .leading, spacing: Theme.space2xs) {
+            muted(reading.name)
+            HStack(alignment: .firstTextBaseline, spacing: Theme.space2xs) {
+              Text(reading.value).textStyle(.value)
+                .foregroundStyle(reading.id == "heartRate" ? Theme.dataHeart : Theme.ink)
+              muted(reading.unit)
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .ignore)
+          .accessibilityLabel(
+            [reading.name, reading.value, reading.unit].filter { !$0.isEmpty }.joined(
+              separator: " ")
+          )
+          .accessibilityIdentifier("sleep.overnight.\(reading.id)")
+        }
+      }
     }
   }
 

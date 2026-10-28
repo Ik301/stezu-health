@@ -32,6 +32,25 @@ public struct Overnight: Sendable {
   public let confidence: Confidence
 }
 
+extension Overnight {
+  /// S-047: the overnight line as (id, name, value, unit), heart rate and breathing low–high,
+  /// HRV the median, at most one decimal; a missing reading is "--" with no unit.
+  public var line: [(id: String, name: String, value: String, unit: String)] {
+    let number = { (v: Double) in
+      let tenth = (v * 10).rounded() / 10
+      return tenth == tenth.rounded() ? String(Int(tenth)) : String(tenth)
+    }
+    let range = { (r: ClosedRange<Double>?) in
+      r.map { "\(number($0.lowerBound))–\(number($0.upperBound))" }
+    }
+    return [
+      ("heartRate", "Heart rate", range(heartRate), "bpm"),
+      ("breathing", "Breathing", range(breathing), "br/min"),
+      ("hrv", "HRV", hrv.map { number($0.rounded()) }, "ms"),
+    ].map { ($0.0, $0.1, $0.2 ?? "--", $0.2 == nil ? "" : $0.3) }
+  }
+}
+
 /// The Sleep screen (S-040): 14 wake days ending today, their nights, S-037's usual night, the
 /// window's median bedtime and wake, and its clock axis in whole hours (minutes from midnight).
 public struct SleepDetail: Sendable {

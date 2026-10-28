@@ -132,4 +132,34 @@ final class SleepDetailTests: XCTestCase {
     XCTAssertNil(none.overnight[at(11, 0)]?.hrv)
     XCTAssertEqual(none.overnight[at(11, 0)]?.confidence.level, .low)
   }
+
+  /// S-047: the home-week fixture's last night and strap readings (all made up) give the
+  /// overnight line the UI test reads; a night without readings shows "--" and no unit.
+  func testOvernightLineFromFixtureReadings() {
+    let night = [
+      stage(.inBed, 11, -60, 420), stage(.asleepCore, 11, -30, 180),
+      stage(.asleepDeep, 11, 180, 240), stage(.awake, 11, 240, 250),
+      stage(.asleepREM, 11, 250, 300), stage(.awake, 11, 300, 305),
+      stage(.asleepREM, 11, 305, 360),
+    ]
+    let readings: [(HealthType, Double, Double)] = [
+      (.heartRate, 0, 52), (.heartRate, 120, 48), (.heartRate, 200, 61), (.heartRate, 330, 55),
+      (.heartRate, 245, 72), (.respiratoryRate, 60, 13.5), (.respiratoryRate, 270, 15),
+      (.heartRateVariability, 90, 52), (.heartRateVariability, 320, 64),
+    ]
+    let samples = readings.map {
+      HealthSample(type: $0.0, date: at(11, $0.1), sourceName: "Strap", value: $0.2)
+    }
+    let line = SleepDetail.make(night, samples: samples, now: now, calendar: calendar)
+      .overnight[at(11, 0)]?.line
+    XCTAssertEqual(line?.map(\.id), ["heartRate", "breathing", "hrv"])
+    XCTAssertEqual(line?.map(\.name), ["Heart rate", "Breathing", "HRV"])
+    XCTAssertEqual(line?.map(\.value), ["48–61", "13.5–15", "58"], "72 bpm was a wake-up")
+    XCTAssertEqual(line?.map(\.unit), ["bpm", "br/min", "ms"])
+
+    let bare = SleepDetail.make(night, samples: [], now: now, calendar: calendar)
+      .overnight[at(11, 0)]?.line
+    XCTAssertEqual(bare?.map(\.value), ["--", "--", "--"], "absent, not 0")
+    XCTAssertEqual(bare?.map(\.unit), ["", "", ""])
+  }
 }

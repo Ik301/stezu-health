@@ -1767,3 +1767,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Data's weekly rows, the metric detail and Home keep their own en dash formatters for now; they are outside this card and already use the en dash.
 - Evidence: Packages/StezuCore/Sources/StezuCore/FoodRange.swift, Packages/StezuCore/Tests/StezuCoreTests/MealServingTests.swift (testRangeFormatterUsesEnDashAndGrouping), App/Sources/Food/PhotoMatchSheet.swift, commit on wt/S-050.
 - Reverse if: the app is localised and ranges should follow the phone's number format.
+
+## D-124 Sleep opens its night's Day in place, inside the Sleep sheet, from a state the back rung clears
+
+- Status: proposed by night agent, 2026-10-28 (S-047).
+- Problem: the Sleep screen needs a way into the picked night's wake day and back to the same night, and the Day view (S-041) can itself open Sleep on a night, so the two can nest.
+- Given: SleepDetailView is a sheet with its own TopBar (S-040); MetricDetailView already shows a day in place from an `openDay` state with a "Week" rung (S-041), passing DayView a get/set binding because `Binding($openDay)` crashed when the rung set it to nil.
+- Constraints:
+  - A NavigationStack inside the sheet would add a second bar and a second back control beside the TopBar (breaks the one-TopBar layout every detail uses).
+  - Leaving the sheet to open Day elsewhere loses the picked night (breaks "back to the same night").
+  - A force-unwrapping binding crashes when the rung clears the day while DayView still reads it.
+- Options:
+  - (a) An `openDay` state in SleepDetailView: set by the "<Weekday, Mon d> as a day" row to the picked wake day; the TopBar shows that date with a "Sleep" rung that sets it to nil; DayView gets `Binding(get:set:)`. The picked night and the loaded detail stay in their own states, so back returns to the same night without reloading.
+  - (b) Push Day in a NavigationStack inside the sheet.
+  - (c) Dismiss Sleep and open Day from This week.
+- Decision: (a), the same mechanism as MetricDetailView. DayView's own sleep card still opens a new Sleep sheet over it; sheets nest, so no cycle is kept in state.
+- Evidence: App/Sources/Data/SleepDetailView.swift, App/UITests/SleepDetailUITests.swift (testOvernightLineAndOpenAsDay), commit on wt/S-047.
+- Reverse if: the app moves its details to pushed screens (the walkthrough's "< This week"); then Sleep and Day become destinations of one NavigationStack.
