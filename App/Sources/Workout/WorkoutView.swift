@@ -8,9 +8,13 @@ import UniformTypeIdentifiers
 /// "screen.workout.title" id on the title; the smoke UI test finds it.
 struct WorkoutView: View {
   var goHome: () -> Void = {}
+  /// True while a workout is being logged; the shell hides the area nav (S-046).
+  var logging: Binding<Bool> = .constant(false)
   @Environment(\.appEnvironment) private var environment
   @State private var library: TemplateLibrary?
-  @State private var active: WorkoutTemplate?
+  /// The open logger (new, resumed or continued) and its rest; nil on the Workout screen.
+  @State private var logger: SetLogger?
+  @State private var rest: RestActivityController?
   @State private var picking = false
   @State private var importMessage: String?
   /// A checked program file waiting for Replace or Cancel (S-034).
@@ -19,8 +23,6 @@ struct WorkoutView: View {
   @State private var finished: [FinishedWorkout]?
   /// The saved workout in progress (S-009), offered as Resume in place of the black card.
   @State private var resumable: SetLogger?
-  /// The saved logger the open logger was resumed from; nil for a new session.
-  @State private var resuming: SetLogger?
   @State private var showHistory = false  // the History sheet (S-010)
   /// What Finish opened (S-044), until Done or Undo.
   @State private var summary: WorkoutSummary?
@@ -30,14 +32,13 @@ struct WorkoutView: View {
 
   var body: some View {
     AreaScaffold(
-      area: .workout, title: summary?.logger.template.name ?? "Workout", action: topAction,
-      goHome: goHome
+      area: .workout, title: (logger ?? summary?.logger)?.template.name ?? "Workout",
+      action: topAction, goHome: goHome
     ) {
-      if let active {
+      if let logger {
         WorkoutLoggerView(
-          template: active, resuming: resuming,
-          history: history, addOns: library?.addOns ?? [],
-          onFinish: finish)
+          logger: Binding(get: { self.logger ?? logger }, set: { self.logger = $0 }),
+          rest: $rest, history: history, addOns: library?.addOns ?? [])
       } else if let summary {
         WorkoutSummaryView(
           summary: summary,
@@ -55,8 +56,9 @@ struct WorkoutView: View {
       if finished == nil {
         finished = FinishedWorkoutStore(storage: environment.storage).load()
       }
-      if active == nil && summary == nil { loadSaved() }
+      if logger == nil && summary == nil { loadSaved() }
     }
+    .onChange(of: logger != nil) { _, open in logging.wrappedValue = open }
     .sheet(isPresented: $showHistory) {
       WorkoutHistoryView(
         sessions: history, names: library?.names ?? [:],
@@ -85,13 +87,15 @@ struct WorkoutView: View {
     environment.workoutHistory + (finished ?? []).map(\.session)
   }
 
-  /// The TopBar's right slot: Done on the summary, History on the Workout screen, none while
-  /// logging (the logger has its own Finish row).
+  /// The TopBar's right slot: Finish while logging (one tap, no confirmation), Done on the
+  /// summary, History on the Workout screen.
   private var topAction: TopBar.Action? {
+    if logger != nil {
+      return TopBar.Action(title: "Finish", id: "workout.logger.finish") { finish() }
+    }
     if summary != nil {
       return TopBar.Action(title: "Done", id: "workout.summary.done") { summary = nil }
     }
-    if active != nil { return nil }
     return TopBar.Action(title: "History", id: "workout.history") { showHistory = true }
   }
 
@@ -110,10 +114,12 @@ struct WorkoutView: View {
     library = updated
   }
 
-  /// Closes the logger at once and opens the summary, then writes the session to Health and
-  /// keeps it either way. A session with no sets is discarded and opens no summary.
-  private func finish(_ logger: SetLogger) {
-    (active, resuming) = (nil, nil)
+  /// Ends the rest, closes the logger at once and opens the summary, then writes the session to
+  /// Health and keeps it either way. A session with no sets is discarded and opens no summary.
+  private func finish() {
+    guard let logger else { return }
+    rest?.skip()
+    (self.logger, rest) = (nil, nil)
     WorkoutSessionStore(storage: environment.storage).clear()
     let end = Date()
     summary = WorkoutSummary(logger: logger, endedAt: end, history: history)
@@ -126,7 +132,7 @@ struct WorkoutView: View {
   private func undoFinish() {
     guard let restored = summary?.undo(at: Date()) else { return }
     WorkoutSessionStore(storage: environment.storage).save(restored)
-    (summary, resuming, active) = (nil, restored, restored.template)
+    (summary, logger) = (nil, restored)
   }
 
   /// The saved workout in progress: offered as Resume, or, idle too long, finished at its last
@@ -149,7 +155,7 @@ struct WorkoutView: View {
       keep(old.session, endedAt: end)
     }
     if resumable != nil { WorkoutSessionStore(storage: environment.storage).clear() }
-    (resumable, resuming, active) = (nil, nil, template)
+    (resumable, logger) = (nil, SetLogger(template: template, startedAt: Date(), history: history))
   }
 
   /// The finished session behind a History session, while it can still be continued and no
@@ -165,9 +171,9 @@ struct WorkoutView: View {
   /// Reopens the logger on a finished session: same id, its sets shown, new sets appended.
   private func continueSession(_ done: FinishedWorkout) {
     guard let library,
-      let logger = WorkoutRotation.reopen(done, library: library, history: history)
+      let reopened = WorkoutRotation.reopen(done, library: library, history: history)
     else { return }
-    (showHistory, resumable, resuming, active) = (false, nil, logger, logger.template)
+    (showHistory, resumable, logger) = (false, nil, reopened)
   }
 
   /// Saves the session on the phone, queues its record, then copies it to Health (D-076); the
@@ -277,17 +283,17 @@ struct WorkoutView: View {
   }
 
   /// The black card while a workout is in progress: its template, sets so far, and Resume.
-  private func resumeCard(_ logger: SetLogger) -> some View {
-    let sets = logger.session.exercises.reduce(0) { $0 + $1.sets.count }
+  private func resumeCard(_ saved: SetLogger) -> some View {
+    let sets = saved.session.exercises.reduce(0) { $0 + $1.sets.count }
     return VStack(alignment: .leading, spacing: Theme.spaceSm) {
-      Text(logger.template.name)
+      Text(saved.template.name)
         .textStyle(.title2)
         .accessibilityIdentifier("workout.resume.name")
       Text("\(sets) \(sets == 1 ? "set" : "sets") logged")
         .textStyle(.subtitle)
         .accessibilityIdentifier("workout.resume.sets")
       Button {
-        (resuming, active, resumable) = (logger, logger.template, nil)
+        (logger, resumable) = (saved, nil)
       } label: {
         Text("Resume")
           .textStyle(.headline)

@@ -90,8 +90,22 @@ public struct SetLogger: Sendable, Equatable, Codable {
   /// The session's slots: the day's exercises, then each appended add-on's.
   public var exercises: [TemplateExercise] { template.exercises + addOns.flatMap(\.exercises) }
 
-  private func exerciseInSlot(_ index: Int) -> TemplateExercise {
+  /// The exercise in a slot, with this session's swap if there is one.
+  public func exerciseInSlot(_ index: Int) -> TemplateExercise {
     swaps[index] ?? exercises[index]
+  }
+
+  /// The exercise after the card's; nil on the last one.
+  public var upNext: TemplateExercise? {
+    exercises.indices.contains(exerciseIndex + 1) ? exerciseInSlot(exerciseIndex + 1) : nil
+  }
+
+  /// Skip exercise (S-046): the card moves to the next exercise, prefilled, without logging,
+  /// so an exercise skipped with no sets never enters the session. Does nothing on the last.
+  public mutating func skipExercise() {
+    guard let next = upNext else { return }
+    exerciseIndex += 1
+    prefill(next)
   }
 
   /// Appends an add-on's exercises after the session's own (D-084), once per add-on. Their last

@@ -1735,7 +1735,24 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutSummary.swift, Packages/StezuCore/Tests/StezuCoreTests/WorkoutSummaryTests.swift (testDaysSinceLastDoneByTemplate), App/Sources/Workout/WorkoutView.swift, commit on wt/S-045.
 - Reverse if: the history grows large enough that scanning it per row on every draw shows up in a trace (then index the newest start by key once per load), or Isaac prefers the mock's weekday.
 
-## D-122 Every food range is written by one core formatter that groups thousands itself
+## D-122 The Workout screen owns the open logger and its rest, and tells the shell through a binding while a workout is being logged
+
+- Status: proposed by night agent, 2026-10-28 (S-046).
+- Problem: Finish has to sit in the TopBar's right slot, which the Workout screen draws, while the logger and its rest lived as private state inside the logger view; and the shell's area nav has to disappear while a workout is being logged, though only the Workout screen knows when that is.
+- Given: AreaScaffold draws the TopBar from WorkoutView's `topAction`. Finish ends the rest (the Live Activity) and hands the logger to the summary (D-113). AppShell owns the current area and draws BottomNav in a bottom safe-area inset. Leaving the area destroys WorkoutView, and a saved logger then comes back as Resume (S-009).
+- Constraints:
+  - Keeping the logger private to the logger view leaves the TopBar with no logger to finish (breaks Finish in the TopBar, story step 2).
+  - Reading the logger through a binding that returns the value captured when the body was drawn hands Log a stale copy for the rest of that tap (breaks the save right after Log; the S-041 crash came from the force-unwrapping kind).
+  - A nav flag left true after leaving the area would hide the nav on the next area too (breaks one-tap area switching).
+- Options:
+  - (a) WorkoutView holds `logger: SetLogger?` and `rest: RestActivityController?` (replacing `active` and `resuming`) and passes bindings; the logger binding reads `self.logger ?? captured`, so reads in the same tap see the latest value. AppShell owns `logging` and passes `$logging`; WorkoutView sets it on `onChange(of: logger != nil)`, and the shell's goHome clears it.
+  - (b) Keep the state in the logger view and have the TopBar's Finish bump a counter the logger view watches.
+  - (c) A SwiftUI preference from WorkoutView read by AppShell with `onPreferenceChange`.
+- Decision: (a). One owner for the open session, two fewer state variables, and Finish, Undo, Resume and Continue all set the same `logger`. (b) routes a tap through a side channel; (c) needs a Sendable preference closure under Swift 6.
+- Evidence: App/Sources/Workout/WorkoutView.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/AppShell.swift, App/UITests/WorkoutLoggerUITests.swift (testTopBarFinishSkipAndHiddenNav), commit on wt/S-046.
+- Reverse if: another area needs to hide the nav (then make it a shell-level "focused session" flag every area can set), or the logger moves into its own pushed screen.
+
+## D-123 Every food range is written by one core formatter that groups thousands itself
 
 - Status: proposed by night agent, 2026-10-28 (S-050).
 - Problem: food ranges were written by six hand-rolled formatters (the match sheet, the camera strip, Food Today, History, the week bands, the Day list and summary, the pending line), some with a hyphen and no grouping, some with an en dash and locale grouping, so the same range read differently on different screens.

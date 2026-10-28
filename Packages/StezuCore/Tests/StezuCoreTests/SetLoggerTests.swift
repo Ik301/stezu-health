@@ -181,4 +181,33 @@ final class SetLoggerTests: XCTestCase {
     XCTAssertEqual(logger.exercise?.key, "crunch")
     XCTAssertEqual(logger.pounds, 25, "prefilled from that session")
   }
+
+  /// S-046: Skip exercise moves the card to the next exercise, prefilled, without logging; an
+  /// exercise skipped with no sets is not in the session, one skipped part-way keeps its sets.
+  func testSkipExerciseMovesOnWithoutLogging() throws {
+    var logger = SetLogger(template: template(), startedAt: start)
+    XCTAssertEqual(logger.upNext?.key, "b")
+    logger.skipExercise()
+    XCTAssertEqual(logger.exercise?.key, "b")
+    XCTAssertEqual(logger.exerciseIndex, 1)
+    XCTAssertEqual(logger.setNumber, 1)
+    XCTAssertEqual(logger.pounds, 20, "prefilled with the next exercise's start")
+    XCTAssertEqual(logger.reps, 8)
+    XCTAssertNil(logger.upNext, "the last exercise has nothing up next")
+    XCTAssertTrue(logger.session.exercises.isEmpty, "skipping logs nothing")
+    XCTAssertFalse(logger.canUndo, "a skip is not a set to undo")
+
+    logger.skipExercise()
+    XCTAssertEqual(logger.exercise?.key, "b", "the last exercise cannot be skipped")
+    XCTAssertNotNil(logger.log(at: start + 60))
+    XCTAssertEqual(logger.session.exercises.map(\.exercise), ["Lift B"], "Lift A is left out")
+
+    var partWay = SetLogger(template: template(sets: 3), startedAt: start)
+    partWay.log(at: start + 60)
+    partWay.skipExercise()
+    XCTAssertEqual(partWay.exercise?.key, "b")
+    XCTAssertEqual(partWay.session.sets(for: "Lift A")?.count, 1, "the logged set stays")
+    XCTAssertNotNil(partWay.undo())
+    XCTAssertEqual(partWay.exercise?.key, "a", "undo returns to the skipped exercise's set")
+  }
 }

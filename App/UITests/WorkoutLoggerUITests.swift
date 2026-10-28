@@ -177,4 +177,69 @@ final class WorkoutLoggerUITests: XCTestCase {
     XCTAssertTrue(row.label.contains("2 sets"), row.label)
     XCTAssertFalse(app.element("workout.session.1").exists, "Undo made a second session")
   }
+
+  /// S-046: start the next template ("workout-history": Day 1 Push, five exercises, Bench press
+  /// first). The nav circles are gone and the TopBar reads Day 1 Push with Finish. Skip
+  /// exercise moves the card to Overhead press and the progress to exercise 2; Finish from the
+  /// TopBar leaves the skipped Bench press out of the session.
+  @MainActor
+  func testTopBarFinishSkipAndHiddenNav() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "workout-history")
+    let card = app.element("home.card.workout")
+    XCTAssertTrue(card.waitForExistence(timeout: 30), "no Workout card on Home")
+    card.tap()
+    let start = app.element("workout.today.start")
+    XCTAssertTrue(start.waitForExistence(timeout: 10), "no Start")
+    XCTAssertTrue(app.element("nav.circle.workout").exists, "no area nav on Workout")
+
+    // Start: no area nav, Home stays, the TopBar holds the template name and Finish.
+    start.tap()
+    let exercise = app.element("workout.logger.exercise")
+    XCTAssertTrue(exercise.waitForExistence(timeout: 10), "the logger did not open")
+    XCTAssertEqual(exercise.label, "Bench press")
+    for area in ["data", "food", "workout"] {
+      XCTAssertFalse(app.element("nav.circle.\(area)").exists, "\(area) circle while logging")
+    }
+    XCTAssertTrue(app.element("nav.home").exists, "Home left the TopBar")
+    let title = app.element("screen.workout.title")
+    XCTAssertEqual(title.label, "Day 1 Push")
+    let finish = app.element("workout.logger.finish")
+    XCTAssertTrue(finish.exists, "no Finish")
+    XCTAssertLessThanOrEqual(finish.frame.maxY, title.frame.minY + 1, "Finish is not in the bar")
+    let progress = app.element("workout.logger.progress")
+    XCTAssertEqual(progress.label, "Exercise 1 of 5")
+    XCTAssertTrue(
+      app.element("workout.logger.upNext").label.hasPrefix("Up next: Overhead press"),
+      app.element("workout.logger.upNext").label)
+    saveScreenshot("s046-logger-topbar", of: app)
+
+    // Skip exercise (ellipsis menu): the card moves on without logging, the progress advances.
+    tap("workout.logger.menu", in: app, up: false)
+    let skip = app.element("workout.logger.skipExercise")
+    if skip.waitForExistence(timeout: 3) { skip.tap() } else { app.buttons["Skip exercise"].tap() }
+    XCTAssertEqual(exercise.label, "Overhead press", "Skip exercise did not move on")
+    XCTAssertEqual(app.element("workout.logger.set").label, "Set 1 of 3")
+    XCTAssertFalse(app.element("workout.logger.logged.0").exists, "the skip logged a set")
+    XCTAssertEqual(progress.label, "Exercise 2 of 5")
+    XCTAssertTrue(app.element("workout.logger.upNext").label.hasPrefix("Up next: Incline"))
+
+    // One set of Overhead press, then the progress row under the logged set.
+    tap("workout.logger.log", in: app, up: false)
+    XCTAssertTrue(app.element("workout.logger.logged.0").waitForExistence(timeout: 5))
+    for _ in 0..<3 where !progress.isHittable { app.swipeUp() }
+    XCTAssertGreaterThan(progress.frame.minY, app.element("workout.logger.logged.0").frame.maxY)
+    XCTAssertEqual(progress.label, "Exercise 2 of 5")
+    saveScreenshot("s046-progress", of: app)
+
+    // Finish from the TopBar (1 tap): the summary has Overhead press only.
+    finish.tap()
+    let first = app.element("workout.summary.exercise.0")
+    XCTAssertTrue(first.waitForExistence(timeout: 10), "Finish opened no summary")
+    XCTAssertTrue(first.label.hasPrefix("Overhead press"), first.label)
+    XCTAssertFalse(app.element("workout.summary.exercise.1").exists, "the skip was saved")
+    app.element("workout.summary.done").tap()
+    XCTAssertTrue(
+      app.element("nav.circle.workout").waitForExistence(timeout: 10), "the nav did not return")
+  }
 }
