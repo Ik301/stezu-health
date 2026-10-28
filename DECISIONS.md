@@ -1449,3 +1449,24 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Every font outside Theme.swift is now `.textStyle(...)`; the size, relative style, weight, tracking and tabular flag of each style live in `Theme.TextStyle` and G7 checks their sizes, weights and tracking against tokens.json.
 - Evidence: App/Shared/Theme.swift (`Theme.TextStyle`, `ThemeTextStyle`), every view in App/Sources, App/RestActivity/RestActivityWidget.swift (commit on infra/tokens-v2).
 - Reverse if: a style needs a line height (tokens.json has them; SwiftUI applies them only as `lineSpacing`), or Text concatenation needs styled `Text` values, since the modifier returns a view.
+
+## D-104 The 7-day signing is renewed by a Mac launchd job that rebuilds main and installs it on the iPhone over Wi-Fi, not by TestFlight
+
+- Status: proposed (infra/mac-autoinstall, daytime session). Isaac chose this route on 2026-10-27.
+- Problem: Ingest is built with a free Apple Personal Team, whose provisioning profile lasts 7 days. When it runs out the app no longer opens, so background location (S-032) and background sync (S-033) stop until Isaac rebuilds from Xcode with the phone at hand. He forgets, and new commits on main reach the phone only when he does.
+- Given: his MacBook has Xcode signed in to his Apple ID, the team in the gitignored Config/Local.xcconfig (scripts/set-team.sh), and the iPhone paired; Xcode can pair it for Wi-Fi ("Connect via network"); `xcodebuild -allowProvisioningUpdates` fetches profiles with that account and `xcrun devicectl device install app` installs a built .app; the Mac already runs launchd agents for Stezu (D-081); main is always buildable, because the required ios check builds it.
+- Constraints:
+  - TestFlight and ad hoc distribution need the paid Apple Developer Program ($99 a year); without it nothing installs for longer than 7 days.
+  - Xcode reuses a cached profile while it is still valid, so a rebuild on day 5 alone still expires on day 7; a fresh profile needs the cached one removed first.
+  - The phone is only reachable when it is awake on the same network as the Mac; campus networks (eduroam) block the discovery, and the Mac sleeps.
+  - The repo is public (D-034): no UDIDs, team ids or Apple IDs in code, tests or PRs.
+  - macOS ships bash 3.2; the job may add no dependency beyond Xcode and xcodegen.
+  - devicectl's JSON is not a documented, stable contract and can change with Xcode.
+- Options:
+  - (a) A launchd agent on the Mac at 06:30 with hourly retries to 22:00 runs a bash script in a dedicated clone: fetch, reset to origin/main, decide, find the reachable paired iPhone with devicectl, xcodegen, remove the cached profiles for the app's two bundle ids, xcodebuild, devicectl install, record the commit and the new profile's expiry, notify.
+  - (b) Pay for the program and ship through TestFlight (90-day builds, no Mac in the loop).
+  - (c) AltStore or SideStore re-signing on the phone (needs the Apple ID password in a third-party tool and a refresh server).
+  - (d) Keep rebuilding by hand from Xcode.
+- Decision: (a). It is free, uses only Apple's own tools with the account already in Xcode, and also delivers every merged commit. It installs when main moved, when the last install is 5 or more days old, when the installed profile expires within 2 days, or with --force; otherwise it logs one line. A phone out of reach, an offline Mac or a locked phone exits 0 and the next hour retries; one notification a day warns when the signing has under 36 hours left. A commit that failed to build is not rebuilt again that day. The state changes only after a successful install. The devicectl JSON is checked for its shape (result.devices, connectionProperties, hardwareProperties) and the run fails with a message instead of guessing.
+- Evidence: mac/autoinstall/ (stezu_autoinstall.sh, com.ik301.stezu.autoinstall.plist, install.sh, uninstall.sh, README.md, Tests/ with stubbed git, xcrun, xcodebuild, xcodegen, osascript and security), scripts/gate-linux.sh G8. Tested on Linux under bash 5.2 and bash 3.2.57 with stubs only, and once with real git against a local clone; not yet run on a Mac or against a real iPhone. The JSON fields come from Flutter's, Expo's and KeepAlive's devicectl parsers; profile clearing follows KeepAlive.
+- Reverse if: Isaac buys the Developer Program (then TestFlight, option b), Apple stops issuing free profiles from the command line or limits how often, or the Mac is rarely on the same network as the phone for days at a time.

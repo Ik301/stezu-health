@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Test stub: the notification text is the last argument.
+last=""
+for arg in "$@"; do last="$arg"; done
+echo "$last" >>"$NOTIFY_LOG"

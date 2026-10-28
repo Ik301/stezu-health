@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Test stub: the dedicated clone's git. FAKE_SHA is origin/main; FAKE_FETCH_RC fails the fetch.
+echo "git $*" >>"$STUB_LOG"
+if [ "${1:-}" = -C ]; then shift 2; fi
+case "${1:-}" in
+  fetch)
+    if [ "${FAKE_FETCH_RC:-0}" != 0 ]; then
+      echo "fatal: unable to access 'https://github.com/': Could not resolve host" >&2
+      exit "$FAKE_FETCH_RC"
+    fi
+    ;;
+  rev-parse)
+    # Like `git rev-parse --verify --quiet`: nothing and exit 1 when origin/main is missing.
+    [ -n "$FAKE_SHA" ] || exit 1
+    echo "$FAKE_SHA"
+    ;;
+  reset) ;;
+  *)
+    echo "git stub: unexpected: $*" >&2
+    exit 1
+    ;;
+esac
