@@ -67,6 +67,87 @@ final class MetricDetailUITests: XCTestCase {
     XCTAssertEqual(app.element("metric.day.6.value").label, "--")
   }
 
+  /// S-042: with data-food-week (Sunday clock; steps this week and on the Saturday before, meals
+  /// this week and the Sunday before) Steps draws 8 weekly bars, the older empty weeks as dashed
+  /// slots with "--", and a bar opens its week like its row. Food draws energy and protein as two
+  /// separate panels. Weight's trend chart is checked in Dark.
+  @MainActor
+  func testWeekBarsShowAbsentWeekAndFoodPanels() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "data-food-week")
+    let dataCard = app.element("home.card.data")
+    XCTAssertTrue(dataCard.waitForExistence(timeout: 30), "no Data card on Home")
+    dataCard.tap()
+
+    // Steps: one tap, 8 bars, oldest on the left; an empty week is "--", never 0.
+    let openSteps = app.element("data.steps.open")
+    XCTAssertTrue(openSteps.waitForExistence(timeout: 10), "no way into Steps")
+    openSteps.tap()
+    XCTAssertTrue(waitForLabel(app.element("metric.title"), "Steps"), "Steps did not open")
+    let chart = app.element("metric.weekbars")
+    XCTAssertTrue(chart.waitForExistence(timeout: 10), "no WeekBars")
+    XCTAssertFalse(chart.label.isEmpty, "the chart has no accessibility label")
+    let current = app.element("metric.weekbars.bar.0")
+    XCTAssertTrue(waitForContains(current, "6 of 7 days"), "this week's bar: \(current.label)")
+    var absent = 0
+    for week in 0..<8 {
+      let bar = app.element("metric.weekbars.bar.\(week)")
+      XCTAssertTrue(bar.exists, "no bar for week \(week)")
+      if bar.label.hasSuffix("--") { absent += 1 }
+    }
+    XCTAssertFalse(app.element("metric.weekbars.bar.8").exists, "more than 8 bars")
+    XCTAssertTrue(app.element("metric.weekbars.bar.7").label.contains("0 of 7 days"))
+    XCTAssertTrue(app.element("metric.weekbars.bar.7").label.hasSuffix("--"), "oldest not --")
+    XCTAssertGreaterThan(absent, 0, "no dashed absent week")
+    XCTAssertGreaterThan(
+      current.frame.minX, app.element("metric.weekbars.bar.7").frame.minX,
+      "the current week is not on the right")
+    saveScreenshot("s042-steps-detail", of: app)
+
+    // A bar does what its row does: it opens that week's days.
+    current.tap()
+    XCTAssertTrue(waitForLabel(app.element("metric.day.0.value"), "8000"), "bar did not open week")
+    app.element("metric.back").tap()
+    let close = app.element("metric.close")
+    XCTAssertTrue(close.waitForExistence(timeout: 10), "no way back to the weeks")
+    close.tap()
+    XCTAssertTrue(wait(close, NSPredicate(format: "exists == false")), "the detail did not close")
+
+    // Food: energy and protein as two panels, one above the other, never one plot.
+    let openFood = app.element("data.food.open")
+    XCTAssertTrue(openFood.waitForExistence(timeout: 10), "no way into Food")
+    for _ in 0..<3 where !openFood.isHittable { app.swipeUp() }
+    openFood.tap()
+    XCTAssertTrue(waitForLabel(app.element("metric.title"), "Food"), "Food did not open")
+    let energy = app.element("metric.energy")
+    let protein = app.element("metric.protein")
+    XCTAssertTrue(energy.waitForExistence(timeout: 10), "no energy panel")
+    XCTAssertTrue(protein.exists, "no protein panel")
+    XCTAssertFalse(energy.label.isEmpty || protein.label.isEmpty, "a panel has no label")
+    XCTAssertLessThanOrEqual(energy.frame.maxY, protein.frame.minY, "the panels overlap")
+    XCTAssertFalse(app.element("metric.weekbars").exists, "food in one plot")
+    let thisWeek = app.element("metric.week.0")
+    XCTAssertTrue(waitForContains(thisWeek, "1,000–1,320 kcal, 52–68 g"), "\(thisWeek.label)")
+    XCTAssertTrue(app.element("metric.energy.bar.0").label.contains("5 of 7 days"))
+    XCTAssertTrue(app.element("metric.protein.bar.2").label.hasSuffix("--"), "empty week not --")
+    saveScreenshot("s042-food-detail", of: app)
+
+    // Weight in Dark: the WeekBars well and the weigh-in and trend chart.
+    app.terminate()
+    let dark = UITestApp.launch(scenario: "data-food-week", dark: true)
+    XCTAssertTrue(dark.element("home.card.data").waitForExistence(timeout: 30), "no Data card")
+    dark.element("home.card.data").tap()
+    let openWeight = dark.element("data.weight.open")
+    XCTAssertTrue(openWeight.waitForExistence(timeout: 10), "no way into Weight")
+    openWeight.tap()
+    XCTAssertTrue(waitForLabel(dark.element("metric.title"), "Weight"), "Weight did not open")
+    XCTAssertTrue(dark.element("metric.weekbars").waitForExistence(timeout: 10), "no WeekBars")
+    let trend = dark.element("metric.chart")
+    XCTAssertTrue(trend.waitForExistence(timeout: 10), "no weight chart")
+    XCTAssertTrue(trend.label.contains("weigh-ins"), "weight chart label: \(trend.label)")
+    saveScreenshot("s042-weight-detail-dark", of: dark)
+  }
+
   @MainActor
   private func waitForLabel(_ element: XCUIElement, _ label: String) -> Bool {
     wait(element, NSPredicate(format: "label == %@", label))

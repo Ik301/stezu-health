@@ -4,6 +4,7 @@ import SwiftUI
 /// This week's logged food as ranges and this week's sessions from Stezu and Health (S-023).
 /// No meals or no workouts this week show "--", never 0.
 struct WeeklyFoodWorkoutRows: View {
+  var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
   @State private var food: WeeklyFood?
   @State private var workouts: [WeekWorkout]?
@@ -21,6 +22,7 @@ struct WeeklyFoodWorkoutRows: View {
           value(food?.kcal, unit: "kcal").accessibilityIdentifier("data.food.kcal")
           value(food?.protein, unit: "g protein").accessibilityIdentifier("data.food.protein")
         }
+        MetricOpenButton(metric: .food, open: open)
       }
       HStack(alignment: .firstTextBaseline) {
         Text("Workouts").textStyle(.headline)

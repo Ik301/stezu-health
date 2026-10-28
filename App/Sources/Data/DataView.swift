@@ -22,7 +22,7 @@ struct DataView: View {
           VStack(spacing: Theme.spaceMd) {
             WeightRow { metric = $0 }
             WeeklyHealthRows { metric = $0 }
-            WeeklyFoodWorkoutRows()
+            WeeklyFoodWorkoutRows { metric = $0 }
             PlacesRow()
           }
         }
