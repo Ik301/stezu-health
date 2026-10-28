@@ -1449,3 +1449,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Every font outside Theme.swift is now `.textStyle(...)`; the size, relative style, weight, tracking and tabular flag of each style live in `Theme.TextStyle` and G7 checks their sizes, weights and tracking against tokens.json.
 - Evidence: App/Shared/Theme.swift (`Theme.TextStyle`, `ThemeTextStyle`), every view in App/Sources, App/RestActivity/RestActivityWidget.swift (commit on infra/tokens-v2).
 - Reverse if: a style needs a line height (tokens.json has them; SwiftUI applies them only as `lineSpacing`), or Text concatenation needs styled `Text` values, since the modifier returns a view.
+
+## D-104 Every sheet closes or steps back through `dismiss` from a text button in its TopBar; History's navigation bar is hidden
+
+- Status: proposed by night agent, 2026-10-27 (S-038).
+- Problem: sheets put their Done in different places (a toolbar item in Workout History, a row button in Metric, an HStack in Sources and Food history, none in Settings, Exercises, Weigh-in, the meal editor or the Matching sheet), and on iOS 26 a toolbar item is drawn as a floating glass pill, which is the shadowed Done Isaac flagged.
+- Given: `@Environment(\.dismiss)` closes a sheet when read in its root view and pops a page when read in a view pushed onto a NavigationStack. Workout History is a NavigationStack inside a sheet, three pages deep. Metric steps back through local state (`openDay`, `openWeek`), not navigation.
+- Constraints:
+  - A toolbar item for Done brings the glass pill back.
+  - Hiding History's navigation bar removes the system back button and the edge swipe back, so every page needs its own way back.
+  - A Done that runs anything but `dismiss` (or the same state reset as before) would change behaviour, which the card rules out.
+- Options:
+  - (a) One `TopBar` view (AppShell.swift): an optional Home closure, an optional text action (title, id, closure) and the title beneath. Sheets pass Done -> `dismiss()`, or the rung above (Metric's "8 weeks" and "Week", History's previous page) -> the same state change as before; History hides its navigation bar and each page is a `HistoryPage` whose rung calls that page's own `dismiss`, which pops, or closes the sheet on the first page.
+  - (b) Keep the navigation bar in History with a custom plain back button as a toolbar item.
+  - (c) A sheet wrapper that adds Done around any content.
+- Decision: (a). Swipe down still closes every sheet: none sets `interactiveDismissDisabled`, and every sheet now shows the drag indicator.
+- Evidence: App/Sources/AppShell.swift (`TopBar`, `AreaScaffold`), App/Sources/Workout/WorkoutHistoryView.swift (`HistoryPage`), App/Sources/Data/MetricDetailView.swift (`rung`), App/UITests/SheetHeaderUITests.swift (commit on wt/S-038).
+- Reverse if: History needs the edge swipe back (then (b) with the bar's background hidden), or a sheet gets unsaved edits that Done must confirm.

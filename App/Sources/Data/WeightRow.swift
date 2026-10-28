@@ -96,6 +96,7 @@ private struct WeighInSheet: View {
       .accessibilityIdentifier("data.weighIn.save")
     }
     .padding(Theme.spaceXl)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .foregroundStyle(Theme.ink)
   }
 }

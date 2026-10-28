@@ -2,7 +2,8 @@ import XCTest
 
 /// S-038: every sheet has its TopBar, with Done (or the rung above it) as plain text at the top
 /// right, above the title, and Done closes the sheet; swipe down still closes one. Every area
-/// screen has Home at the top left. Synthetic data only: data-food-week, then food-history.
+/// screen has Home at the top left. Synthetic data only: data-food-week, workout-history, then
+/// food-history.
 final class SheetHeaderUITests: XCTestCase {
   @MainActor
   func testEverySheetHasDoneTopRight() {
@@ -40,9 +41,11 @@ final class SheetHeaderUITests: XCTestCase {
 
     app.element("data.weighIn").tap()
     checkDone("data.weighIn.done", closes: "data.weighIn.title", app)
-    app.element("nav.home").tap()
 
-    // Workout: History, a session in it, then the Exercises library from the logger.
+    // Workout: History, a session in it, then the Exercises library from the logger. Only the
+    // workout-history scenario has past sessions.
+    app.terminate()
+    app = UITestApp.launch(scenario: "workout-history")
     openArea("workout", app)
     app.element("workout.history").tap()
     let session = app.element("history.session.0.0")
