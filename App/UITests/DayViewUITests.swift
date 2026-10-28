@@ -27,8 +27,8 @@ final class DayViewUITests: XCTestCase {
     XCTAssertTrue(app.element("metric.title").label.hasPrefix("Monday"), "not Monday")
     let expected = [
       ("Weigh-in", "170.6 lb", "From Stezu"),
-      ("Meal", "Grain Bowl: 500-700 kcal, 20-30 g protein", "From Stezu"),
-      ("Meal", "Grain Bowl: 700-900 kcal, 40-50 g protein", "From Stezu"),
+      ("Meal", "Grain Bowl: 500–700 kcal, 20–30 g protein", "From Stezu"),
+      ("Meal", "Grain Bowl: 700–900 kcal, 40–50 g protein", "From Stezu"),
       ("Workout", "Bench press 60 lb x 8, 60 lb x 8, 60 lb x 8", "From Stezu"),
       ("Sleep", "7h 20m asleep", "From Health, read-only"),
       ("HRV", "38 ms", "From Phone, read-only"),
@@ -62,7 +62,7 @@ final class DayViewUITests: XCTestCase {
     app.element("food.edit.log").tap()
     let edited = app.element("day.record.2.detail")
     XCTAssertTrue(
-      waitForLabel(edited, "Grain Bowl: 750-1050 kcal, 30-45 g protein"), "edit: \(edited.label)")
+      waitForLabel(edited, "Grain Bowl: 750–1,050 kcal, 30–45 g protein"), "edit: \(edited.label)")
 
     // Delete: the first tap asks, the second deletes the weigh-in from Health.
     let delete = app.element("day.record.0.delete")

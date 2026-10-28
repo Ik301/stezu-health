@@ -27,7 +27,7 @@ final class FoodSearchUITests: XCTestCase {
     XCTAssertEqual(dining.label, "Herb Rice")
     XCTAssertEqual(
       app.element("food.search.result.dining.0.detail").label, "North Hall, South Hall · 4 oz")
-    XCTAssertEqual(app.element("food.search.result.dining.0.kcal").label, "120-200 kcal")
+    XCTAssertEqual(app.element("food.search.result.dining.0.kcal").label, "120–200 kcal")
     XCTAssertEqual(
       app.element("food.search.result.usda_fdc.0.name").label, "Bean burrito, restaurant")
     XCTAssertEqual(app.element("food.search.result.open_food_facts.0.name").label, "Plain Yogurt")
@@ -42,10 +42,10 @@ final class FoodSearchUITests: XCTestCase {
     XCTAssertEqual(app.element("food.match.item.0.name").label, "Herb Rice")
     XCTAssertEqual(app.element("food.match.item.0.hall").label, "North Hall")
     XCTAssertEqual(app.element("food.match.item.0.servings").label, "1 x 4 oz")
-    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "120-200 kcal")
-    XCTAssertEqual(app.element("food.match.item.0.protein").label, "3-5 g protein")
+    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "120–200 kcal")
+    XCTAssertEqual(app.element("food.match.item.0.protein").label, "3–5 g protein")
     XCTAssertFalse(app.element("food.match.item.0.rough").exists)
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "120-200 kcal")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "120–200 kcal")
 
     title.swipeDown(velocity: .fast)
     if title.waitForExistence(timeout: 2) {
@@ -62,8 +62,8 @@ final class FoodSearchUITests: XCTestCase {
     XCTAssertEqual(app.element("food.match.item.0.name").label, "Noodle Bowl")
     XCTAssertTrue(app.element("food.match.item.0.rough").exists, "the estimate is not rough")
     XCTAssertEqual(app.element("food.match.item.0.servings").label, "1 x 1 bowl")
-    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "420-980 kcal")
-    XCTAssertEqual(app.element("food.match.item.0.protein").label, "12-28 g protein")
+    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "420–980 kcal")
+    XCTAssertEqual(app.element("food.match.item.0.protein").label, "12–28 g protein")
     saveScreenshot("s014-text-estimate", of: app)
   }
 }

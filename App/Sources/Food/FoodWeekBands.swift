@@ -32,7 +32,7 @@ struct FoodWeekBands: View {
   }
 
   private func column(_ day: Day, top: Double, today: Bool) -> some View {
-    let range = day.kcal.map { PhotoMatchSheet.range($0, unit: "kcal") } ?? "--"
+    let range = day.kcal.map { FoodRange.text($0, unit: "kcal") } ?? "--"
     let name = day.day.formatted(.dateTime.weekday(.wide))
     return VStack(spacing: Theme.space2xs) {
       VStack(spacing: Theme.space2xs) {

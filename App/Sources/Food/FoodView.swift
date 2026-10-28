@@ -164,9 +164,9 @@ struct FoodView: View {
   private var todayStrip: some View {
     HStack(spacing: Theme.spaceMd) {
       Text("Today").fontWeight(.semibold)
-      Text(PhotoMatchSheet.range(day?.kcal, unit: "kcal")).accessibilityIdentifier(
+      Text(FoodRange.text(day?.kcal, unit: "kcal")).accessibilityIdentifier(
         "food.strip.kcal")
-      Text(PhotoMatchSheet.range(day?.proteinG, unit: "g protein"))
+      Text(FoodRange.text(day?.proteinG, unit: "g protein"))
         .accessibilityIdentifier("food.strip.protein")
       Spacer(minLength: 0)
       Text(day?.mealCount.map { "\($0) meal\($0 == 1 ? "" : "s")" } ?? "-- meals")
@@ -194,14 +194,11 @@ struct FoodView: View {
     .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.camera))
   }
 
-  /// After Log: "Meal logged" with Undo for 8 seconds over the camera.
+  /// After Log: "Lunch logged, in Health" with Undo for 5 seconds over the camera (S-050).
   private func undoToast(_ id: UUID) -> some View {
     HStack {
-      Text("Meal logged").accessibilityIdentifier("food.logged.toast")
-      if let inHealth = loggedInHealth {
-        Text(inHealth ? "In Health" : "Not in Health").textStyle(.label)
-          .foregroundStyle(Theme.onInvertMuted).accessibilityIdentifier("food.logged.health")
-      }
+      Text(Self.toast(at: environment.now(), inHealth: loggedInHealth))
+        .accessibilityIdentifier("food.logged.toast")
       Spacer()
       Button("Undo") {
         logged = nil
@@ -218,9 +215,16 @@ struct FoodView: View {
     .padding(.horizontal, Theme.spaceCard).frame(height: 48)
     .background(Capsule().fill(Theme.invert)).padding(.bottom, Theme.spaceSm)
     .task(id: id) {
-      guard (try? await Task.sleep(nanoseconds: 8_000_000_000)) != nil else { return }
+      guard (try? await Task.sleep(nanoseconds: 5_000_000_000)) != nil else { return }
       logged = nil
     }
+  }
+
+  /// Meals have no names, so the toast names one by the time of day: "Lunch logged, in Health".
+  static func toast(at date: Date, inHealth: Bool?) -> String {
+    let hour = Calendar.current.component(.hour, from: date)
+    let meal = hour < 11 ? "Breakfast" : hour < 16 ? "Lunch" : "Dinner"
+    return "\(meal) logged" + (inHealth.map { $0 ? ", in Health" : ", not in Health" } ?? "")
   }
 
   /// The single Log tap: the items are saved as confirmed and the sheet closes to the camera.

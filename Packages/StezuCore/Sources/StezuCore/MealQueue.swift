@@ -58,7 +58,7 @@ public struct MealQueue: Sendable, Equatable {
 
   /// "-- kcal, +1 pending": logged kcal as a range or "--", never 0 for a meal not yet matched.
   public static func todayText(loggedKcal: FoodRange?, pending: Int) -> String {
-    let kcal = loggedKcal.map { "\(Int($0.low.rounded()))-\(Int($0.high.rounded()))" } ?? "--"
+    let kcal = FoodRange.text(loggedKcal)
     return pending > 0 ? "\(kcal) kcal, +\(pending) pending" : "\(kcal) kcal"
   }
 }

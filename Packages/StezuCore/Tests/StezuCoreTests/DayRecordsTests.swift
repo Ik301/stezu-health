@@ -78,8 +78,8 @@ final class DayRecordsTests: XCTestCase {
     XCTAssertEqual(
       records.map(\.detail),
       [
-        "170.6 lb", "150.0 lb", "Grain Bowl: 700-900 kcal, 40-50 g protein",
-        "Grain Bowl: 500-700 kcal, -- g protein", "--",
+        "170.6 lb", "150.0 lb", "Grain Bowl: 700–900 kcal, 40–50 g protein",
+        "Grain Bowl: 500–700 kcal, -- g protein", "--",
         "Bench press 60 lb x 8, 60 lb x 7; Pull-up bodyweight x 6", "7h 20m asleep", "38 ms",
         "7500",
       ])

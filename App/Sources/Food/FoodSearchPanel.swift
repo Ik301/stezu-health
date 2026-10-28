@@ -58,7 +58,7 @@ struct FoodSearchPanel: View {
           Text(item.name).textStyle(.subtitle, weight: .medium)
             .foregroundStyle(Theme.ink).accessibilityIdentifier("\(id).name")
           Spacer()
-          Text(PhotoMatchSheet.range(item.kcal, unit: "kcal")).foregroundStyle(Theme.ink)
+          Text(FoodRange.text(item.kcal, unit: "kcal")).foregroundStyle(Theme.ink)
             .accessibilityIdentifier("\(id).kcal")
         }
         Text(Self.detail(item)).accessibilityIdentifier("\(id).detail")

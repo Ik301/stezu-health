@@ -44,16 +44,16 @@ final class FoodUITests: XCTestCase {
     XCTAssertTrue(title.waitForExistence(timeout: 15), "no match sheet")
     let kcal = app.element("food.match.total.kcal")
     let protein = app.element("food.match.total.protein")
-    XCTAssertEqual(kcal.label, "460-780 kcal")
-    XCTAssertEqual(protein.label, "7-13 g protein")
+    XCTAssertEqual(kcal.label, "460–780 kcal")
+    XCTAssertEqual(protein.label, "7–13 g protein")
     XCTAssertLessThan(
       kcal.frame.maxY, app.element("food.match.item.0.name").frame.minY, "totals are not first")
     XCTAssertEqual(app.element("food.match.item.1.servings").label, "1 x 1/2 cup")
     app.element("food.match.item.1.plus").tap()
     XCTAssertEqual(app.element("food.match.item.1.servings").label, "1.5 x 1/2 cup")
-    XCTAssertEqual(app.element("food.match.item.1.kcal").label, "120-180 kcal")
-    XCTAssertEqual(kcal.label, "500-840 kcal", "the energy total did not follow")
-    XCTAssertEqual(protein.label, "8-15 g protein", "the protein total did not follow")
+    XCTAssertEqual(app.element("food.match.item.1.kcal").label, "120–180 kcal")
+    XCTAssertEqual(kcal.label, "500–840 kcal", "the energy total did not follow")
+    XCTAssertEqual(protein.label, "8–15 g protein", "the protein total did not follow")
     XCTAssertTrue(app.element("food.edit.add").exists, "no Add item")
     let log = app.element("food.edit.log")
     XCTAssertTrue(log.exists, "no Log")
@@ -64,25 +64,79 @@ final class FoodUITests: XCTestCase {
     log.tap()
     expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: title)
     waitForExpectations(timeout: 10)
-    waitForLabel(strip, "500-840 kcal")
+    waitForLabel(strip, "500–840 kcal")
 
     // Food Today: the ranges large, the meal, and this week with a band for today, "so far".
     app.element("food.history").tap()
     XCTAssertTrue(app.element("food.history.title").waitForExistence(timeout: 10), "no Food Today")
     let today = "food.history.day.0"
-    waitForLabel(app.element("\(today).kcal"), "500-840 kcal")
-    XCTAssertEqual(app.element("\(today).protein").label, "8-15 g protein")
+    waitForLabel(app.element("\(today).kcal"), "500–840 kcal")
+    XCTAssertEqual(app.element("\(today).protein").label, "8–15 g protein")
     XCTAssertEqual(
       app.element("\(today).meal.0.items").label, "Herb Rice, Roast Vegetables, Brownie")
-    XCTAssertEqual(app.element("\(today).meal.0.ranges").label, "500-840 kcal, 8-15 g protein")
+    XCTAssertEqual(app.element("\(today).meal.0.ranges").label, "500–840 kcal, 8–15 g protein")
     let band = app.element("food.today.week.6")
     XCTAssertTrue(band.waitForExistence(timeout: 5), "no band for today")
-    XCTAssertTrue(band.label.hasSuffix("500-840 kcal, so far"), "today's band: \(band.label)")
+    XCTAssertTrue(band.label.hasSuffix("500–840 kcal, so far"), "today's band: \(band.label)")
     XCTAssertTrue(app.element("food.today.week.5").label.hasSuffix("--"), "a missing day is not --")
     for word in ["remaining", "target", "goal"] {
       let found = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", word))
       XCTAssertEqual(found.count, 0, "Food Today shows \"\(word)\"")
     }
     saveScreenshot("s043-food-today", of: app)
+  }
+
+  /// S-050: the item stepper sits right of the name with the count between - and +, every range
+  /// has an en dash, and after Log the toast names the fixture meal by its time, 12:30: Lunch.
+  @MainActor
+  func testEnDashStepperAndToast() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "photo-match")
+    let card = app.element("home.card.food")
+    XCTAssertTrue(card.waitForExistence(timeout: 30), "no food card on Home")
+    card.tap()
+    let shutter = app.element("food.shutter")
+    XCTAssertTrue(shutter.waitForExistence(timeout: 10), "no shutter")
+    expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: shutter)
+    waitForExpectations(timeout: 10)
+    shutter.tap()
+    let title = app.element("food.match.title")
+    XCTAssertTrue(title.waitForExistence(timeout: 15), "no match sheet")
+
+    // The stepper: - then the count then +, to the right of the name and level with it.
+    let item = "food.match.item.1"
+    let (name, minus) = (app.element("\(item).name"), app.element("\(item).minus"))
+    let (count, plus) = (app.element("\(item).count"), app.element("\(item).plus"))
+    XCTAssertEqual(count.label, "1")
+    plus.tap()
+    waitForLabel(count, "1.5")
+    XCTAssertLessThanOrEqual(
+      name.frame.maxX, minus.frame.minX, "the stepper is not right of the name")
+    XCTAssertLessThan(minus.frame.minY, name.frame.maxY, "the stepper is below the name")
+    XCTAssertGreaterThan(minus.frame.maxY, name.frame.minY, "the stepper is above the name")
+    XCTAssertLessThanOrEqual(minus.frame.maxX, count.frame.minX, "the count is not after -")
+    XCTAssertLessThanOrEqual(count.frame.maxX, plus.frame.minX, "the count is not before +")
+    XCTAssertFalse(app.element("\(item).remove").exists, "Remove is a swipe now")
+
+    // Every range on the sheet uses an en dash, never a hyphen.
+    XCTAssertEqual(app.element("\(item).kcal").label, "120\u{2013}180 kcal")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "500\u{2013}840 kcal")
+    XCTAssertEqual(app.element("food.match.total.protein").label, "8\u{2013}15 g protein")
+    for id in ["food.match.total.kcal", "food.match.total.protein", "\(item).protein"] {
+      XCTAssertFalse(app.element(id).label.contains("-"), "\(id) has a hyphen")
+    }
+    saveScreenshot("s050-match-sheet", of: app)
+
+    // Log: the toast names the 12:30 meal Lunch and says it went to Health, with Undo; the
+    // camera strip's range has the en dash too. The toast goes after 5 seconds.
+    app.element("food.edit.log").tap()
+    let toast = app.element("food.logged.toast")
+    XCTAssertTrue(toast.waitForExistence(timeout: 10), "no toast")
+    XCTAssertEqual(toast.label, "Lunch logged, in Health")
+    XCTAssertTrue(app.element("food.logged.undo").exists, "no Undo on the toast")
+    waitForLabel(app.element("food.strip.kcal"), "500\u{2013}840 kcal", timeout: 3)
+    saveScreenshot("s050-toast", of: app)
+    expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: toast)
+    waitForExpectations(timeout: 7)
   }
 }
