@@ -2,10 +2,11 @@ import StezuCore
 import SwiftUI
 
 /// One detail for every metric (S-024): the last 8 weeks, newest first, each with its value and
-/// coverage, then the sources and how the value is made. Weight adds weigh-in dots and the trend
-/// line. A tap on a week lists its days, Monday to Sunday; a day without data shows "--". A
-/// day's chevron opens everything recorded on it (S-025). S-042 draws the weeks above the list
-/// as WeekBars (food as two panels, energy and protein); a bar opens its week as its row does.
+/// coverage, then the sources and how the value is made. Weight adds WeightChart. A tap on a
+/// week lists its days, Monday to Sunday; a day without data shows "--". A day's chevron opens
+/// everything recorded on it (S-025). S-042 draws the weeks above the list as WeekBars (food as
+/// two panels, energy and protein); a bar opens its week as its row does. S-042b puts
+/// CoverageDots before each week and adds Workouts (working sets).
 struct MetricDetailView: View {
   let metric: Metric
   @Environment(\.appEnvironment) private var environment
@@ -31,7 +32,8 @@ struct MetricDetailView: View {
             panel.padding(Theme.spaceLg).background(Theme.surface, in: shape)
           }
           if metric == .weight {
-            TrendChart(history: history).padding(Theme.spaceLg).background(Theme.surface, in: shape)
+            WeightChart(history: history).padding(Theme.spaceLg).background(
+              Theme.surface, in: shape)
           }
           weeks(history).padding(Theme.spaceLg).background(Theme.surface, in: shape)
         }
@@ -46,6 +48,9 @@ struct MetricDetailView: View {
       case .food:
         meals = await environment.mealCaptures.logged() + environment.mealHistory
         history = MetricHistory.food(meals, now: now)
+      case .workouts:
+        let finished = FinishedWorkoutStore(storage: environment.storage).load().map(\.session)
+        history = MetricHistory.workouts(environment.workoutHistory + finished, now: now)
       default:
         history = await MetricHistory.load(metric, from: environment.weightHealth, now: now)
       }
@@ -54,7 +59,7 @@ struct MetricDetailView: View {
 
   /// One WeekBars well per plot: food's energy and protein are two, never one.
   private func panels(_ history: MetricHistory) -> [WeekBars] {
-    let (now, ofSeven) = (environment.now(), metric != .hrv)
+    let (now, ofSeven) = (environment.now(), metric != .hrv && metric != .workouts)
     let describe: (Int) -> String = { summary(history.weeks[$0]).label }
     let open: (Int) -> Void = { openWeek = $0 }
     guard metric == .food else {
@@ -83,8 +88,11 @@ struct MetricDetailView: View {
   ) {
     let dates = range(week.start)
     let unit = metric == .sleep || metric == .breathing ? "nights" : "days"
+    let count = week.stat.coverage
     let covered =
-      metric == .hrv ? "\(week.stat.coverage) samples" : "\(week.stat.coverage) of 7 \(unit)"
+      metric == .hrv
+      ? "\(count) samples"
+      : metric == .workouts ? "\(count) session\(count == 1 ? "" : "s")" : "\(count) of 7 \(unit)"
     let value = text(week.stat.value, from: week.start, days: 7)
     return (dates, covered, value, "\(dates), \(covered), \(value)")
   }
@@ -111,22 +119,32 @@ struct MetricDetailView: View {
     VStack(alignment: .leading, spacing: Theme.spaceMd) {
       ForEach(Array(history.weeks.enumerated()), id: \.offset) { index, week in
         let (dates, covered, value, words) = summary(week)
-        Button {
-          openWeek = index
-        } label: {
-          HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: Theme.space2xs) {
-              Text(dates).textStyle(.headline)
-              label(covered)
-            }
-            Spacer()
-            Text(value).textStyle(.value)
+        // The dots sit outside the row's button, which would swallow them as an element.
+        HStack(spacing: Theme.spaceSm) {
+          if metric != .hrv {
+            CoverageDots(
+              days: ChartSeries.coverage(week, of: metric, now: environment.now()),
+              id: "metric.week.\(index).dots"
+            )
+            .frame(width: 54, alignment: .leading)
           }
-          .contentShape(Rectangle())
+          Button {
+            openWeek = index
+          } label: {
+            HStack(alignment: .firstTextBaseline) {
+              VStack(alignment: .leading, spacing: Theme.space2xs) {
+                Text(dates).textStyle(.headline)
+                label(covered)
+              }
+              Spacer()
+              Text(value).textStyle(.value)
+            }
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(words)
+          .accessibilityIdentifier("metric.week.\(index)")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(words)
-        .accessibilityIdentifier("metric.week.\(index)")
       }
       let sources = history.sources.joined(separator: ", ")
       label("From: " + (sources.isEmpty ? "--" : sources)).accessibilityIdentifier("metric.sources")
@@ -171,39 +189,6 @@ struct MetricDetailView: View {
   }
 }
 
-/// Weigh-in dots and the trend line across the 8 weeks, oldest on the left.
-private struct TrendChart: View {
-  let history: MetricHistory
-
-  var body: some View {
-    let points = history.trend
-    let start = history.weeks.last?.start ?? Date()
-    let span = max((history.weeks.first?.start ?? start).timeIntervalSince(start) + 7 * 86_400, 1)
-    Canvas { context, size in
-      let values = points.flatMap { [$0.pounds, $0.trend] }
-      guard let low = values.min(), let high = values.max() else { return }
-      let pad = max((high - low) * 0.1, 0.5)
-      func at(_ point: TrendPoint, _ pounds: Double) -> CGPoint {
-        CGPoint(
-          x: size.width * point.day.timeIntervalSince(start) / span,
-          y: size.height * (1 - (pounds - low + pad) / (high - low + 2 * pad)))
-      }
-      var line = Path()
-      line.addLines(points.map { at($0, $0.trend) })
-      context.stroke(line, with: .color(Theme.ink), lineWidth: 2)
-      for point in points {
-        let dot = CGRect(origin: at(point, point.pounds), size: .zero).insetBy(dx: -3, dy: -3)
-        context.fill(Path(ellipseIn: dot), with: .color(Theme.muted))
-      }
-    }
-    .frame(height: 120)
-    .accessibilityElement()
-    .accessibilityAddTraits(.isImage)
-    .accessibilityLabel(points.isEmpty ? "No weigh-ins" : "\(points.count) weigh-ins and the trend")
-    .accessibilityIdentifier("metric.chart")
-  }
-}
-
 /// An overview row's way into its metric's weeks.
 struct MetricOpenButton: View {
   let metric: Metric
@@ -232,6 +217,7 @@ extension Metric {
     case .restingHR: "Resting HR"
     case .food: "Food"
     case .breathing: "Breathing"
+    case .workouts: "Workouts"
     }
   }
 
@@ -244,6 +230,7 @@ extension Metric {
     case .restingHR: "\(Int(value.rounded())) bpm"
     case .food: "\(Int(value.rounded())) kcal"
     case .breathing: String(format: "%.1f br/min", value)
+    case .workouts: "\(Int(value.rounded())) set\(Int(value.rounded()) == 1 ? "" : "s")"
     }
   }
 
