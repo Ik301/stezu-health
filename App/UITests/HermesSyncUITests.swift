@@ -123,6 +123,8 @@ final class HermesSyncUITests: XCTestCase {
     log.tap()
     XCTAssertTrue(logged.waitForExistence(timeout: 5), "the set was not logged again")
     app.element("workout.logger.finish").tap()
+    XCTAssertTrue(app.element("workout.summary.done").waitForExistence(timeout: 10), "no summary")
+    app.element("workout.summary.done").tap()  // S-044: Finish opens the summary; Done returns
     XCTAssertTrue(
       app.element("workout.session.0").waitForExistence(timeout: 10), "the session is not kept")
 

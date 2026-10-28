@@ -1570,3 +1570,37 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The dots sit to the left of the dates and coverage words, not on the coverage line itself.
 - Evidence: App/Sources/Charts/CoverageDots.swift, App/Sources/Data/MetricDetailView.swift (`weeks`), App/UITests/MetricDetailUITests.swift (testWorkoutsDetailShowsSetsAndCoverageDots), commit on wt/S-042b.
 - Reverse if: VoiceOver testing shows the dots column as a focus stop on a device, or the design wants the dots on the coverage line (then an alignment guide inside the button, with the UI test on a screenshot).
+
+## D-111 Finish keeps the logger in a WorkoutSummary; Undo within 8 s reopens that logger, and the finished copy stays until the next Finish replaces it
+
+- Status: proposed by night agent, 2026-10-28 (S-044).
+- Problem: Finish must stay one tap with no confirmation, yet the summary it opens offers Undo for 8 seconds that reopens the session as it was, while the session has already been saved on the phone, queued for the server and written to Health.
+- Given: Finish saves to finished-workouts.json, queues a `workout_session` record and writes Health in a background Task (D-076). A Continue (D-090) reopens a finished session under the same id, and its next Finish replaces the entry and the Health workout (delete by external id, then save). The Workout screen already reopens a saved logger through `resuming` (S-009).
+- Constraints:
+  - Deleting the entry and the Health workout on Undo races the background write, which can land after the delete and put the session back (breaks Undo).
+  - Rebuilding the logger from the session (`SetLogger(continuing:)`) loses the undo order, swaps and appended add-ons (breaks "reopens the session").
+  - Holding back the save until the 8 s pass would lose the session if the app is killed in that window (breaks D-076).
+- Options:
+  - (a) `WorkoutSummary` holds the SetLogger as it was at Finish; `undo(at:)` returns it while under 8 s, and the screen reopens it through `resuming`. Nothing is deleted: the finished copy, its record and its Health workout stay until the next Finish of the same session replaces them under the same id, as for Continue.
+  - (b) Undo deletes the finished entry and the Health workout and sends a delete record.
+  - (c) Delay the save and the Health write by 8 s.
+- Decision: (a). The comparison uses only earlier sessions of the same template (an Empty workout has none) and the best set is the heaviest, most reps among equals; a weight change is said in pounds, otherwise reps; bodyweight against a weighted set has no comparison ("--").
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutSummary.swift, App/Sources/Workout/WorkoutView.swift (`finish`, `undoFinish`), App/Sources/Workout/WorkoutSummaryView.swift, Packages/StezuCore/Tests/StezuCoreTests/WorkoutSummaryTests.swift, App/UITests/WorkoutLoggerUITests.swift (testInlineRestAndSummaryWithUndo), commit on wt/S-044.
+- Reverse if: an undone session that is never finished again should vanish from History and Health (then (b), with the write Task checking an undone flag before it saves).
+
+## D-112 The rest band is always laid out inside the logger card, so Log never moves
+
+- Status: proposed by night agent, 2026-10-28 (S-044).
+- Problem: the rest countdown moves inside the black card above the steppers, and Log, at the bottom of the card, must not move when a rest starts or ends.
+- Given: the logger is a top-anchored ScrollView; anything that appears above Log pushes it down. The countdown's id, value (its start time) and the -15, +15 and Skip ids are read by RestTimerUITests.
+- Constraints:
+  - Showing the band only while resting moves Log down by its height (what the walkthrough mock does; breaks the story's "Log doesn't move").
+  - A fixed-height frame breaks under large Dynamic Type sizes.
+  - Hiding the buttons with `if` changes the band's height.
+- Options:
+  - (a) Always lay out the band: idle it shows the exercise's rest dimmed and the buttons at opacity 0, hidden from VoiceOver; resting it shows the countdown in the same text style and the buttons.
+  - (b) A fixed-height slot.
+  - (c) Keep the rest as its own card under the logger.
+- Decision: (a). The standalone rest card is gone; the Live Activity is unchanged.
+- Evidence: App/Sources/Workout/WorkoutLoggerView.swift (`restCard`), App/UITests/WorkoutLoggerUITests.swift (Log's frame before and after Log and Skip), commit on wt/S-044.
+- Reverse if: Isaac prefers the mock's behaviour (the band only while resting, Log moving down by its height).
