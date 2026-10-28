@@ -23,8 +23,8 @@ struct MetricDetailView: View {
         TopBar(
           title: openDay?.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
             ?? metric.title, titleID: "metric.title", action: rung)
-        if let openDay {
-          DayView(day: openDay).padding(Theme.spaceLg).background(Theme.surface, in: shape)
+        if let day = Binding($openDay) {
+          DayView(day: day)
         } else if let history, let index = openWeek {
           days(history.weeks[index]).padding(Theme.spaceLg).background(Theme.surface, in: shape)
         } else if let history {
