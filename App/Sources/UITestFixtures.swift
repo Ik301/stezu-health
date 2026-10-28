@@ -148,7 +148,21 @@ enum UITestFixtures {
   /// "data-week" strap context (S-027), all made up: blood oxygen on 6 days (fractions, median
   /// 97%), respiratory rate on 5 nights (median 14.4 br/min), body temperature on 4 nights
   /// (median 97.8 °F), all from a strap; no wrist temperature.
+  /// "home-week" (S-047): last night's strap readings, minutes from Sunday's midnight; 72 bpm
+  /// falls in a wake-up. Asleep: heart rate 48–61 bpm, breathing 13.5–15, HRV median 58 ms.
   static func strapSamples(scenario: String?) -> [HealthSample] {
+    let night: [(HealthType, Double, Double)] = [
+      (.heartRate, 0, 52), (.heartRate, 120, 48), (.heartRate, 200, 61), (.heartRate, 330, 55),
+      (.heartRate, 245, 72), (.respiratoryRate, 60, 13.5), (.respiratoryRate, 270, 15),
+      (.heartRateVariability, 90, 52), (.heartRateVariability, 320, 64),
+    ]
+    let strap = { (type: HealthType, date: Date, value: Double) in
+      HealthSample(
+        type: type, date: date, sourceName: "Strap", sourceBundleID: "example.strap", value: value)
+    }
+    if scenario == homeWeekScenario {
+      return night.map { strap($0.0, dataWeekDay(11, hour: 0) + $0.1 * 60, $0.2) }
+    }
     guard scenario == dataWeekScenario else { return [] }
     let rows: [(HealthType, Int, [Int: Double])] = [
       (.oxygenSaturation, 4, [5: 0.97, 6: 0.95, 7: 0.98, 8: 0.96, 9: 0.97, 10: 0.99]),
@@ -156,11 +170,7 @@ enum UITestFixtures {
       (.bodyTemperature, 3, [5: 97.7, 6: 97.9, 8: 98.1, 10: 97.5]),
     ]
     return rows.flatMap { type, hour, days in
-      days.map {
-        HealthSample(
-          type: type, date: dataWeekDay($0.key, hour: hour), sourceName: "Strap",
-          sourceBundleID: "example.strap", value: $0.value)
-      }
+      days.map { strap(type, dataWeekDay($0.key, hour: hour), $0.value) }
     }
   }
 

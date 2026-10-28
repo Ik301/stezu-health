@@ -56,6 +56,46 @@ final class SleepDetailUITests: XCTestCase {
     saveScreenshot("s040-sleep-dark", of: dark)
   }
 
+  /// S-047: home-week's last night has synthetic strap readings. The night reads "woke 06:00",
+  /// the stages carry its date, and the overnight line shows heart rate 48–61 bpm (a 72 bpm
+  /// reading fell in a wake-up), breathing 13.5–15 br/min and HRV 58 ms. "Sunday, Jan 11 as a
+  /// day" opens that day's Day view in place, and the TopBar's back rung returns to Sleep.
+  @MainActor
+  func testOvernightLineAndOpenAsDay() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "home-week")
+    openSleep(app)
+    XCTAssertTrue(app.staticTexts["woke 06:00"].exists, "no wake time beside the night")
+    XCTAssertTrue(app.staticTexts["Stages, Sun 11"].exists, "no date on Stages")
+
+    let heart = app.element("sleep.overnight.heartRate")
+    XCTAssertTrue(heart.waitForExistence(timeout: 10), "no overnight line")
+    for _ in 0..<3 where !heart.isHittable { app.swipeUp() }
+    XCTAssertEqual(heart.label, "Heart rate 48–61 bpm")
+    XCTAssertEqual(app.element("sleep.overnight.breathing").label, "Breathing 13.5–15 br/min")
+    XCTAssertEqual(app.element("sleep.overnight.hrv").label, "HRV 58 ms")
+    saveScreenshot("s047-sleep-overnight", of: app)
+
+    let row = app.element("sleep.asday")
+    for _ in 0..<3 where !row.isHittable { app.swipeUp() }
+    XCTAssertTrue(row.label.hasPrefix("Sunday, Jan 11 as a day"), "row: \(row.label)")
+    row.tap()
+    XCTAssertTrue(waitForLabel(app.element("sleep.title"), "Sunday, Jan 11"), "not Sunday")
+    let summary = app.element("day.summary")
+    XCTAssertTrue(summary.waitForExistence(timeout: 10), "no Day view")
+    let slept = NSPredicate(format: "label BEGINSWITH %@", "Slept 6h 15m")
+    XCTAssertEqual(
+      XCTWaiter().wait(for: [expectation(for: slept, evaluatedWith: summary)], timeout: 10),
+      .completed, "summary: \(summary.label)")
+    let back = app.element("sleep.day.back")
+    for _ in 0..<4 where !back.isHittable { app.swipeDown() }
+    saveScreenshot("s047-sleep-as-day", of: app)
+
+    back.tap()
+    XCTAssertTrue(waitForLabel(app.element("sleep.title"), "Sleep"), "back rung did not return")
+    XCTAssertTrue(app.element("sleep.asleep").waitForExistence(timeout: 10), "not on Sleep")
+  }
+
   /// Home, Data, then the Sleep row (1 tap from This week); waits for last night.
   @MainActor
   private func openSleep(_ app: XCUIApplication) {
