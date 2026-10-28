@@ -105,14 +105,15 @@ struct PhotoMatchSheet: View {
     .presentationDragIndicator(.visible)
   }
 
-  /// One item: a tap on the name opens search to replace it (S-015); `controls` go below.
+  /// One item (MealItem): a tap on the name opens search to replace it (S-015); the ranges are in
+  /// their data colours; `controls` go below.
   static func row<Controls: View>(
     _ item: MatchedItem, id: String, onName: @escaping () -> Void,
     @ViewBuilder controls: () -> Controls
   ) -> some View {
     VStack(alignment: .leading, spacing: Theme.spaceXs) {
       HStack {
-        Text(item.name).textStyle(.subtitle, weight: .medium)
+        Text(item.name).underline(color: Theme.track).textStyle(.headline)
           .onTapGesture(perform: onName).accessibilityAddTraits(.isButton)
           .accessibilityIdentifier("\(id).name")
         if item.isRough {
@@ -123,14 +124,14 @@ struct PhotoMatchSheet: View {
             .accessibilityIdentifier("\(id).rough")
         }
         Spacer()
-        Text(Self.range(item.kcal, unit: "kcal")).accessibilityIdentifier("\(id).kcal")
+        RangeLabel(range: item.kcal, unit: "kcal").accessibilityIdentifier("\(id).kcal")
       }
       HStack {
         Text(item.hall ?? item.brand ?? (item.isRough ? "Not on a menu" : "--"))
           .accessibilityIdentifier("\(id).hall")
         Text(Self.servings(item)).accessibilityIdentifier("\(id).servings")
         Spacer()
-        Text(Self.range(item.proteinG, unit: "g protein"))
+        RangeLabel(range: item.proteinG, unit: "g", spoken: "g protein", color: Theme.dataProtein)
           .accessibilityIdentifier("\(id).protein")
       }
       .textStyle(.label).foregroundStyle(Theme.muted)
@@ -138,8 +139,19 @@ struct PhotoMatchSheet: View {
     }
     .foregroundStyle(Theme.ink)
     .padding(Theme.spaceMd)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
-    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard).stroke(Theme.edge))
+    .background(RoundedRectangle(cornerRadius: Theme.radiusInner).fill(Theme.surfaceRaised))
+  }
+
+  /// A total as the sheet and Food Today lead with it: a small title over the range, large and in
+  /// its data colour.
+  static func total(
+    _ title: String, _ range: FoodRange?, unit: String, spoken: String, color: Color, id: String
+  ) -> some View {
+    VStack(alignment: .leading, spacing: Theme.space2xs) {
+      Text(title).textStyle(.label).foregroundStyle(Theme.muted)
+      RangeLabel(range: range, unit: unit, spoken: spoken, color: color, style: .stat)
+        .accessibilityIdentifier(id)
+    }
   }
 
   /// "200-260 kcal", or "--" when the range is unknown. Never a single number.
@@ -153,5 +165,27 @@ struct PhotoMatchSheet: View {
     guard let count = item.servings else { return "--" }
     let number = count.formatted(.number.precision(.fractionLength(0...1)))
     return "\(number) x \(item.serving ?? "serving")"
+  }
+}
+
+/// A range as RangeValue writes it: the numbers in the data colour with a small unit after them,
+/// "--" when unknown. VoiceOver and the tests read the whole line, such as "200-260 kcal".
+struct RangeLabel: View {
+  let range: FoodRange?
+  let unit: String
+  /// The unit read aloud, such as "g protein" for a unit drawn as "g".
+  var spoken: String?
+  var color = Theme.dataEnergy
+  var style = Theme.TextStyle.subtitle
+
+  var body: some View {
+    HStack(alignment: .firstTextBaseline, spacing: Theme.space2xs) {
+      Text(range.map { "\(Int($0.low.rounded()))-\(Int($0.high.rounded()))" } ?? "--")
+        .textStyle(style, weight: .medium).foregroundStyle(range == nil ? Theme.ink : color)
+        .lineLimit(1).minimumScaleFactor(0.6)
+      Text(unit).textStyle(.label).foregroundStyle(Theme.muted)
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(PhotoMatchSheet.range(range, unit: spoken ?? unit))
   }
 }
