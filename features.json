@@ -1643,7 +1643,7 @@
         "s048-home-dots"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-049",

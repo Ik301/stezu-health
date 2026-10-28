@@ -17,7 +17,9 @@ final class LocationUITests: XCTestCase {
     XCTAssertTrue(app.element("screen.data.title").waitForExistence(timeout: 10))
     let places = app.element("data.places.value")
     XCTAssertTrue(places.waitForExistence(timeout: 10), "no Places row")
-    XCTAssertEqual(places.label, "2 visits, 1 of 7 days")
+    // S-048 made Places a MetricRow: the visits are the value, the days its coverage.
+    wait(for: "label == '2'", on: places)
+    XCTAssertEqual(app.element("data.places.coverage").label, "1 of 7 days")
     for _ in 0..<3 where !places.isHittable { app.swipeUp() }
     saveScreenshot("s032-places-row", of: app)
 

@@ -25,7 +25,8 @@ final class MetricDetailUITests: XCTestCase {
     }
     XCTAssertFalse(app.element("metric.week.8").exists, "more than 8 weeks")
     XCTAssertTrue(thisWeek.label.contains("5 of 7 days"), "this week: \(thisWeek.label)")
-    XCTAssertTrue(thisWeek.label.hasPrefix("Mon"), "week does not start Monday: \(thisWeek.label)")
+    // S-048 shortened the dates ("Jan 5 to Jan 11"), so they no longer wrap beside the value.
+    XCTAssertTrue(thisWeek.label.hasPrefix("Jan 5 to Jan 11"), "not Monday: \(thisWeek.label)")
     let lastWeek = app.element("metric.week.1").label
     XCTAssertTrue(lastWeek.contains("2 of 7 days"), "last week: \(lastWeek)")
     let oldest = app.element("metric.week.7").label

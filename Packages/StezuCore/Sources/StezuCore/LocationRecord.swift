@@ -81,8 +81,14 @@ public struct LocationLog: Codable, Sendable, Equatable {
     let days = Set(places.flatMap(\.times).filter(week.contains).map(calendar.startOfDay))
     guard !days.isEmpty else { return nil }
     let level: Confidence.Level = days.count >= 5 ? .high : days.count >= 3 ? .medium : .low
+    let perDay = (0..<7).map { offset -> Double? in
+      guard let day = calendar.date(byAdding: .day, value: offset, to: week.start),
+        days.contains(day)
+      else { return nil }
+      return Double(visits.filter { calendar.isDate($0.times[0], inSameDayAs: day) }.count)
+    }
     return PlacesWeek(
-      visits: visits.count, daysWithData: days.count,
+      visits: visits.count, daysWithData: days.count, perDay: perDay,
       confidence: Confidence(level: level, reason: "location on \(days.count) of 7 days"))
   }
 }
@@ -103,8 +109,11 @@ public actor LocationRecorder {
   }
 }
 
-/// This week's visits (by arrival) and the days with any location data.
+/// This week's visits (by arrival) and the days with any location data. `perDay` counts the
+/// visits that arrived on each day, Monday to Sunday: 0 on a day with location data but no
+/// visit, nil on a day without location data (S-048).
 public struct PlacesWeek: Sendable, Equatable {
   public let visits, daysWithData: Int
+  public let perDay: [Double?]
   public let confidence: Confidence
 }

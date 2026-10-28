@@ -34,6 +34,8 @@ struct MetricRow: View {
           .foregroundStyle(Theme.muted)
       }
     }
+    // The row button says it all, so VoiceOver reads the row once; tests still see the parts.
+    .accessibilityHidden(open != nil && !environment.isUITest)
     .frame(minHeight: Theme.sizeTarget).padding(.vertical, Theme.spaceSm)
     .overlay(alignment: .top) { if !first { Theme.track.frame(height: 1) } }
     .overlay {
