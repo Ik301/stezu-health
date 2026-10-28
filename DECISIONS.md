@@ -1604,7 +1604,41 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: App/Sources/HomeView.swift (`clocked`), App/Sources/HomeViewModel.swift (`invertedCardID`, `HomeInputs.load`), App/Tests/HomeViewModelTests.swift (testTimeOfDayPicksInvertedCard), commit on wt/S-037.
 - Reverse if: the time-of-day inversion should follow the real clock even in scenarios, or the in-progress state moves out of the file.
 
-## D-113 A This week row is one button laid over its content, so the row's texts and sparkline keep their own ids
+## D-113 Finish keeps the logger in a WorkoutSummary; Undo within 8 s reopens that logger, and the finished copy stays until the next Finish replaces it
+
+- Status: proposed by night agent, 2026-10-28 (S-044).
+- Problem: Finish must stay one tap with no confirmation, yet the summary it opens offers Undo for 8 seconds that reopens the session as it was, while the session has already been saved on the phone, queued for the server and written to Health.
+- Given: Finish saves to finished-workouts.json, queues a `workout_session` record and writes Health in a background Task (D-076). A Continue (D-090) reopens a finished session under the same id, and its next Finish replaces the entry and the Health workout (delete by external id, then save). The Workout screen already reopens a saved logger through `resuming` (S-009).
+- Constraints:
+  - Deleting the entry and the Health workout on Undo races the background write, which can land after the delete and put the session back (breaks Undo).
+  - Rebuilding the logger from the session (`SetLogger(continuing:)`) loses the undo order, swaps and appended add-ons (breaks "reopens the session").
+  - Holding back the save until the 8 s pass would lose the session if the app is killed in that window (breaks D-076).
+- Options:
+  - (a) `WorkoutSummary` holds the SetLogger as it was at Finish; `undo(at:)` returns it while under 8 s, and the screen reopens it through `resuming`. Nothing is deleted: the finished copy, its record and its Health workout stay until the next Finish of the same session replaces them under the same id, as for Continue.
+  - (b) Undo deletes the finished entry and the Health workout and sends a delete record.
+  - (c) Delay the save and the Health write by 8 s.
+- Decision: (a). The comparison uses only earlier sessions of the same template (an Empty workout has none) and the best set is the heaviest, most reps among equals; a weight change is said in pounds, otherwise reps; bodyweight against a weighted set has no comparison ("--").
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutSummary.swift, App/Sources/Workout/WorkoutView.swift (`finish`, `undoFinish`), App/Sources/Workout/WorkoutSummaryView.swift, Packages/StezuCore/Tests/StezuCoreTests/WorkoutSummaryTests.swift, App/UITests/WorkoutLoggerUITests.swift (testInlineRestAndSummaryWithUndo), commit on wt/S-044.
+- Reverse if: an undone session that is never finished again should vanish from History and Health (then (b), with the write Task checking an undone flag before it saves).
+
+## D-114 The rest band is always laid out inside the logger card, so Log never moves
+
+- Status: proposed by night agent, 2026-10-28 (S-044).
+- Problem: the rest countdown moves inside the black card above the steppers, and Log, at the bottom of the card, must not move when a rest starts or ends.
+- Given: the logger is a top-anchored ScrollView; anything that appears above Log pushes it down. The countdown's id, value (its start time) and the -15, +15 and Skip ids are read by RestTimerUITests.
+- Constraints:
+  - Showing the band only while resting moves Log down by its height (what the walkthrough mock does; breaks the story's "Log doesn't move").
+  - A fixed-height frame breaks under large Dynamic Type sizes.
+  - Hiding the buttons with `if` changes the band's height.
+- Options:
+  - (a) Always lay out the band: idle it shows the exercise's rest dimmed and the buttons at opacity 0, hidden from VoiceOver; resting it shows the countdown in the same text style and the buttons.
+  - (b) A fixed-height slot.
+  - (c) Keep the rest as its own card under the logger.
+- Decision: (a). The standalone rest card is gone; the Live Activity is unchanged.
+- Evidence: App/Sources/Workout/WorkoutLoggerView.swift (`restCard`), App/UITests/WorkoutLoggerUITests.swift (Log's frame before and after Log and Skip), commit on wt/S-044.
+- Reverse if: Isaac prefers the mock's behaviour (the band only while resting, Log moving down by its height).
+
+## D-115 A This week row is one button laid over its content, so the row's texts and sparkline keep their own ids
 
 - Status: proposed by night agent, 2026-10-28 (S-039).
 - Problem: design/system makes the whole MetricRow the control, at least 44 pt tall, but a SwiftUI Button folds everything in its label into one accessibility element, and a dozen UI tests read the row's coverage and value by id (`data.<id>.coverage`, `data.<id>.value`) and the new one reads `data.spark.<id>`.
@@ -1621,7 +1655,7 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: App/Sources/Data/MetricRow.swift, App/UITests/DataUITests.swift (testThisWeekGroupsRowsWithSparklines), commit on wt/S-039.
 - Reverse if: VoiceOver on a device reads each row twice in an unhelpful way (then hide the content from VoiceOver except under -uitest), or (b) proves to keep both the button trait and the child ids.
 
-## D-114 This week's Health rows read the same 8-week MetricHistory as their detail, one card at a time
+## D-116 This week's Health rows read the same 8-week MetricHistory as their detail, one card at a time
 
 - Status: proposed by night agent, 2026-10-28 (S-039).
 - Problem: every row now needs its days Monday to Sunday for the sparkline as well as the week's value and coverage, and the row and its detail must not disagree.

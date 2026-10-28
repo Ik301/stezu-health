@@ -95,6 +95,8 @@ final class ProgramImportUITests: XCTestCase {
     log.tap()
     XCTAssertTrue(app.element("workout.logger.logged.0").waitForExistence(timeout: 5))
     app.element("workout.logger.finish").tap()
+    XCTAssertTrue(app.element("workout.summary.done").waitForExistence(timeout: 10), "no summary")
+    app.element("workout.summary.done").tap()  // S-044: Finish opens the summary; Done returns
     let row = app.element("workout.session.0")
     XCTAssertTrue(row.waitForExistence(timeout: 10), "the finished session is not shown")
     XCTAssertTrue(row.label.hasPrefix("Day 3 Legs"), row.label)

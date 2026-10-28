@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A This week row (design/system/components/MetricRow): title, coverage, a 72 x 28 Sparkline,
 /// value and chevron, under a track rule unless `first`. The whole row (44 pt or more) is one
-/// button laid over the content (`data.<id>.open`), so the texts keep their ids (D-113).
+/// button laid over the content (`data.<id>.open`), so the texts keep their ids (D-115).
 struct MetricRow: View {
   let title, id, coverage: String
   let values: [Double?]

@@ -34,6 +34,8 @@ final class WorkoutFinishUITests: XCTestCase {
     log.tap()
     XCTAssertTrue(app.element("workout.logger.logged.0").waitForExistence(timeout: 5))
     finish.tap()
+    XCTAssertTrue(app.element("workout.summary.done").waitForExistence(timeout: 10), "no summary")
+    app.element("workout.summary.done").tap()  // S-044: Finish opens the summary; Done returns
     XCTAssertTrue(row.waitForExistence(timeout: 10), "the finished session is not shown")
     XCTAssertTrue(start.exists, "the logger did not close")
     XCTAssertTrue(row.label.contains("1 set"), row.label)

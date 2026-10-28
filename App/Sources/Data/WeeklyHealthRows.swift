@@ -1,7 +1,7 @@
 import StezuCore
 import SwiftUI
 
-/// This week's Health rows (S-022, S-039) from the same 8-week history as the detail (D-114). No
+/// This week's Health rows (S-022, S-039) from the same 8-week history as the detail (D-116). No
 /// data shows "--" beside the coverage, never 0; with `hint`, a metric without data adds the
 /// Sources hint. Blood oxygen and temperature have no row (D-093); Health still reads them.
 struct WeeklyHealthRows: View {
