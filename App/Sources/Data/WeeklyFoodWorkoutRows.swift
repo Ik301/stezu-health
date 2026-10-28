@@ -29,6 +29,7 @@ struct WeeklyFoodWorkoutRows: View {
         Spacer()
         Text(workouts.flatMap { $0.isEmpty ? nil : "\($0.count) this week" } ?? "--")
           .textStyle(.value).accessibilityIdentifier("data.workouts.value")
+        MetricOpenButton(metric: .workouts, open: open)
       }
       ForEach(Array((workouts ?? []).enumerated()), id: \.offset) { index, workout in
         HStack {

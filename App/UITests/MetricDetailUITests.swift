@@ -148,6 +148,48 @@ final class MetricDetailUITests: XCTestCase {
     saveScreenshot("s042-weight-detail-dark", of: dark)
   }
 
+  /// S-042b: with data-food-week (Sunday clock; Stezu sessions on Monday with 3 sets and
+  /// Thursday with 2, and the Saturday before with 1) the Workouts row opens working sets: this
+  /// week 5 over 2 sessions, last week 1, and an empty week "--". Each week but HRV's has its
+  /// CoverageDots, filled on the days with sets; a rest day is a real 0.
+  @MainActor
+  func testWorkoutsDetailShowsSetsAndCoverageDots() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "data-food-week")
+    let dataCard = app.element("home.card.data")
+    XCTAssertTrue(dataCard.waitForExistence(timeout: 30), "no Data card on Home")
+    dataCard.tap()
+
+    let openWorkouts = app.element("data.workouts.open")
+    XCTAssertTrue(openWorkouts.waitForExistence(timeout: 10), "no way into Workouts")
+    for _ in 0..<3 where !openWorkouts.isHittable { app.swipeUp() }
+    openWorkouts.tap()
+    XCTAssertTrue(waitForLabel(app.element("metric.title"), "Workouts"), "Workouts did not open")
+    let thisWeek = app.element("metric.week.0")
+    XCTAssertTrue(waitForContains(thisWeek, "2 sessions"), "this week: \(thisWeek.label)")
+    XCTAssertTrue(thisWeek.label.hasSuffix("5 sets"), "this week: \(thisWeek.label)")
+    XCTAssertTrue(app.element("metric.week.1").label.hasSuffix("1 set"), "last week's sets")
+    let empty = app.element("metric.week.2").label
+    XCTAssertTrue(empty.contains("0 sessions") && empty.hasSuffix("--"), "empty week: \(empty)")
+    XCTAssertTrue(app.element("metric.weekbars").exists, "no WeekBars")
+    XCTAssertTrue(app.element("metric.weekbars.bar.0").label.hasSuffix("5 sets"))
+    XCTAssertFalse(app.element("metric.chart").exists, "only Weight has the weight chart")
+
+    // The dots: Monday to Sunday this week, filled on Monday and Thursday.
+    let dots = app.element("metric.week.0.dots")
+    XCTAssertTrue(dots.exists, "no coverage dots on this week")
+    XCTAssertEqual(dots.label, "2 of 7")
+    XCTAssertEqual(app.element("metric.week.2.dots").label, "0 of 7")
+    XCTAssertLessThan(dots.frame.maxX, thisWeek.frame.minX + 1, "the dots are not before the words")
+    saveScreenshot("s042b-workouts-detail", of: app)
+
+    // A week's days: sets on Monday and Thursday, a rest day is 0, not "--".
+    thisWeek.tap()
+    XCTAssertTrue(waitForLabel(app.element("metric.day.0.value"), "3 sets"), "Monday's sets")
+    XCTAssertEqual(app.element("metric.day.1.value").label, "0 sets", "a rest day is a real 0")
+    XCTAssertEqual(app.element("metric.day.3.value").label, "2 sets")
+  }
+
   @MainActor
   private func waitForLabel(_ element: XCUIElement, _ label: String) -> Bool {
     wait(element, NSPredicate(format: "label == %@", label))
