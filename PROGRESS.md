@@ -508,3 +508,4 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
   - The summary as the walkthrough's grid (Slept, Food, Training, Steps with units in small type); it is four lines of text here.
   - The "Where / What" column header, dashed lines at folds, visit names over two lines, and the date as a large title beside the arrows (the arrows sit on their own row under the TopBar, whose title is the date).
 - Deviations from the walkthrough: meal marks are titled by their items ("Grain Bowl"), not by meal name ("Lunch"), as meals have no names; the two Monday meals logged at 12:00 sit side by side in two lanes.
+- The first ios run (40655118560) passed DayUITests and DayViewUITests but crashed the app in HermesSyncUITests/testWeighInIsStoredLocallyAndSynced on "Week": `Binding($openDay)` force-unwraps, so setting the day to nil while DayView still read it crashed. MetricDetailView now passes a get/set binding over the unwrapped day.
