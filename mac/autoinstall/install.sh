@@ -117,7 +117,7 @@ if printf '%s' "$out" | grep -q 'phone not reachable'; then
 
 The iPhone is not reachable over the network yet. Pair it once (see mac/autoinstall/README.md):
   1. Connect it with a cable, unlock it, tap Trust.
-  2. Xcode > Window > Devices and Simulators > select the iPhone > tick "Connect via network".
+  2. Pair it once in Device Hub (Xcode toolbar device menu > Manage Devices...). A phone that already ran the app from Xcode is paired; unplug it and it works over Wi-Fi.
   3. Unplug it. Keep it unlocked on the same Wi-Fi as the Mac (not eduroam: use home Wi-Fi or the
      iPhone's hotspot). A network icon next to it in that window means it works.
 The agent is loaded anyway and retries every hour.

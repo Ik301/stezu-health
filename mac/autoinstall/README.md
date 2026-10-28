@@ -54,8 +54,8 @@ Flags: `--dry-run` (decide, find the iPhone, print the commands, build nothing),
    Ingest on the iPhone once from Xcode with a cable. On the iPhone: Settings > Privacy & Security
    > Developer Mode on; Settings > General > VPN & Device Management > your Apple ID > Trust.
 4. Wireless pairing:
-   1. With the cable in and the iPhone unlocked, open Xcode > Window > Devices and Simulators.
-   2. Select the iPhone and tick **Connect via network**.
+   1. Open Device Hub: the run destination pop-up (the device name in Xcode's toolbar) > Manage Devices..., or Xcode > Open Developer Tool > Device Hub. Newer Xcode versions replaced the old Devices and Simulators window and its "Connect via network" checkbox.
+   2. If the iPhone is not listed: with the cable in, select it and click Pair; or, on iOS 27 or later, click + > Pair Nearby Device... with both on the same Wi-Fi. A device that has already run the app from Xcode is already paired; it then works over Wi-Fi without a cable, provided the network has IPv6.
    3. Unplug it. A network icon next to its name means Xcode reaches it over Wi-Fi.
    The iPhone must be unlocked (or recently unlocked) and on the same Wi-Fi as the Mac. Campus
    networks such as eduroam usually block the discovery between devices, so use home Wi-Fi, or
@@ -115,7 +115,7 @@ DerivedData in the same folder takes a few GB.
 
 | Symptom | Fix |
 | --- | --- |
-| `phone not reachable, will retry` every hour | Unlock the iPhone on the Mac's Wi-Fi. Check Xcode's Devices window shows it with a network icon; if not, plug in once and tick Connect via network again. On eduroam use home Wi-Fi or the iPhone's hotspot. |
+| `phone not reachable, will retry` every hour | Unlock the iPhone on the Mac's Wi-Fi. Check that Device Hub shows it with a network icon; if not, plug in once and click Pair in Device Hub. On eduroam use home Wi-Fi or the iPhone's hotspot. |
 | `not paired` or `no paired iPhone` | Do the wireless pairing steps above with the cable. |
 | `Developer Mode is ... on <iPhone>` | iPhone: Settings > Privacy & Security > Developer Mode, then restart it. |
 | `build failed: No Account for Team` or `requires a development team` | Sign in to Xcode > Settings > Accounts; check `Config/Local.xcconfig` in your working clone (`scripts/set-team.sh`) and rerun install.sh. |

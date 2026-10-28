@@ -250,7 +250,7 @@ if pin:
 else:
     paired = [p for p in phones if p["paired"]]
     if not paired:
-        die(3, "no paired iPhone (pair it once in Xcode, Window > Devices and Simulators)")
+        die(3, "no paired iPhone (pair it once in Xcode: toolbar device menu > Manage Devices..., which opens Device Hub)")
     reachable = [p for p in paired if p["reachable"]]
     if not reachable:
         die(3, "; ".join("%s: %s" % (p["name"], p["why"]) for p in paired))
