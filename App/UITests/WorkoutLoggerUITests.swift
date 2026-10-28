@@ -66,6 +66,7 @@ final class WorkoutLoggerUITests: XCTestCase {
     // Step 3: one Finish, one session under Push with the add-on exercise; the unlogged
     // Hanging leg raise is left out.
     tap("workout.logger.finish", in: app, up: false)
+    tap("workout.summary.done", in: app, up: false)  // S-044: Finish opens the summary
     let row = app.element("workout.session.0")
     XCTAssertTrue(row.waitForExistence(timeout: 10), "the finished session is not shown")
     XCTAssertTrue(row.label.hasPrefix("Push"), row.label)
@@ -84,5 +85,96 @@ final class WorkoutLoggerUITests: XCTestCase {
     XCTAssertEqual(app.element("history.exercise.1").label, "Cable crunch")
     XCTAssertEqual(app.element("history.exercise.1.sets").label, "30 x 10")
     XCTAssertFalse(app.element("history.exercise.2").exists, "an unlogged exercise was saved")
+  }
+
+  /// S-044: launch with the generic "workout-history" fixture (a Day 1 session 7 days ago with
+  /// bench 60 x 8, 60 x 8, 60 x 7, and a newer Day 2 session with bench 65 x 5). Start the next
+  /// template, log a set: the rest appears inside the card above the steppers and Log does not
+  /// move. Skip it, log a heavier set, Finish: Undo reopens the session; Finish again shows the
+  /// summary with the best set against the last Day 1, not the newer Day 2. Done returns.
+  @MainActor
+  func testInlineRestAndSummaryWithUndo() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "workout-history")
+    let card = app.element("home.card.workout")
+    XCTAssertTrue(card.waitForExistence(timeout: 30), "no Workout card on Home")
+    card.tap()
+
+    // Workout: the next template is the black card, listing its exercises.
+    let name = app.element("workout.today.name")
+    XCTAssertTrue(name.waitForExistence(timeout: 10), "no black card")
+    XCTAssertEqual(name.label, "Day 1 Push")
+    XCTAssertTrue(app.element("workout.today.exercise.0").label.hasPrefix("Bench press"))
+    XCTAssertEqual(app.element("workout.week.sessions").label, "--")
+    saveScreenshot("s044-workout", of: app)
+
+    // Start (1 tap): the logger, with Finish at the top right.
+    app.element("workout.today.start").tap()
+    let log = app.element("workout.logger.log")
+    let countdown = app.element("workout.rest.countdown")
+    XCTAssertTrue(log.waitForExistence(timeout: 10), "the logger did not open")
+    XCTAssertTrue(app.element("workout.logger.finish").exists, "no Finish")
+    XCTAssertEqual(app.element("workout.logger.exercise").label, "Bench press")
+    XCTAssertEqual(app.element("workout.logger.set").label, "Set 1 of 3")
+    XCTAssertEqual(app.element("workout.logger.last").label, "Last 60 x 8, 7d ago")
+    XCTAssertFalse(countdown.exists, "a rest runs before any set")
+    let logFrame = log.frame
+
+    // Log (1 tap): the rest runs inside the card, above the steppers; Log stays put.
+    log.tap()
+    XCTAssertTrue(countdown.waitForExistence(timeout: 5), "no rest after Log")
+    XCTAssertEqual(log.frame.minY, logFrame.minY, accuracy: 1, "Log moved")
+    XCTAssertGreaterThan(countdown.frame.minY, app.element("workout.logger.last").frame.maxY)
+    XCTAssertLessThan(countdown.frame.maxY, app.element("workout.logger.weight").frame.minY)
+    XCTAssertTrue(app.element("workout.logger.logged.0").exists, "the set is not listed")
+    XCTAssertEqual(app.element("workout.logger.set").label, "Set 2 of 3")
+    let next = app.element("workout.logger.next")
+    XCTAssertTrue(next.exists, "no dashed next-set row")
+    XCTAssertTrue(next.label.contains("Last 60 x 8"), next.label)
+    saveScreenshot("s044-logger-rest", of: app)
+
+    // Skip ends the rest; a heavier second set.
+    app.element("workout.rest.skip").tap()
+    XCTAssertTrue(countdown.waitForNonExistence(timeout: 5), "Skip left the rest")
+    XCTAssertEqual(log.frame.minY, logFrame.minY, accuracy: 1, "Log moved after Skip")
+    app.element("workout.logger.weight.plus").tap()
+    XCTAssertEqual(app.element("workout.logger.weight").label, "65 lb")
+    log.tap()
+    XCTAssertTrue(app.element("workout.logger.logged.1").waitForExistence(timeout: 5))
+
+    // Finish (1 tap), then Undo within 8 s: the same session is back on the logger.
+    app.element("workout.logger.finish").tap()
+    let undo = app.element("workout.summary.undo")
+    XCTAssertTrue(undo.waitForExistence(timeout: 5), "no Undo on the summary")
+    undo.tap()
+    XCTAssertTrue(log.waitForExistence(timeout: 10), "Undo did not reopen the logger")
+    XCTAssertTrue(app.element("workout.logger.logged.1").exists, "the sets were lost")
+    XCTAssertEqual(app.element("workout.logger.set").label, "Set 3 of 3")
+
+    // Finish again: the summary, compared with the last Day 1 (60 x 8), not Day 2 (65 x 5).
+    app.element("workout.logger.finish").tap()
+    let change = app.element("workout.summary.change.0")
+    XCTAssertTrue(change.waitForExistence(timeout: 10), "no summary after Finish")
+    XCTAssertEqual(change.label, "+5 lb")
+    XCTAssertTrue(app.element("workout.summary.exercise.0").label.contains("60 x 8, 65 x 8"))
+    XCTAssertEqual(
+      app.element("workout.summary.versus").label, "Exercises vs last Day 1 Push, 7d ago")
+    XCTAssertEqual(app.element("workout.summary.sets").label, "2")
+    XCTAssertEqual(app.element("workout.summary.volume").label, "1,000 lb", "60x8 + 65x8")
+    let duration = app.element("workout.summary.duration").label
+    XCTAssertTrue(duration.hasSuffix(" s") || duration.hasSuffix(" min"), duration)
+    let health = app.element("workout.summary.health")
+    let inHealth = expectation(
+      for: NSPredicate(format: "label == %@", "In Health"), evaluatedWith: health)
+    wait(for: [inHealth], timeout: 10)
+    saveScreenshot("s044-summary", of: app)
+
+    // Done returns to Workout: one Day 1 session with both sets, not two.
+    app.element("workout.summary.done").tap()
+    let row = app.element("workout.session.0")
+    XCTAssertTrue(row.waitForExistence(timeout: 10), "Done did not return to Workout")
+    XCTAssertTrue(row.label.hasPrefix("Day 1 Push"), row.label)
+    XCTAssertTrue(row.label.contains("2 sets"), row.label)
+    XCTAssertFalse(app.element("workout.session.1").exists, "Undo made a second session")
   }
 }

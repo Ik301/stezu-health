@@ -29,6 +29,8 @@ final class WorkoutRotationUITests: XCTestCase {
     log.tap()
     XCTAssertTrue(app.element("workout.logger.logged.0").waitForExistence(timeout: 5))
     app.element("workout.logger.finish").tap()
+    XCTAssertTrue(app.element("workout.summary.done").waitForExistence(timeout: 10), "no summary")
+    app.element("workout.summary.done").tap()  // S-044: Finish opens the summary; Done returns
 
     // Next is the day after Day 3; the program is unchanged; Continue is offered.
     XCTAssertTrue(name.waitForExistence(timeout: 10), "the logger did not close")
@@ -56,6 +58,8 @@ final class WorkoutRotationUITests: XCTestCase {
     log.tap()
     XCTAssertTrue(app.element("workout.logger.logged.1").waitForExistence(timeout: 5))
     app.element("workout.logger.finish").tap()
+    XCTAssertTrue(app.element("workout.summary.done").waitForExistence(timeout: 10), "no summary")
+    app.element("workout.summary.done").tap()  // S-044: Finish opens the summary; Done returns
 
     // Step 5: one session with both sets, here and in History; Next is unchanged.
     let session = app.element("workout.session.0")

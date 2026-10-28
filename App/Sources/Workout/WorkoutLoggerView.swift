@@ -14,13 +14,13 @@ struct WorkoutLoggerView: View {
   /// The program's add-on blocks (S-035), each offered once as "+ <name>".
   private let addOns: [WorkoutTemplate]
 
-  /// Finish (S-008): hands the session to the Workout screen, which closes the logger.
-  private let onFinish: (WorkoutSession) -> Void
+  /// Finish (S-008): hands the logger to the Workout screen, which opens the summary (S-044).
+  private let onFinish: (SetLogger) -> Void
 
   /// `resuming` (S-009) reopens a saved logger as it was; otherwise a new session starts now.
   init(
     template: WorkoutTemplate, resuming: SetLogger? = nil, history: [WorkoutSession] = [],
-    addOns: [WorkoutTemplate] = [], onFinish: @escaping (WorkoutSession) -> Void = { _ in }
+    addOns: [WorkoutTemplate] = [], onFinish: @escaping (SetLogger) -> Void = { _ in }
   ) {
     (self.history, self.addOns) = (history, addOns)
     _logger = State(
@@ -37,7 +37,7 @@ struct WorkoutLoggerView: View {
           // No confirmation: one tap ends the rest and finishes.
           Button("Finish") {
             rest?.skip()
-            onFinish(logger.session)
+            onFinish(logger)
           }
           .textStyle(.headline)
           .foregroundStyle(Theme.ink)
@@ -45,8 +45,21 @@ struct WorkoutLoggerView: View {
           .accessibilityIdentifier("workout.logger.finish")
         }
         logCard
-        restCard
-        ForEach(Array(logger.loggedSets.enumerated()), id: \.offset) { index, set in
+        if let exercise = logger.exercise, logger.setNumber <= exercise.sets {
+          // The next set with only last time's numbers: what to beat, not a target (SetRow).
+          Text(
+            "Set \(logger.setNumber)   next   "
+              + (logger.lastNumbers?.summary(setAt: logger.setNumber - 1) ?? "Last --")
+          )
+          .textStyle(.subtitle).foregroundStyle(Theme.muted).padding(Theme.spaceLg)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusCard).strokeBorder(
+              Theme.track, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+          )
+          .accessibilityIdentifier("workout.logger.next")
+        }
+        ForEach(Array(logger.loggedSets.enumerated()).reversed(), id: \.offset) { index, set in
           Text(
             "Set \(index + 1)   \(Self.weight(set.pounds)) x \(set.reps)"
               + (logger.lastNumbers.map { "   " + $0.summary(setAt: index) } ?? "")
@@ -127,6 +140,7 @@ struct WorkoutLoggerView: View {
       .textStyle(.label)
       .foregroundStyle(Theme.onInvertMuted)
       .accessibilityIdentifier("workout.logger.last")
+      restCard
       stepper(
         logger.isBodyweight ? "BW" : logger.pounds.map { Self.weight($0) } ?? "--",
         id: "workout.logger.weight",
@@ -186,45 +200,54 @@ struct WorkoutLoggerView: View {
     Task { await environment.syncRecords([record]) }
   }
 
-  /// The countdown with -15 s, +15 s and Skip, while a rest runs. The countdown's value is the
+  /// The rest inside the card, above the steppers, always the same size so Log never moves:
+  /// idle it shows the exercise's rest dimmed and hides its buttons; after Log it counts down
+  /// with -15, +15 and Skip (RestTimer, inline). The countdown's value is the
   /// rest's start time, so a test can see that adjusting keeps it.
-  @ViewBuilder
   private var restCard: some View {
-    if let rest, let startedAt = rest.startedAt {
-      VStack(alignment: .leading, spacing: Theme.spaceSm) {
+    let running = rest?.startedAt
+    return HStack(spacing: Theme.spaceSm) {
+      VStack(alignment: .leading, spacing: 0) {
         Text("Rest")
           .textStyle(.label)
-          .foregroundStyle(Theme.muted)
-        TimelineView(.periodic(from: startedAt, by: 1)) { _ in
-          Text(RestActivityController.text(rest.remaining))
-            .textStyle(.big)
-            .foregroundStyle(Theme.ink)
-            .accessibilityIdentifier("workout.rest.countdown")
-            .accessibilityValue("\(Int(startedAt.timeIntervalSince1970))")
-        }
-        HStack(spacing: Theme.spaceMd) {
-          restButton("-15 s", id: "workout.rest.minus") { self.rest?.adjust(by: -15) }
-          restButton("+15 s", id: "workout.rest.plus") { self.rest?.adjust(by: 15) }
-          restButton("Skip", id: "workout.rest.skip") { self.rest?.skip() }
+          .foregroundStyle(Theme.onInvertMuted)
+        if let rest, let startedAt = running {
+          TimelineView(.periodic(from: startedAt, by: 1)) { _ in
+            Text(RestActivityController.text(rest.remaining))
+              .textStyle(.stat)
+              .accessibilityIdentifier("workout.rest.countdown")
+              .accessibilityValue("\(Int(startedAt.timeIntervalSince1970))")
+          }
+        } else {
+          Text(RestActivityController.text(logger.exercise.map { Double($0.restSeconds) }))
+            .textStyle(.stat)
+            .foregroundStyle(Theme.onInvertMuted)
         }
       }
-      .padding(Theme.spaceLg)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
-      .task(id: rest.endsAt) {
-        guard let endsAt = self.rest?.endsAt else { return }
-        try? await Task.sleep(for: .seconds(max(0, endsAt.timeIntervalSinceNow)))
-        if !Task.isCancelled { self.rest?.tick() }
+      Group {
+        restButton("-15", id: "workout.rest.minus") { self.rest?.adjust(by: -15) }
+        restButton("+15", id: "workout.rest.plus") { self.rest?.adjust(by: 15) }
+        restButton("Skip", id: "workout.rest.skip") { self.rest?.skip() }
       }
+      .opacity(running == nil ? 0 : 1)
+      .accessibilityHidden(running == nil)
+    }
+    .padding(Theme.spaceMd)
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusInner).fill(Theme.onInvert.opacity(0.12))
+    )
+    .task(id: rest?.endsAt) {
+      guard let endsAt = self.rest?.endsAt else { return }
+      try? await Task.sleep(for: .seconds(max(0, endsAt.timeIntervalSinceNow)))
+      if !Task.isCancelled { self.rest?.tick() }
     }
   }
 
   private func restButton(_ title: String, id: String, action: @escaping () -> Void) -> some View {
     Button(title, action: action)
       .textStyle(.headline)
-      .foregroundStyle(Theme.ink)
       .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
-      .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 1))
+      .overlay(Capsule().strokeBorder(Theme.onInvert, lineWidth: 1))
       .buttonStyle(.plain)
       .accessibilityIdentifier(id)
   }

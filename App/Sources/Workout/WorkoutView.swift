@@ -22,17 +22,31 @@ struct WorkoutView: View {
   /// The saved logger the open logger was resumed from; nil for a new session.
   @State private var resuming: SetLogger?
   @State private var showHistory = false  // the History sheet (S-010)
+  /// What Finish opened (S-044), until Done or Undo.
+  @State private var summary: WorkoutSummary?
 
   private static let emptyWorkout = WorkoutTemplate(
     key: WorkoutRotation.emptyKey, name: "Empty workout", exercises: [])
 
   var body: some View {
-    AreaScaffold(area: .workout, title: "Workout", goHome: goHome) {
+    AreaScaffold(
+      area: .workout, title: "Workout",
+      action: summary.map { _ in
+        TopBar.Action(title: "Done", id: "workout.summary.done") { summary = nil }
+      },
+      goHome: goHome
+    ) {
       if let active {
         WorkoutLoggerView(
           template: active, resuming: resuming,
           history: history, addOns: library?.addOns ?? [],
           onFinish: finish)
+      } else if let summary {
+        WorkoutSummaryView(
+          summary: summary,
+          inHealth: finished?.first(where: { $0.externalID == summary.done.externalID })?
+            .inHealth ?? false,
+          undo: undoFinish)
       } else {
         ScrollView { today }.scrollIndicators(.hidden)
       }
@@ -44,7 +58,7 @@ struct WorkoutView: View {
       if finished == nil {
         finished = FinishedWorkoutStore(storage: environment.storage).load()
       }
-      if active == nil { loadSaved() }
+      if active == nil && summary == nil { loadSaved() }
     }
     .sheet(isPresented: $showHistory) {
       WorkoutHistoryView(
@@ -89,12 +103,23 @@ struct WorkoutView: View {
     library = updated
   }
 
-  /// Closes the logger at once, then writes the session to Health and keeps it either way.
-  /// A session with no sets is discarded.
-  private func finish(_ session: WorkoutSession) {
+  /// Closes the logger at once and opens the summary, then writes the session to Health and
+  /// keeps it either way. A session with no sets is discarded and opens no summary.
+  private func finish(_ logger: SetLogger) {
     (active, resuming) = (nil, nil)
     WorkoutSessionStore(storage: environment.storage).clear()
-    keep(session, endedAt: Date())
+    let end = Date()
+    summary = WorkoutSummary(logger: logger, endedAt: end, history: history)
+    keep(logger.session, endedAt: end)
+  }
+
+  /// Undo on the summary, within 8 s: the logger comes back as it was at Finish, as a resumed
+  /// one does. The finished copy stays until the next Finish replaces it under the same id,
+  /// here and in Health, as for Continue (D-113).
+  private func undoFinish() {
+    guard let restored = summary?.undo(at: Date()) else { return }
+    WorkoutSessionStore(storage: environment.storage).save(restored)
+    (summary, resuming, active) = (nil, restored, restored.template)
   }
 
   /// The saved workout in progress: offered as Resume, or, idle too long, finished at its last
