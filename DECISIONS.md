@@ -1487,3 +1487,36 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Swipe down still closes every sheet: none sets `interactiveDismissDisabled`, and every sheet now shows the drag indicator.
 - Evidence: App/Sources/AppShell.swift (`TopBar`, `AreaScaffold`), App/Sources/Workout/WorkoutHistoryView.swift (`HistoryPage`), App/Sources/Data/MetricDetailView.swift (`rung`), App/UITests/SheetHeaderUITests.swift (commit on wt/S-038).
 - Reverse if: History needs the edge swipe back (then (b) with the bar's background hidden), or a sheet gets unsaved edits that Done must confirm.
+
+## D-106 WeekBars draws marks with Swift Charts and puts each week's tap target, date, coverage and absent slot in a SwiftUI column over the chart
+
+- Status: proposed by night agent, 2026-10-27 (S-042).
+- Problem: the metric detail needs 8 weekly bars that are each tappable, each read out with the week's words, and where a week without data shows a dashed slot with "--". Swift Charts has no tap target or accessibility identifier per mark, no dashed outline for a bar, and drops a category that has no mark, which would shift the remaining bars.
+- Given: Swift Charts is a system framework (no new dependency). A categorical x scale with an explicit domain spreads its categories evenly across the plot, and with both axes hidden the plot fills the chart's frame. XCUITest finds elements by accessibility identifier.
+- Constraints:
+  - A per-mark gesture through `chartOverlay` and `ChartProxy` hit-testing gives no element to VoiceOver or XCUITest, so tapping a bar could not be tested.
+  - Drawing absent weeks as zero-height or tiny bars would show 0, which the design rules out.
+  - The columns must line up with the bars; that holds only while the x domain lists all 8 weeks and the axes stay hidden.
+- Options:
+  - (a) Chart for gridlines, bars and bands (x domain fixed to all 8 week keys); an HStack of 8 equal-width buttons over it, each holding the absent slot and "--" when the week has no value, then its date and coverage beneath. The chart is one accessibility element with a label and an Audio Graph (`accessibilityChartDescriptor`); each button carries the week's row words and the id `<chart>.bar.<week>`.
+  - (b) Draw everything with Canvas and handle taps by x position (no Swift Charts, no per-week element).
+  - (c) Swift Charts only, with `chartOverlay` gestures and RuleMark dashes for absent weeks.
+- Decision: (a). A bar and its row call the same `open(week)`, so they cannot drift apart.
+- Evidence: App/Sources/Charts/WeekBars.swift, App/Sources/Charts/ChartAudio.swift, App/UITests/MetricDetailUITests.swift (testWeekBarsShowAbsentWeekAndFoodPanels), commit on wt/S-042.
+- Reverse if: the bars and columns visibly misalign on some width or Dynamic Type size, or a later chart needs per-mark interaction that a column cannot express (then chartOverlay with an explicit accessibility representation).
+
+## D-107 Food's detail rebuilds each week's and each day's range from the logged meals; its MetricHistory carries only kcal midpoints for coverage and presence
+
+- Status: proposed by night agent, 2026-10-27 (S-042).
+- Problem: the detail screen is built on `MetricHistory`, which holds one number per day and per week, but food is an estimate that must stay a low-to-high range for both energy and protein, in two separate plots.
+- Given: `WeeklyIntake.food(meals, in:)` already makes This week's Food row: a day's low sums its items' lows and its high their highs, and the interval's range is the mean over its logged days. Called on a one-day interval it gives that day's total. Logged meals live on the phone (`mealCaptures` plus a scenario's `mealHistory`), not in Health.
+- Constraints:
+  - Putting ranges into `MetricDay`/`WeeklyStat` would change a type every other metric and S-024's tests use.
+  - A midpoint shown as the value would pretend to be exact (RangeValue rules it out).
+- Options:
+  - (a) `MetricHistory.food` keeps the template working (8 weeks, days, coverage counted as days with a known kcal total) with midpoints; the screen's text for a week or a day calls `WeeklyIntake.food` on that interval and shows "low–high kcal, low–high g"; `ChartSeries.rangeBands(meals, \.kcal|\.protein)` makes each panel's bands.
+  - (b) A separate food detail view with its own weeks and days lists.
+  - (c) Add optional ranges to `MetricDay` and `WeeklyStat`.
+- Decision: (a). Energy and protein are two WeekBars wells; the list and day rows show both ranges.
+- Evidence: Packages/StezuCore/Sources/StezuCore/ChartSeries.swift (`rangeBands`, `MetricHistory.food`), App/Sources/Data/MetricDetailView.swift (`panels`, `text(_:from:days:)`), Packages/StezuCore/Tests/StezuCoreTests/ChartSeriesTests.swift, commit on wt/S-042.
+- Reverse if: food needs per-day protein coverage different from kcal (a day with a known kcal total and an unknown protein item shows "--" for the whole row now), or a third estimate metric appears (then (c)).
