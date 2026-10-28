@@ -1,7 +1,7 @@
 import Foundation
 
 /// What a session did, next to the last session of its template: history, never advice (D-032).
-/// It keeps the logger as it was at Finish, so Undo hands back the same session (D-111).
+/// It keeps the logger as it was at Finish, so Undo hands back the same session (D-113).
 public struct WorkoutSummary: Sendable, Equatable {
   /// How long Undo stays on the summary after Finish.
   public static let undoWindow: TimeInterval = 8

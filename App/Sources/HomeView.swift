@@ -1,16 +1,6 @@
 import StezuCore
 import SwiftUI
 
-/// One home card. The value is display text, and missing data is "--", never 0.
-struct HomeCard: Identifiable, Equatable, Sendable {
-  let id: String
-  let label: String
-  let subtitle: String
-  let value: String
-  /// Confidence of the derived value; nil when the value is missing or not derived.
-  var confidence: Confidence? = nil
-}
-
 /// The cards before any data exists: every value is missing.
 enum HomePlaceholder {
   static let missing = HomeViewModel.missing
@@ -18,6 +8,7 @@ enum HomePlaceholder {
   static let cards: [HomeCard] = HomeViewModel().cards(HomeInputs())
 }
 
+/// Home: three GlanceCards sharing the height evenly, never scrolling (S-037).
 struct HomeView: View {
   var model = HomeViewModel()
   /// Opens the area behind a tapped card.
@@ -28,10 +19,18 @@ struct HomeView: View {
   /// Read each time Home appears, so a card shows what an area just recorded.
   @State private var inputs = HomeInputs()
 
+  /// The model on the launch's clock, so a scenario's week and the dots agree.
+  private var clocked: HomeViewModel {
+    var copy = self.model
+    copy.now = environment.now
+    return copy
+  }
+
   var body: some View {
     // Re-read the clock every minute so the inverted card follows the time of day.
     TimelineView(.everyMinute) { _ in
-      let inverted = model.invertedCardID()
+      let model = clocked
+      let inverted = model.invertedCardID(workoutInProgress: inputs.workoutInProgress)
       VStack(spacing: Theme.spaceMd) {
         HStack {
           Spacer()
@@ -62,23 +61,48 @@ struct HomeView: View {
   }
 }
 
+/// One GlanceCard (design/system/components/GlanceCard): the area and its time frame, the
+/// number centred in the space between with its picture on the right, and the detail row.
 struct HomeCardView: View {
   let card: HomeCard
   let inverted: Bool
   @Environment(\.displayScale) private var displayScale
+  @Environment(\.colorScheme) private var scheme
+
+  private var ink: Color { inverted ? Theme.onInvert : Theme.ink }
+  private var muted: Color { inverted ? Theme.onInvertMuted : Theme.muted }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: Theme.spaceXs) {
-      Text(card.label)
-        .textStyle(.label)
-        .foregroundStyle(inverted ? Theme.onInvertMuted : Theme.muted)
-      Text(card.subtitle)
-        .textStyle(.subtitle)
-        .foregroundStyle(inverted ? Theme.onInvert : Theme.ink)
-      Spacer(minLength: 0)
-      Text(card.value)
-        .textStyle(.big)
-        .foregroundStyle(inverted ? Theme.onInvert : Theme.ink)
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(alignment: .firstTextBaseline) {
+        Text(card.label).textStyle(.subtitle, weight: .medium).foregroundStyle(ink)
+        Spacer(minLength: Theme.spaceSm)
+        Text(card.frame).textStyle(.label).foregroundStyle(muted)
+      }
+      Spacer(minLength: Theme.spaceXs)
+      HStack(spacing: Theme.spaceMd) {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.space2xs) {
+          ForEach(Array(card.amounts.enumerated()), id: \.offset) { _, amount in
+            Text(amount.number).textStyle(.big).lineLimit(1).minimumScaleFactor(0.4)
+            if !amount.unit.isEmpty {
+              Text(amount.unit).textStyle(.subtitle).lineLimit(1)
+                .padding(.trailing, Theme.spaceXs)
+            }
+          }
+        }
+        .foregroundStyle(ink)
+        .layoutPriority(1)
+        Spacer(minLength: 0)
+        picture
+          // The picture's ink and track flip with the card, so they stay legible on invert.
+          .environment(\.colorScheme, inverted ? (scheme == .dark ? .light : .dark) : scheme)
+      }
+      Spacer(minLength: Theme.spaceXs)
+      HStack(alignment: .firstTextBaseline) {
+        fact(card.left)
+        Spacer(minLength: Theme.spaceSm)
+        fact(card.right)
+      }
     }
     .padding(Theme.spaceCard)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -91,7 +115,22 @@ struct HomeCardView: View {
         .strokeBorder(Theme.edge, lineWidth: inverted ? 0 : 1 / displayScale)
     )
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel("\(card.label), \(card.subtitle), \(card.value)")
+    .accessibilityLabel(card.accessibilityLabel)
+  }
+
+  @ViewBuilder
+  private var picture: some View {
+    if let bars = card.bars {
+      Sparkline(title: "Nights this week", values: bars, bars: true, today: card.today)
+    } else if let dots = card.dots {
+      CoverageDots(days: dots, id: "home.\(card.id).dots")
+    }
+  }
+
+  /// A detail fact: muted words with the value in ink.
+  private func fact(_ fact: HomeCard.Fact) -> some View {
+    Text("\(fact.before)\(Text(fact.value).foregroundStyle(ink))\(fact.after)")
+      .textStyle(.label).foregroundStyle(muted).lineLimit(1).minimumScaleFactor(0.8)
   }
 }
 

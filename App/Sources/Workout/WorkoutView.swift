@@ -115,7 +115,7 @@ struct WorkoutView: View {
 
   /// Undo on the summary, within 8 s: the logger comes back as it was at Finish, as a resumed
   /// one does. The finished copy stays until the next Finish replaces it under the same id,
-  /// here and in Health, as for Continue (D-111).
+  /// here and in Health, as for Continue (D-113).
   private func undoFinish() {
     guard let restored = summary?.undo(at: Date()) else { return }
     WorkoutSessionStore(storage: environment.storage).save(restored)

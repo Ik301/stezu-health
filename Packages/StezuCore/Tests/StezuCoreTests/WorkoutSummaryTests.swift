@@ -2,7 +2,7 @@ import Foundation
 import StezuCore
 import XCTest
 
-// S-044, D-111. Generic days and numbers, not anyone's program (D-034).
+// S-044, D-113. Generic days and numbers, not anyone's program (D-034).
 final class WorkoutSummaryTests: XCTestCase {
   private let start = Date(timeIntervalSince1970: 1_800_000_000)
 
