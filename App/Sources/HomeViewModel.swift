@@ -114,8 +114,8 @@ struct HomeViewModel: Sendable {
     return HomeCard(
       id: "data", label: "Data", frame: "Last night",
       amounts: minutes.map {
-        [.init(number: "\($0 / 60)", unit: "h"), .init(number: "\($0 % 60)", unit: "m")]
-      } ?? [.init(number: Self.missing)],
+        [HomeCard.Amount(number: "\($0 / 60)", unit: "h"), .init(number: "\($0 % 60)", unit: "m")]
+      } ?? [HomeCard.Amount(number: Self.missing)],
       spoken: minutes.map {
         "\(Self.count($0 / 60, "hour")) \(Self.count($0 % 60, "minute")) asleep"
       } ?? Self.missing,
@@ -155,7 +155,7 @@ struct HomeViewModel: Sendable {
     let trained = days.map { day in
       sessions?.contains { calendar.isDate($0.start, inSameDayAs: day) } ?? false
     }
-    let names = zip(days, trained).filter(\.1).map {
+    let names = zip(days, trained).filter { $0.1 }.map {
       calendar.shortWeekdaySymbols[calendar.component(.weekday, from: $0.0) - 1]
     }
     let count = sessions.map { String($0.count) } ?? Self.missing

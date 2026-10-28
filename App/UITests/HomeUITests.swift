@@ -36,7 +36,7 @@ final class HomeUITests: XCTestCase {
     }
 
     // Step 2: the three cards share the height evenly, and Home does not scroll.
-    let heights = [data, food, workout].map(\.frame.height)
+    let heights = [data, food, workout].map { $0.frame.height }
     XCTAssertLessThan((heights.max() ?? 0) - (heights.min() ?? 0), 2, "heights \(heights)")
     XCTAssertEqual(app.scrollViews.count, 0, "Home scrolls")
     saveScreenshot("s037-home-light", of: app)

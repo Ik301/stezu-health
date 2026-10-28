@@ -21,9 +21,9 @@ struct HomeView: View {
 
   /// The model on the launch's clock, so a scenario's week and the dots agree.
   private var clocked: HomeViewModel {
-    var model = model
-    model.now = environment.now
-    return model
+    var copy = self.model
+    copy.now = environment.now
+    return copy
   }
 
   var body: some View {
