@@ -3,47 +3,21 @@ import SwiftUI
 
 /// The logger: the black Log card holds the set being prepared, prefilled and changed only by
 /// steppers (no keyboard), and Log records it in one tap. Logged sets of the exercise are listed
-/// below with Undo. Every change is saved to the session store at once.
+/// below with Undo, then progress across exercises. Every change is saved to the session store
+/// at once. The Workout screen owns the logger and the rest, so Finish can sit in its TopBar.
 struct WorkoutLoggerView: View {
   @Environment(\.appEnvironment) private var environment
-  @State private var logger: SetLogger
+  @Binding var logger: SetLogger
   /// The rest after the last logged set (S-006); nil until the first Log.
-  @State private var rest: RestActivityController?
+  @Binding var rest: RestActivityController?
   @State private var showLibrary = false  // the Exercises library sheet (S-007)
-  private let history: [WorkoutSession]
+  let history: [WorkoutSession]
   /// The program's add-on blocks (S-035), each offered once as "+ <name>".
-  private let addOns: [WorkoutTemplate]
-
-  /// Finish (S-008): hands the logger to the Workout screen, which opens the summary (S-044).
-  private let onFinish: (SetLogger) -> Void
-
-  /// `resuming` (S-009) reopens a saved logger as it was; otherwise a new session starts now.
-  init(
-    template: WorkoutTemplate, resuming: SetLogger? = nil, history: [WorkoutSession] = [],
-    addOns: [WorkoutTemplate] = [], onFinish: @escaping (SetLogger) -> Void = { _ in }
-  ) {
-    (self.history, self.addOns) = (history, addOns)
-    _logger = State(
-      initialValue: resuming
-        ?? SetLogger(template: template, startedAt: Date(), history: history))
-    self.onFinish = onFinish
-  }
+  let addOns: [WorkoutTemplate]
 
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
-        HStack {
-          Spacer()
-          // No confirmation: one tap ends the rest and finishes.
-          Button("Finish") {
-            rest?.skip()
-            onFinish(logger)
-          }
-          .textStyle(.headline)
-          .foregroundStyle(Theme.ink)
-          .frame(minWidth: 72, minHeight: Theme.sizeTarget)
-          .accessibilityIdentifier("workout.logger.finish")
-        }
         logCard
         if let exercise = logger.exercise, logger.setNumber <= exercise.sets {
           // The next set with only last time's numbers: what to beat, not a target (SetRow).
@@ -77,6 +51,7 @@ struct WorkoutLoggerView: View {
           .disabled(!logger.canUndo)
           .opacity(logger.canUndo ? 1 : 0.4)
           .accessibilityIdentifier("workout.logger.undo")
+        progress
         // One tap appends the block to this workout; the button goes once it is added.
         ForEach(addable, id: \.key) { addOn in
           Button("+ \(addOn.name)") { logger.append(addOn, history: history) }
@@ -119,6 +94,10 @@ struct WorkoutLoggerView: View {
           Menu {
             Button("Swap") { showLibrary = true }
               .accessibilityIdentifier("workout.logger.swap")
+            if logger.upNext != nil {
+              Button("Skip exercise") { logger.skipExercise() }
+                .accessibilityIdentifier("workout.logger.skipExercise")
+            }
           } label: {
             Image(systemName: "ellipsis").frame(width: 48, height: 48)
           }
@@ -174,6 +153,30 @@ struct WorkoutLoggerView: View {
     .padding(Theme.spaceCard)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.invert))
+  }
+
+  /// Progress across exercises (S-046): one segment per exercise, ink for one passed with sets,
+  /// muted for the card's, track ahead or skipped; then the next exercise by name.
+  private var progress: some View {
+    let (current, slots) = (logger.exerciseIndex, logger.exercises.indices)
+    return VStack(alignment: .leading, spacing: Theme.spaceSm) {
+      HStack(spacing: Theme.spaceSm) {
+        Text("Exercise \(current + 1) of \(slots.count)")
+          .accessibilityIdentifier("workout.logger.progress")
+        Spacer()
+        ForEach(slots, id: \.self) { index in
+          let done =
+            index < current && logger.session.sets(for: logger.exerciseInSlot(index).name) != nil
+          Capsule().fill(index == current ? Theme.muted : done ? Theme.ink : Theme.track)
+            .frame(width: 18, height: Theme.spaceXs).accessibilityHidden(true)
+        }
+      }
+      if let next = logger.upNext {
+        Text("Up next: \(next.name), \(next.sets) x \(next.repRange)")
+          .accessibilityIdentifier("workout.logger.upNext")
+      }
+    }
+    .textStyle(.label).foregroundStyle(Theme.muted)
   }
 
   /// Logs the card's set and starts the rest at that exercise's template rest, with no tap.

@@ -7,19 +7,21 @@ enum Area: String, CaseIterable, Sendable {
 }
 
 /// Home, or one area at a time. Every area screen gets the bottom nav of three circles, which
-/// switches areas in one tap; the shell owns the current area, so area views never navigate.
+/// switches areas in one tap, except while a workout is being logged (S-046), so a stray tap
+/// can't leave it; Home stays. The shell owns the current area, so area views never navigate.
 struct AppShell: View {
   /// Settings saved a server; the app rebuilds its VM transport from it.
   var serverSaved: (ServerSettings) -> Void = { _ in }
   @State private var area: Area?
   @State private var settingsOpen = false
+  @State private var logging = false  // set by WorkoutView while its logger is open
   @Environment(\.appEnvironment) private var environment
 
   var body: some View {
     if let area {
       areaView(area)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-          BottomNav(active: area, open: { self.area = $0 })
+          if !logging { BottomNav(active: area, open: { self.area = $0 }) }
         }
     } else {
       HomeView(open: { area = $0 }, openSettings: { settingsOpen = true })
@@ -39,7 +41,7 @@ struct AppShell: View {
     case .food:
       FoodView(goHome: { self.area = nil })
     case .workout:
-      WorkoutView(goHome: { self.area = nil })
+      WorkoutView(goHome: { (self.area, logging) = (nil, false) }, logging: $logging)
     }
   }
 }
