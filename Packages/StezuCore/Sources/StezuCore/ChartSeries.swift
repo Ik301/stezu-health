@@ -37,6 +37,20 @@ public enum ChartSeries {
         coverage: range.coverage)
     }
   }
+
+  /// A Sparkline's values: the current week's days, Monday to Sunday; a day without data stays
+  /// nil (a dashed slot), never 0.
+  public static func sparkline(_ history: MetricHistory) -> [Double?] {
+    history.weeks.first?.days.map(\.value) ?? []
+  }
+
+  /// A week's CoverageDots: its days up to `now`, filled where there is data. For Workouts a
+  /// dot is filled on a day with sets, since a rest day's 0 is data too.
+  public static func coverage(_ week: MetricWeek, of metric: Metric, now: Date) -> [Bool] {
+    week.days.filter { $0.day <= now }.map {
+      $0.value.map { metric != .workouts || $0 > 0 } ?? false
+    }
+  }
 }
 
 extension MetricHistory {
@@ -50,6 +64,32 @@ extension MetricHistory {
       .mapValues { ($0.low + $0.high) / 2 }
     return history(.food, daily: daily, now: now, sources: ["Stezu"], calendar: calendar) {
       WeeklyStats.meanPerDay(daily, in: $0)
+    }
+  }
+
+  /// Working sets: a day's value is the sets of its Stezu sessions, a session in two stores
+  /// (the same start within a second) counted once, and a week's is their total. A day up to
+  /// `now` without a session is a rest day, a real 0; a week without a session is absent.
+  public static func workouts(
+    _ sessions: [WorkoutSession], now: Date, calendar: Calendar = .current
+  ) -> MetricHistory {
+    var unique: [WorkoutSession] = []
+    for session in sessions.sorted(by: { $0.startedAt < $1.startedAt })
+    where !unique.contains(where: { abs($0.startedAt.timeIntervalSince(session.startedAt)) < 1 }) {
+      unique.append(session)
+    }
+    let sets = Dictionary(grouping: unique) { calendar.startOfDay(for: $0.startedAt) }
+      .mapValues { Double($0.reduce(0) { $0 + $1.workingSets }) }
+    let current = WeeklyStats.week(containing: now, calendar: calendar).start
+    let days = (-49..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: current) }
+    let daily = Dictionary(
+      uniqueKeysWithValues: days.filter { $0 <= now }.map { ($0, sets[$0] ?? 0) })
+    return history(.workouts, daily: daily, now: now, sources: ["Stezu"], calendar: calendar) {
+      week in
+      let inWeek = unique.filter { week.contains($0.startedAt) }
+      return WeeklyStat(
+        value: Double(inWeek.reduce(0) { $0 + $1.workingSets }), coverage: inWeek.count,
+        of: "sessions")
     }
   }
 }

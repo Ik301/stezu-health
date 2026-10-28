@@ -3,7 +3,7 @@ import Foundation
 /// A metric on the Data overview. Each one opens the same detail (S-024, S-042). Breathing's
 /// raw value is its overview row's id.
 public enum Metric: String, CaseIterable, Sendable, Identifiable {
-  case weight, steps, sleep, hrv, restingHR, food
+  case weight, steps, sleep, hrv, restingHR, food, workouts
   case breathing = "respiratory"
 
   public var id: String { rawValue }
@@ -22,6 +22,9 @@ public enum Metric: String, CaseIterable, Sendable, Identifiable {
       "Mean of the logged days. A day's range adds its meals' lows and highs; a day with an "
         + "unknown item is left out."
     case .breathing: "Median of every reading of the nights ending in the week. Context only."
+    case .workouts:
+      "Working sets: every logged set of a Stezu session, added up over the week. A day "
+        + "without a session is a rest day, 0."
     }
   }
 }
@@ -120,8 +123,8 @@ public struct MetricHistory: Sendable, Equatable {
       return history(metric, daily: nights, now: now, sources: names(samples), calendar: calendar) {
         WeeklyStats.nightlyMedian(samples, in: $0, calendar: calendar)
       }
-    case .food:
-      // Logged meals are on the phone, not in Health: see MetricHistory.food.
+    case .food, .workouts:
+      // Logged meals and sessions are on the phone: see MetricHistory.food and .workouts.
       return history(metric, daily: [:], now: now, calendar: calendar) {
         WeeklyStats.meanPerDay([:], in: $0)
       }

@@ -69,6 +69,52 @@ final class ChartSeriesTests: XCTestCase {
     XCTAssertNil(food.weeks[1].stat.value, "no meals last week: absent, not 0")
   }
 
+  /// S-042b: a Sparkline gets the current week, Monday to Sunday, and a day without data stays
+  /// nil (a dashed slot), never 0; CoverageDots stop at today.
+  func testSparklineKeepsMissingDaysAsNil() {
+    let now = day(9, hour: 12)  // Friday
+    let daily = [day(5, hour: 0): 6000.0, day(7, hour: 0): 8000, day(-1, hour: 0): 5000]
+    let history = MetricHistory.history(.steps, daily: daily, now: now, calendar: calendar) {
+      WeeklyStats.meanPerDay(daily, in: $0)
+    }
+    let spark = ChartSeries.sparkline(history)
+    XCTAssertEqual(spark, [6000, nil, 8000, nil, nil, nil, nil], "gaps stay nil, never 0")
+    XCTAssertEqual(
+      ChartSeries.coverage(history.weeks[0], of: .steps, now: now),
+      [true, false, true, false, false], "Monday to Friday; days to come have no dot")
+    XCTAssertEqual(ChartSeries.coverage(history.weeks[1], of: .steps, now: now).count, 7)
+  }
+
+  /// S-042b: Workouts counts working sets; a session found in two stores counts once, a rest
+  /// day is a real 0, a day to come is nil and a week without a session is absent.
+  func testWorkoutsWeekTotalsSetsAndDropsDuplicates() {
+    let now = day(8, hour: 20)  // Thursday
+    let monday = session(5, sets: 3)
+    let sessions = [monday, session(8, sets: 2), session(3, sets: 1), monday]
+    let history = MetricHistory.workouts(sessions, now: now, calendar: calendar)
+    XCTAssertEqual(history.weeks.count, 8)
+    XCTAssertEqual(history.weeks[0].stat.value, 5, "3 + 2; the copy of Monday counts once")
+    XCTAssertEqual(history.weeks[0].stat.coverage, 2, "two sessions")
+    XCTAssertEqual(history.weeks[0].days.map(\.value), [3, 0, 0, 2, nil, nil, nil])
+    XCTAssertEqual(history.weeks[1].stat.value, 1)
+    XCTAssertNil(history.weeks[2].stat.value, "no session: absent, not 0")
+    XCTAssertEqual(history.weeks[2].days.map(\.value), Array(repeating: 0, count: 7))
+    XCTAssertEqual(
+      ChartSeries.coverage(history.weeks[0], of: .workouts, now: now), [true, false, false, true],
+      "a dot is filled on a day with sets")
+    XCTAssertEqual(history.sources, ["Stezu"])
+  }
+
+  /// A made-up session at 6 pm on `day` with `sets` sets of bench press.
+  private func session(_ day: Int, sets: Int) -> WorkoutSession {
+    var session = WorkoutSession(startedAt: self.day(day, hour: 18), templateKey: "day-1")
+    for index in 0..<sets {
+      session.logSet(
+        "Bench press", pounds: 60, reps: 8, at: session.startedAt + Double(index) * 120)
+    }
+    return session
+  }
+
   /// A logged meal of one made-up item at `day` and `hour`.
   private func meal(
     _ day: Int, hour: Int = 12, kcal: (Double, Double), protein: (Double, Double)
