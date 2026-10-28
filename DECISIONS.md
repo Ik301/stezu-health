@@ -1671,3 +1671,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Blood oxygen and temperature lose their rows (D-093) but `WeeklyHealth` and the Health read set still read them for Sources and /sync. The Sources hint now looks at the Recovery card's four metrics. UI tests that read several cards wait for each card's last row first.
 - Evidence: App/Sources/Data/WeeklyHealthRows.swift, App/Sources/Data/WeightRow.swift (`BodyCard`), Packages/StezuCore/Tests/StezuCoreTests/SparklineTests.swift, App/UITests/WeeklyHealthUITests.swift, commit on wt/S-039.
 - Reverse if: the 8-week reads make This week slow on a device (then (b) for the overview), or Isaac wants the hint to cover weight and steps again.
+
+## D-117 The Sleep screen rebuilds each night from the same intervals SleepNights reads, grouped by wake day
+
+- Status: proposed by night agent, 2026-10-28 (S-040).
+- Problem: the Sleep screen needs, per night, a bar from bedtime to final wake, stage totals, a wake-up count and the overnight readings, and its time asleep must equal the Sleep row's and the Home card's for the same night.
+- Given: `SleepNights.nights` keys time asleep by the day a stage ends on (after 18:00 counts toward the next day) and counts overlapping asleep stages from two apps once. `SleepSummary` (D-111) gives the usual night. Health returns sleep as stages (in bed, awake, core, deep, REM, unspecified asleep) and the strap's heart rate, breathing and HRV as samples dated at their end.
+- Constraints:
+  - A second rule for which night a stage belongs to would name nights differently on this screen (breaks "nights are named by wake day everywhere").
+  - Two apps often write the same awake stretch (double-counted wake-ups and totals).
+  - In-bed and awake time before falling asleep is not a wake-up, and readings while awake are not overnight readings (breaks "asleep intervals only").
+- Options:
+  - (a) `SleepDetail.make` takes the raw intervals, uses `SleepNights` for time asleep and the usual night, groups every interval by the same wake-day rule, and per night derives bedtime (first stage of any kind), final wake (end of the last asleep stage), lane spans merged per lane (unspecified asleep is Core), wake-ups as merged awake spans clipped to sleep onset and final wake, and overnight readings whose date falls inside an asleep stage.
+  - (b) Store nightly summaries from the HealthKit read, outside the core (cannot be tested on Linux).
+  - (c) Read Health's sleep sessions per night with a separate query (a second night rule).
+- Decision: (a). The 14 days end today; a day without asleep time has no night (shown "--", never 0). The axis is whole hours around the window's earliest bedtime and latest wake; the usual lines are the medians of the window's bedtimes and wakes.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SleepDetail.swift, Packages/StezuCore/Tests/StezuCoreTests/SleepDetailTests.swift, App/Sources/Data/SleepDetailView.swift, commit on wt/S-040.
+- Reverse if: a source writes overlapping stages of different kinds for the same minutes (then lanes need a priority, as Health's own chart has), or Isaac wants bedtime to mean falling asleep rather than getting into bed.

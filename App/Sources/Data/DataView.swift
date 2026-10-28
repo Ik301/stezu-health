@@ -53,7 +53,10 @@ struct DataView: View {
       SourcesView(store: environment.healthStore, failedWrites: notInHealth, now: environment.now())
         .presentationDragIndicator(.visible)
     }
-    .sheet(item: $metric) { MetricDetailView(metric: $0).presentationDragIndicator(.visible) }
+    .sheet(item: $metric) { metric in  // Sleep has its own screen (S-040)
+      Group { if metric == .sleep { SleepDetailView() } else { MetricDetailView(metric: metric) } }
+        .presentationDragIndicator(.visible)
+    }
   }
 
   private func sources() {
