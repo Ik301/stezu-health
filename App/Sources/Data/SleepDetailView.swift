@@ -83,7 +83,7 @@ struct SleepDetailView: View {
         .foregroundStyle(on ? Theme.ink : Theme.muted)
         .overlay {
           if let night {
-            Button(action: { picked = day }) { Color.clear.contentShape(Rectangle()) }
+            Button(action: { self.picked = day }) { Color.clear.contentShape(Rectangle()) }
               .accessibilityLabel("\(long(day)), \(hm(night.asleep)) asleep")
               .accessibilityIdentifier("sleep.window.\(index)")
           }
