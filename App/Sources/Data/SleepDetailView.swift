@@ -18,7 +18,11 @@ struct SleepDetailView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
         TopBar(
-          title: openDay.map(long) ?? "Sleep", titleID: "sleep.title", action: rung)
+          title: openDay.map(long) ?? "Sleep", titleID: "sleep.title", action: rung
+        )
+        .overlay(alignment: .topLeading) {  // S-049: the day arrows in the row above the date
+          if let openDay { DayArrows(day: Binding(get: { openDay }, set: { self.openDay = $0 })) }
+        }
         if let openDay {  // not Binding($openDay), which crashes when the back rung sets nil
           DayView(day: Binding(get: { openDay }, set: { self.openDay = $0 }))
         } else if let detail, let today = detail.days.last {

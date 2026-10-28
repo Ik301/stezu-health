@@ -1784,3 +1784,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a), the same mechanism as MetricDetailView. DayView's own sleep card still opens a new Sleep sheet over it; sheets nest, so no cycle is kept in state.
 - Evidence: App/Sources/Data/SleepDetailView.swift, App/UITests/SleepDetailUITests.swift (testOvernightLineAndOpenAsDay), commit on wt/S-047.
 - Reverse if: the app moves its details to pushed screens (the walkthrough's "< This week"); then Sleep and Day become destinations of one NavigationStack.
+
+## D-125 Visit names are looked up from the Day view while the app is open, cached by visit id in their own file, and retried once a launch until found
+
+- Status: proposed by night agent, 2026-10-28 (S-049).
+- Problem: D-119 lets the phone name visits with Apple's reverse geocoding, but says nothing about when a lookup happens, where the name is kept, or what happens when a lookup fails, and the location log it would sit beside is queued for /sync record by record.
+- Given: visits are saved to location-log.json and queued as `visit` records (D-076, S-032); a visit's id comes from its arrival and survives its departure update; location events also arrive in background relaunches; CLGeocoder is rate-limited and needs the network.
+- Constraints:
+  - A name stored in `PlaceRecord` would be encoded into the queued `visit` payload (breaks "never queued or synced").
+  - Looking up in `LocationRecorder.record` would run in background relaunches and for every visit, seen or not (breaks "only while the app is in the foreground" and wastes the rate limit).
+  - Remembering a failed lookup on disk would leave a visit nameless for good after one offline launch; retrying on every draw would hammer the geocoder.
+- Options:
+  - (a) A core `PlaceNames` actor holding `[visit id: name]`, saved to place-names.json next to location-log.json. DayView asks it for the day's visits after loading them, only when `UIApplication.applicationState` is active. It looks up each unnamed visit one at a time, at most once a launch (an in-memory asked set), saves each found name and never asks again for it. Fixes are skipped.
+  - (b) A `name` field on `PlaceRecord`, left out of the sync payload by a custom encoder.
+  - (c) Name every visit as it is recorded.
+- Decision: (a). The name never enters the log, the queue or a log line; the timeline shows times for a visit without one. `-uitest` uses `FakeReverseGeocoder` (names by latitude for the fixture's made-up places).
+- Evidence: Packages/StezuCore/Sources/StezuCore/PlaceNames.swift, App/Sources/Data/LocationService.swift (AppleReverseGeocoder, placeNamesFile), App/Sources/Data/DayView.swift, Packages/StezuCore/Tests/StezuCoreTests/DayTimelineTests.swift (testPlaceNamesCachedByVisitIdNeverSynced), commit on wt/S-049.
+- Reverse if: Isaac turns D-119 off (then drop PlaceNames and place-names.json) or wants names in the history on the server (then they become a separate, opt-in record kind).

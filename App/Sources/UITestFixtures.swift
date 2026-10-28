@@ -278,6 +278,9 @@ enum UITestFixtures {
       latitude: place.0, longitude: -30.5, accuracy: 40)
   }
 
+  /// S-049: the fake geocoder's names for those made-up places, by latitude.
+  static let placeNames = [10.25: "Library", 10.75: "Dining hall"]
+
   /// "background-sync" (S-033): a visit queued as if recorded while the app was closed.
   static func backgroundVisit(now: Date = Date()) -> LocationEvent {
     .visit(arrival: now - 1800, departure: nil, latitude: 10.25, longitude: -30.5, accuracy: 40)

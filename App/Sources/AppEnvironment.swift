@@ -66,6 +66,8 @@ struct AppEnvironment: Sendable {
   /// S-032: CoreLocation or a scenario's events, and the log they are saved to (D-076).
   var locationSource: any LocationSource = FixtureLocationSource(events: [])
   var places = LocationRecorder { _ in }
+  /// S-049: visit names, on the phone only (D-119); the fixture's names in `-uitest`.
+  var placeNames = PlaceNames(geocoder: FakeReverseGeocoder(names: UITestFixtures.placeNames))
   /// `-uitest-dark`: the app draws in Dark whatever the simulator's setting. Otherwise Light and
   /// Dark follow the phone.
   var forcesDark = false
@@ -82,7 +84,8 @@ struct AppEnvironment: Sendable {
       healthConnection: HealthConnection(defaults: .standard),
       healthSync: HermesSyncFile.engine(storage: .disk),
       weighIns: WeighInFile.store(storage: .disk),
-      locationSource: CoreLocationSource(), places: AppEnvironment.placesFile(storage: .disk))
+      locationSource: CoreLocationSource(), places: AppEnvironment.placesFile(storage: .disk),
+      placeNames: AppEnvironment.placeNamesFile(storage: .disk))
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.

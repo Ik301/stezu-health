@@ -81,7 +81,7 @@ final class SleepDetailUITests: XCTestCase {
     XCTAssertTrue(row.label.hasPrefix("Sunday, Jan 11 as a day"), "row: \(row.label)")
     row.tap()
     XCTAssertTrue(waitForLabel(app.element("sleep.title"), "Sunday, Jan 11"), "not Sunday")
-    let summary = app.element("day.summary")
+    let summary = app.element("day.summary.slept")  // S-049: the summary's Slept cell
     XCTAssertTrue(summary.waitForExistence(timeout: 10), "no Day view")
     let slept = NSPredicate(format: "label BEGINSWITH %@", "Slept 6h 15m")
     XCTAssertEqual(

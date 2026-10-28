@@ -60,6 +60,16 @@ final class CoreLocationSource: NSObject, LocationSource, CLLocationManagerDeleg
   }
 }
 
+/// S-049: Apple's reverse geocoding; the point of interest, else the placemark's name. The
+/// coordinates go to Apple for the lookup (D-119); nil when offline or nothing is found.
+struct AppleReverseGeocoder: ReverseGeocoder {
+  func name(latitude: Double, longitude: Double) async -> String? {
+    let place = CLLocation(latitude: latitude, longitude: longitude)
+    let mark = try? await CLGeocoder().reverseGeocodeLocation(place).first
+    return mark?.areasOfInterest?.first ?? mark?.name
+  }
+}
+
 /// The `-uitest` source: Always with the scenario's events, Off without any.
 struct FixtureLocationSource: LocationSource {
   let events: [LocationEvent]
@@ -82,6 +92,19 @@ extension AppEnvironment {
       guard let file, let data = try? JSONEncoder().encode(log) else { return }
       try? FileManager.default.createDirectory(
         at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+      try? data.write(to: file, options: .atomic)
+    }
+  }
+
+  /// S-049 (D-119): visit names in place-names.json beside the log, from Apple's geocoder.
+  static func placeNamesFile(storage: StorageMode) -> PlaceNames {
+    let file = FinishedWorkoutStore(storage: storage).file?.deletingLastPathComponent()
+      .appendingPathComponent("place-names.json")
+    let saved = file.flatMap {
+      try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: $0))
+    }
+    return PlaceNames(names: saved ?? [:], geocoder: AppleReverseGeocoder()) { names in
+      guard let file, let data = try? JSONEncoder().encode(names) else { return }
       try? data.write(to: file, options: .atomic)
     }
   }
