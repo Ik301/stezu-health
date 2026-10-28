@@ -1718,7 +1718,24 @@ The research notes cited here are kept private, because they contain personal he
 - Status: decided by Isaac, 2026-10-28 (S-048).
 - Why: absent is not zero (DESIGN.md). A week without any session is missing data, not a measured zero. A rest day sits between sessions, so it counts as a 0.
 
-## D-121 Every food range is written by one core formatter that groups thousands itself
+## D-121 When each other day was last done is counted from the same history the summary compares against, in calendar days, and never-done is absent
+
+- Status: proposed by night agent, 2026-10-28 (S-045).
+- Problem: each row under the black card has to say when its template was last done, and the Workout screen holds sessions in two places: seeded or imported history (`environment.workoutHistory`) and the sessions finished on the phone (`FinishedWorkoutStore`).
+- Given: the summary (S-044, D-113) already compares against `history`, the seeded sessions plus every finished one. `WorkoutSummary.days(from:to:)` counts calendar days on the phone's calendar. The This week card counts only finished sessions, as before.
+- Constraints:
+  - Reading only finished sessions would call a template done in an imported history "not done yet" (breaks the story's "Pull, 3 days ago" after an import).
+  - Counting 24-hour periods would call last night's session "today" or yesterday morning's "today" depending on the hour (breaks "today" meaning the same date).
+  - Showing 0 or "--" for a template never done hides which one it is (absent is not zero; it gets words).
+- Options:
+  - (a) `WorkoutSummary.daysSince(key, in: history, now:)`: the newest session of that template key that started up to now, in calendar days; nil when there is none. `lastDone` turns it into "today", "1 day ago", "N days ago" or "not done yet". Computed when the screen draws, not stored.
+  - (b) Store a last-done date per template in the template library and update it on Finish.
+  - (c) Show the weekday it was last done ("Wed"), as the walkthrough mock does.
+- Decision: (a). Nothing new is stored, so Undo, Continue and an import cannot leave it stale. Empty workout has no key history and shows "Pick exercises as you go" instead.
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutSummary.swift, Packages/StezuCore/Tests/StezuCoreTests/WorkoutSummaryTests.swift (testDaysSinceLastDoneByTemplate), App/Sources/Workout/WorkoutView.swift, commit on wt/S-045.
+- Reverse if: the history grows large enough that scanning it per row on every draw shows up in a trace (then index the newest start by key once per load), or Isaac prefers the mock's weekday.
+
+## D-122 Every food range is written by one core formatter that groups thousands itself
 
 - Status: proposed by night agent, 2026-10-28 (S-050).
 - Problem: food ranges were written by six hand-rolled formatters (the match sheet, the camera strip, Food Today, History, the week bands, the Day list and summary, the pending line), some with a hyphen and no grouping, some with an en dash and locale grouping, so the same range read differently on different screens.

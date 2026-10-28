@@ -3,9 +3,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The Workout area: the next template in the rotation as the black card, Continue for a
-/// session finished in the last 12 hours, a row for each other template and Empty workout, and
-/// this week's numbers. Start opens the logger. Keep the "screen.workout.title" id on the
-/// title; the smoke UI test finds it.
+/// session finished in the last 12 hours, This week with its day dots, and Other days, each
+/// with when it was last done, and Empty workout. Start opens the logger. Keep the
+/// "screen.workout.title" id on the title; the smoke UI test finds it.
 struct WorkoutView: View {
   var goHome: () -> Void = {}
   @Environment(\.appEnvironment) private var environment
@@ -30,10 +30,7 @@ struct WorkoutView: View {
 
   var body: some View {
     AreaScaffold(
-      area: .workout, title: "Workout",
-      action: summary.map { _ in
-        TopBar.Action(title: "Done", id: "workout.summary.done") { summary = nil }
-      },
+      area: .workout, title: summary?.logger.template.name ?? "Workout", action: topAction,
       goHome: goHome
     ) {
       if let active {
@@ -86,6 +83,16 @@ struct WorkoutView: View {
   /// Past sessions: the seeded ones plus every finished session.
   private var history: [WorkoutSession] {
     environment.workoutHistory + (finished ?? []).map(\.session)
+  }
+
+  /// The TopBar's right slot: Done on the summary, History on the Workout screen, none while
+  /// logging (the logger has its own Finish row).
+  private var topAction: TopBar.Action? {
+    if summary != nil {
+      return TopBar.Action(title: "Done", id: "workout.summary.done") { summary = nil }
+    }
+    if active != nil { return nil }
+    return TopBar.Action(title: "History", id: "workout.history") { showHistory = true }
   }
 
   /// A valid file asks to replace the program; a refused one says why and changes nothing.
@@ -204,41 +211,18 @@ struct WorkoutView: View {
         nextCard(next)
       }
       if let continuable { continueRow(continuable) }
-      HStack(spacing: Theme.spaceMd) {
-        stat("Sessions this week", week.isEmpty ? nil : week.count, id: "workout.week.sessions")
-        stat(
-          "Working sets", week.isEmpty ? nil : week.reduce(0) { $0 + $1.workingSets },
-          id: "workout.week.sets")
-      }
-      Button {
-        showHistory = true
-      } label: {
-        Text("History")
-          .textStyle(.subtitle)
-          .foregroundStyle(Theme.ink)
-          .padding(Theme.spaceLg)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .background(card(inverted: false))
-      }
-      .buttonStyle(.plain)
-      .accessibilityIdentifier("workout.history")
+      weekCard(week)
       ForEach(Array(week.enumerated()), id: \.offset) { index, workout in
         sessionRow(workout, id: "workout.session.\(index)")
       }
-      ForEach(others, id: \.key) { template in
-        Button {
-          start(template)
-        } label: {
-          Text(template.name)
-            .textStyle(.subtitle)
-            .foregroundStyle(Theme.ink)
-            .padding(Theme.spaceLg)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(card(inverted: false))
+      VStack(alignment: .leading, spacing: Theme.spaceSm) {
+        Text("Other days").textStyle(.label)
+        ForEach(Array(others.enumerated()), id: \.element.key) { index, template in
+          if index > 0 { Rectangle().fill(Theme.track).frame(height: 1) }
+          otherRow(template)
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("workout.template.\(template.key)")
       }
+      .foregroundStyle(Theme.ink).padding(Theme.spaceLg).background(card(inverted: false))
       // Above the button, so it shows where the button was when the list ends below the fold.
       if let importMessage {
         Text(importMessage)
@@ -264,6 +248,8 @@ struct WorkoutView: View {
 
   private func nextCard(_ template: WorkoutTemplate) -> some View {
     VStack(alignment: .leading, spacing: Theme.spaceSm) {
+      Text("Next in your program").textStyle(.label).foregroundStyle(Theme.onInvertMuted)
+        .accessibilityIdentifier("workout.today.label")
       Text(template.name)
         .textStyle(.title2)
         .accessibilityIdentifier("workout.today.name")
@@ -356,18 +342,70 @@ struct WorkoutView: View {
     .background(card(inverted: false))
   }
 
+  /// This week: sessions and working sets ("--" with none, never 0) beside the trained days in
+  /// the same CoverageDots as Home's Workout card, Monday up to today.
+  private func weekCard(_ week: [FinishedWorkout]) -> some View {
+    let (now, calendar) = (Date(), Calendar.current)
+    let span = WeeklyStats.week(containing: now)
+    let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: span.start) }
+      .filter { $0 <= now }
+    let trained = days.map { day in
+      week.contains { calendar.isDate($0.session.startedAt, inSameDayAs: day) }
+    }
+    let style = Date.FormatStyle().weekday(.abbreviated).day()
+    return VStack(alignment: .leading, spacing: Theme.spaceSm) {
+      HStack {
+        Text("This week").textStyle(.label)
+        Spacer()
+        Text("\(span.start.formatted(style)) to \((span.end - 1).formatted(style))")
+          .textStyle(.label).foregroundStyle(Theme.muted)
+      }
+      HStack(spacing: Theme.spaceXl) {
+        stat("Sessions", week.isEmpty ? nil : week.count, id: "workout.week.sessions")
+        stat(
+          "Working sets", week.isEmpty ? nil : week.reduce(0) { $0 + $1.workingSets },
+          id: "workout.week.sets")
+        Spacer()
+        CoverageDots(days: trained, id: "workout.week.dots")
+      }
+    }
+    .foregroundStyle(Theme.ink).padding(Theme.spaceLg).background(card(inverted: false))
+  }
+
+  /// Another day of the program: its exercises and when it was last done; one tap starts it.
+  private func otherRow(_ template: WorkoutTemplate) -> some View {
+    let empty = template.key == WorkoutRotation.emptyKey
+    let since = WorkoutSummary.daysSince(template.key, in: history, now: Date())
+    return Button {
+      start(template)
+    } label: {
+      HStack(spacing: Theme.spaceSm) {
+        VStack(alignment: .leading, spacing: Theme.space2xs) {
+          Text(template.name).textStyle(.headline)
+          Text(
+            empty
+              ? "Pick exercises as you go" : template.exercises.map(\.name).joined(separator: ", ")
+          )
+          .textStyle(.label).foregroundStyle(Theme.muted).lineLimit(1)
+        }
+        Spacer(minLength: Theme.spaceSm)
+        if !empty { Text(WorkoutSummary.lastDone(since)).textStyle(.label) }
+        Image(systemName: "chevron.right").textStyle(.label).foregroundStyle(Theme.muted)
+      }
+      .frame(minHeight: Theme.sizeTarget).contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier("workout.template.\(template.key)")
+  }
+
   /// A weekly number; with no finished session this week it is missing: "--", never 0.
   private func stat(_ label: String, _ value: Int?, id: String) -> some View {
     VStack(alignment: .leading, spacing: Theme.spaceXs) {
       Text(label).textStyle(.label).foregroundStyle(Theme.muted)
       Text(value.map(String.init) ?? "--")
-        .textStyle(.big)
-        .foregroundStyle(Theme.ink)
+        .textStyle(.value)
         .accessibilityIdentifier(id)
     }
-    .padding(Theme.spaceLg)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .background(card(inverted: false))
   }
 
   private func card(inverted: Bool) -> some View {
