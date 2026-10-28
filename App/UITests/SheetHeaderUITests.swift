@@ -28,17 +28,10 @@ final class SheetHeaderUITests: XCTestCase {
         thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
     XCTAssertTrue(settings.waitForNonExistence(timeout: 10), "swipe down did not close Settings")
 
-    // Data: Sources sits in the TopBar's right slot; Sources, a metric and Weigh in.
+    // Data: a metric, Weigh in, then Sources, a quiet row below the cards since S-039.
     openArea("data", app)
     let sources = app.element("data.sources")
     XCTAssertTrue(sources.waitForExistence(timeout: 10), "no Sources")
-    XCTAssertGreaterThan(sources.frame.maxX, width(app) - 40, "Sources is not at the right")
-    XCTAssertLessThan(sources.frame.maxY, app.element("screen.data.title").frame.minY + 1)
-    sources.tap()
-    XCTAssertTrue(app.element("sources.done").waitForExistence(timeout: 10), "Sources did not open")
-    saveScreenshot("s038-sources", of: app)
-    checkDone("sources.done", closes: "screen.sources.title", app)
-
     app.element("data.weight.open").tap()
     XCTAssertTrue(app.element("metric.week.0").waitForExistence(timeout: 10), "no weeks")
     saveScreenshot("s038-metric", of: app)
@@ -48,6 +41,14 @@ final class SheetHeaderUITests: XCTestCase {
 
     app.element("data.weighIn").tap()
     checkDone("data.weighIn.done", closes: "data.weighIn.title", app)
+
+    for _ in 0..<3 where !sources.isHittable { app.swipeUp() }
+    XCTAssertGreaterThan(
+      sources.frame.minY, app.element("data.places.value").frame.maxY, "Sources is not last")
+    sources.tap()
+    XCTAssertTrue(app.element("sources.done").waitForExistence(timeout: 10), "Sources did not open")
+    saveScreenshot("s038-sources", of: app)
+    checkDone("sources.done", closes: "screen.sources.title", app)
 
     // Workout: History, a session in it, then the Exercises library from the logger. Only the
     // workout-history scenario has past sessions.

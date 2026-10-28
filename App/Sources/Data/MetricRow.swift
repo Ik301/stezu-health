@@ -1,0 +1,77 @@
+import SwiftUI
+
+/// A This week row (design/system/components/MetricRow): title and coverage, a 72 x 28
+/// Sparkline, the value and a chevron, under a track rule unless `first`. The whole row (44 pt or
+/// more) is one button laid over the content, `data.<id>.open`, so the texts keep their own ids
+/// for UI tests. Without `open` (Places has no detail yet) there is no button or chevron.
+struct MetricRow: View {
+  let title, id, coverage: String
+  let values: [Double?]
+  var bars = true
+  var color = Theme.ink
+  let value: String
+  var first = false
+  var open: (() -> Void)?
+  @Environment(\.appEnvironment) private var environment
+
+  var body: some View {
+    let days = values.isEmpty ? Array(repeating: nil, count: 7) : values
+    HStack(spacing: Theme.spaceSm) {
+      VStack(alignment: .leading, spacing: Theme.space2xs) {
+        Text(title).textStyle(.headline)
+        Text(coverage).textStyle(.label).foregroundStyle(Theme.muted)
+          .accessibilityIdentifier("data.\(id).coverage")
+      }
+      Spacer(minLength: Theme.spaceXs)
+      Sparkline(
+        title: title, values: days, bars: bars, color: color,
+        today: (Calendar.current.component(.weekday, from: environment.now()) + 5) % 7
+      )
+      .accessibilityValue("\(days.filter { $0 == nil }.count) of 7 days without data")
+      .accessibilityIdentifier("data.spark.\(id)")
+      Text(value).textStyle(.value).accessibilityIdentifier("data.\(id).value")
+      if open != nil {
+        Image(systemName: "chevron.right").textStyle(.subtitle, weight: .semibold)
+          .foregroundStyle(Theme.muted)
+      }
+    }
+    .frame(minHeight: Theme.sizeTarget).padding(.vertical, Theme.spaceSm)
+    .overlay(alignment: .top) { if !first { Theme.track.frame(height: 1) } }
+    .overlay {
+      if let open {
+        Button(action: open) { Color.clear.contentShape(Rectangle()) }
+          .accessibilityLabel("\(title), \(coverage), \(value)")
+          .accessibilityIdentifier("data.\(id).open")
+      }
+    }
+  }
+}
+
+/// A This week card: a header, with a tag or one text action on the right, then its rows.
+struct MetricCard<Content: View>: View {
+  let title: String
+  var tag: String?
+  var action: TopBar.Action?
+  @ViewBuilder var content: Content
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack {
+        Text(title).foregroundStyle(Theme.muted).accessibilityAddTraits(.isHeader)
+        Spacer()
+        if let tag {
+          Text(tag).foregroundStyle(Theme.muted).padding(.horizontal, Theme.spaceSm)
+            .overlay(Capsule().stroke(Theme.track)).accessibilityIdentifier("data.card.tag")
+        }
+        if let action {
+          Button(action.title, action: action.run).accessibilityIdentifier(action.id)
+        }
+      }
+      .textStyle(.label).buttonStyle(.plain).frame(minHeight: Theme.sizeTarget)
+      content
+    }
+    .foregroundStyle(Theme.ink).padding(.horizontal, Theme.spaceLg)
+    .padding(.bottom, Theme.spaceXs)
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
+  }
+}

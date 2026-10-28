@@ -1,10 +1,10 @@
 import StezuCore
 import SwiftUI
 
-/// The overview's Weight row for this Monday-to-Sunday week (S-021): trend, the trend's change
-/// this week, weigh-in days out of 7, the confidence reason and the apps the trend uses. Weigh in
-/// opens a stepper prefilled with the last weigh-in; Save stores a weigh-in and reloads the row.
-struct WeightRow: View {
+/// This Monday-to-Sunday week's dates, then the Body and activity card (S-021, S-039): Weight
+/// and Steps rows, and Weigh in, which opens a stepper prefilled with the last weigh-in; Save
+/// stores a weigh-in and reloads the rows.
+struct BodyCard: View {
   var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
   @State private var loaded: (week: WeekWeight, prefill: Double?)?
@@ -12,33 +12,16 @@ struct WeightRow: View {
   @State private var reloads = 0
 
   var body: some View {
-    let week = loaded?.week
-    let sources = week?.sources.joined(separator: ", ") ?? ""
-    VStack(alignment: .leading, spacing: Theme.spaceXs) {
-      label(week.map { weekRange($0.weekStart) } ?? "--").accessibilityIdentifier("data.week.range")
-      HStack(alignment: .firstTextBaseline) {
-        Text("Weight").textStyle(.headline)
-        Spacer()
-        Text(week?.trend.map { String(format: "%.1f lb", $0) } ?? "--")
-          .textStyle(.big)
-          .accessibilityIdentifier("data.weight.trend")
-        MetricOpenButton(metric: .weight, open: open)
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
+      label(weekRange(WeeklyStats.week(containing: environment.now()).start))
+        .accessibilityIdentifier("data.week.range")
+      MetricCard(
+        title: "Body and activity",
+        action: .init(title: "Weigh in", id: "data.weighIn") { weighing = true }
+      ) {
+        WeeklyHealthRows(metrics: [.weight, .steps], reload: reloads, open: open)
       }
-      label("This week: " + (week?.change.map { String(format: "%+.1f lb", $0) } ?? "--"))
-        .accessibilityIdentifier("data.weight.change")
-      label("Weigh-ins: " + (week?.daysWeighed.map { "\($0) of 7" } ?? "--"))
-        .accessibilityIdentifier("data.weight.coverage")
-      label(week?.confidence.reason ?? "--").accessibilityIdentifier("data.weight.reason")
-      label("From: " + (sources.isEmpty ? "--" : sources)).accessibilityIdentifier(
-        "data.weight.sources")
-      Button("Weigh in") { weighing = true }
-        .textStyle(.headline)
-        .accessibilityIdentifier("data.weighIn")
     }
-    .foregroundStyle(Theme.ink)
-    .padding(Theme.spaceLg)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
     .task(id: reloads) {
       loaded = await WeeklyWeight.load(from: environment.weightHealth, now: environment.now())
     }

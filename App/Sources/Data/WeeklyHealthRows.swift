@@ -1,71 +1,48 @@
 import StezuCore
 import SwiftUI
 
-/// This week's steps, sleep, HRV and resting heart rate (S-022), then the strap's blood oxygen,
-/// respiratory rate and temperature (S-027), each with its coverage; all but steps and resting HR
-/// are labelled context. No data shows "--" beside its coverage, never 0, plus the hint.
+/// This week's Health rows (S-022, S-039), each made from its metric's 8-week history, the same
+/// one its detail draws: the current week's value and coverage, and its days as the sparkline.
+/// No data shows "--" beside the coverage, never 0. With `hint`, a metric without data adds the
+/// Sources hint. Blood oxygen and temperature have no row (D-093); Health still reads them.
 struct WeeklyHealthRows: View {
+  let metrics: [Metric]
+  var reload = 0
+  var hint = false
   var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
-  @State private var week: WeeklyHealth?
+  @State private var histories: [Metric: MetricHistory] = [:]
 
   var body: some View {
-    VStack(alignment: .leading, spacing: Theme.spaceSm) {
-      row("Steps", "steps", week?.steps, of: "days") { "\(Int($0.rounded()))" }
-      row("Sleep", "sleep", week?.sleep, of: "nights", context: true) {
-        "\(Int($0 / 3600))h \(Int($0 / 60) % 60)m"
+    VStack(alignment: .leading, spacing: 0) {
+      ForEach(metrics) { metric in
+        let week = histories[metric]?.weeks.first
+        MetricRow(
+          title: metric.title, id: metric.rawValue,
+          coverage: week.map { coverage(metric, $0.stat.coverage) } ?? "--",
+          values: histories[metric].map(ChartSeries.sparkline) ?? [],
+          bars: metric == .steps || metric == .sleep, color: metric.color,
+          value: week?.stat.value.map(metric.format) ?? "--", first: metric == metrics.first
+        ) { open(metric) }
       }
-      row("HRV", "hrv", week?.hrv, of: nil, context: true) { "\(Int($0.rounded())) ms" }
-      row("Resting HR", "restingHR", week?.restingHeartRate, of: "days") {
-        "\(Int($0.rounded())) bpm"
-      }
-      row("Blood oxygen", "oxygen", week?.bloodOxygen, of: nil, context: true) {
-        "\(Int($0.rounded()))%"
-      }
-      row("Respiratory rate", "respiratory", week?.respiratoryRate, of: "nights", context: true) {
-        String(format: "%.1f br/min", $0)
-      }
-      row("Temperature", "temperature", week?.temperature, of: "nights", context: true) {
-        String(format: "%.1f °F", $0)
-      }
-      if let week,
-        [
-          week.steps, week.sleep, week.hrv, week.restingHeartRate, week.bloodOxygen,
-          week.respiratoryRate, week.temperature,
-        ].contains(where: { $0.value == nil })
+      if hint, histories.count == metrics.count,
+        histories.values.contains(where: { $0.weeks.first?.stat.value == nil })
       {
         label(HealthSources.deniedHint).accessibilityIdentifier("data.health.hint")
       }
     }
-    .padding(Theme.spaceLg)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
-    .task { week = await WeeklyHealth.load(from: environment.healthStore, now: environment.now()) }
+    .task(id: reload) {
+      for metric in metrics {
+        histories[metric] = await MetricHistory.load(
+          metric, from: environment.weightHealth, now: environment.now())
+      }
+    }
   }
 
-  /// Coverage reads "n of 7 <unit>", or "n samples" when `unit` is nil.
-  private func row(
-    _ title: String, _ id: String, _ stat: WeeklyStat?, of unit: String?, context: Bool = false,
-    format: (Double) -> String
-  ) -> some View {
-    let coverage =
-      stat.map { stat in unit.map { "\(stat.coverage) of 7 \($0)" } ?? "\(stat.coverage) samples" }
-    let value = stat?.value.map(format) ?? "--"
-    return HStack(alignment: .firstTextBaseline) {
-      VStack(alignment: .leading, spacing: Theme.space2xs) {
-        HStack(spacing: Theme.spaceXs) {
-          Text(title).textStyle(.headline)
-          if context { label("context").accessibilityIdentifier("data.\(id).context") }
-        }
-        label(coverage ?? "--").accessibilityIdentifier("data.\(id).coverage")
-      }
-      Spacer()
-      Text(value).textStyle(.value).accessibilityIdentifier(
-        "data.\(id).value")
-      // The strap rows have no history view yet (S-024 covers the S-022 metrics only).
-      if let metric = Metric(rawValue: id) { MetricOpenButton(metric: metric, open: open) }
-    }
-    .foregroundStyle(Theme.ink)
+  private func coverage(_ metric: Metric, _ count: Int) -> String {
+    if metric == .weight { return "Weigh-ins \(count) of 7" }
+    if metric == .hrv { return "\(count) samples" }
+    return "\(count) of 7 \(metric == .sleep || metric == .breathing ? "nights" : "days")"
   }
 
   private func label(_ text: String) -> some View {
