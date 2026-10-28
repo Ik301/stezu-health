@@ -1546,7 +1546,7 @@
         "s045-summary"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-046",

@@ -1,9 +1,9 @@
 import StezuCore
 import SwiftUI
 
-/// What Finish opens (S-044): duration, working sets, volume and whether Health has it, then
-/// each exercise's sets and its best set against the last session of the same template, in
-/// plain ink (D-032). Undo stays 8 s and reopens the session; Done is in the TopBar.
+/// What Finish opens (S-044, S-045): Undo on top for 8 s, the date and times, duration, working
+/// sets, volume and an In Health tag, then each exercise's sets and its best set against the
+/// last session of the same template, in plain ink (D-032). Done is in the TopBar.
 struct WorkoutSummaryView: View {
   let summary: WorkoutSummary
   let inHealth: Bool
@@ -16,6 +16,9 @@ struct WorkoutSummaryView: View {
       Int($0.rounded()).formatted(.number.locale(Locale(identifier: "en_US"))) + " lb"
     }
     let seconds = Int(summary.done.endedAt.timeIntervalSince(summary.done.session.startedAt))
+    let start = summary.done.session.startedAt
+    let day = start.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+    let times = "\(DayTimelineView.clock(start)) to \(DayTimelineView.clock(summary.done.endedAt))"
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
         if canUndo {
@@ -28,13 +31,18 @@ struct WorkoutSummaryView: View {
           .textStyle(.subtitle).foregroundStyle(Theme.onInvert).padding(.horizontal, Theme.spaceLg)
           .background(Capsule().fill(Theme.invert))
         }
+        Text("\(day), \(times)").textStyle(.label).foregroundStyle(Theme.muted)
+          .accessibilityIdentifier("workout.summary.when")
         VStack(alignment: .leading, spacing: Theme.spaceMd) {
           HStack(alignment: .top) {
             stat("Duration", seconds < 60 ? "\(seconds) s" : "\(seconds / 60) min", id: "duration")
             stat("Working sets", "\(summary.done.workingSets)", id: "sets")
             stat("Volume", volume ?? "--", id: "volume")
           }
-          Text(inHealth ? "In Health" : "Not in Health").textStyle(.label)
+          Text(inHealth ? "In Health" : "Not in Health")
+            .textStyle(.axis).foregroundStyle(Theme.muted)
+            .padding(.horizontal, Theme.spaceSm).padding(.vertical, Theme.space2xs)
+            .overlay(RoundedRectangle(cornerRadius: Theme.radiusChip).strokeBorder(Theme.track))
             .accessibilityIdentifier("workout.summary.health")
         }
         .padding(Theme.spaceLg).background(card)
