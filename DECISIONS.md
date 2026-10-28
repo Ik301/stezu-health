@@ -1688,3 +1688,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The 14 days end today; a day without asleep time has no night (shown "--", never 0). The axis is whole hours around the window's earliest bedtime and latest wake; the usual lines are the medians of the window's bedtimes and wakes.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SleepDetail.swift, Packages/StezuCore/Tests/StezuCoreTests/SleepDetailTests.swift, App/Sources/Data/SleepDetailView.swift, commit on wt/S-040.
 - Reverse if: a source writes overlapping stages of different kinds for the same minutes (then lanes need a priority, as Health's own chart has), or Isaac wants bedtime to mean falling asleep rather than getting into bed.
+
+## D-118 The Day timeline is laid out in the core from the records the Day list already loads, and visits come from the phone's location log
+
+- Status: proposed by night agent, 2026-10-28 (S-041).
+- Problem: the Day view needs every mark of one day on one axis (the night, weigh-ins, meals, workouts, visits), with empty hours folded and overlapping marks side by side, and a tap on a mark must land on the same record the list below shows.
+- Given: `DayRecords.load` (S-025) already gathers the day's weigh-ins, meals and workouts with their times and owners; `SleepDetail` (D-117) builds the night ending on a wake day with its bedtime, final wake and stages; visits are stored on the phone in `LocationLog` (D-076) as ISO times with their offset.
+- Constraints:
+  - A second read of Health or the meal store for the timeline can disagree with the list under it (breaks "tap a meal, land on its row").
+  - Layout written in SwiftUI only compiles on the ios job (folding and lanes could not be tested on Linux).
+  - Visits must not wait on the server or the sync queue (breaks the timeline offline and leaks nothing new).
+- Options:
+  - (a) `DayTimeline` (core) takes the marks' time spans and returns each hour's height (40 pt with a mark, 10 pt without; a point keeps the hour after it open) and each mark's top, height (44 pt at least) and lane among the marks it overlaps; DayView builds the marks from its `DayRecord`s by index, so a mark's tap scrolls to `day.record.<index>`; the night comes from `SleepDetail.load(now: day)`; visits are read from `places.log` on the phone and open no hours.
+  - (b) A Swift Charts timeline with one lane per kind (no folding, and overlapping meals stack on one row).
+  - (c) A server endpoint for a day's timeline (needs server/ and the network).
+- Decision: (a). A mark wholly outside the day has no place; one that crosses midnight is clipped. Visits show their times only on this card; place names are left for a later card (see PROGRESS.md).
+- Evidence: Packages/StezuCore/Sources/StezuCore/DayTimeline.swift, Packages/StezuCore/Tests/StezuCoreTests/DayTimelineTests.swift, App/Sources/Data/DayView.swift, App/Sources/Data/DayTimelineView.swift, commit on wt/S-041.
+- Reverse if: a day has so many overlapping marks that lanes become too narrow to read (then cap lanes and stack), or Isaac wants visits to open hours too.

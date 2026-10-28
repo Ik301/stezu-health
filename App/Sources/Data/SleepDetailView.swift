@@ -11,6 +11,8 @@ struct SleepDetailView: View {
   @State private var picked: Date?
   private let shape = RoundedRectangle(cornerRadius: Theme.radiusCard)
 
+  init(night: Date? = nil) { _picked = State(initialValue: night) }  // S-041: a wake day picked
+
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceMd) {
@@ -103,7 +105,7 @@ struct SleepDetailView: View {
           xStart: .value("From", stage.start), xEnd: .value("To", stage.end),
           y: .value("Stage", lane(stage.lane))
         )
-        .foregroundStyle(color(stage.lane)).cornerRadius(3)
+        .foregroundStyle(Self.color(stage.lane)).cornerRadius(3)
       }
       .chartYScale(domain: SleepLane.allCases.map(lane))
       .chartYAxis { AxisMarks(position: .leading) }
@@ -130,7 +132,7 @@ struct SleepDetailView: View {
   }
 
   /// sleep-awake, the one warm hue, then REM to Deep from light to dark.
-  private func color(_ lane: SleepLane) -> Color {
+  static func color(_ lane: SleepLane) -> Color {
     [Theme.sleepAwake, Theme.sleepRem, Theme.sleepCore, Theme.sleepDeep][
       SleepLane.allCases.firstIndex(of: lane) ?? 0]
   }

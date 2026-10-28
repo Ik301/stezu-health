@@ -243,6 +243,7 @@ enum UITestFixtures {
 
   /// "location" (S-032): two visits, one arriving then departing, and a fix; synthetic (D-034).
   static func locations(scenario: String?, now: Date = Date()) -> [LocationEvent] {
+    if scenario == foodWeekScenario { return dayVisits }
     guard scenario == "location" else { return [] }
     let base = max(Calendar.current.startOfDay(for: now), now - 3600)
     let at = { (n: Double) in base + n * now.timeIntervalSince(base) / 6 }
@@ -252,6 +253,14 @@ enum UITestFixtures {
       .fix(at: at(3), latitude: 10.5, longitude: -30.25, accuracy: 500, speed: nil),
       .visit(arrival: at(4), departure: at(5), latitude: 10.75, longitude: -30, accuracy: 50),
     ]
+  }
+
+  /// "data-food-week" (S-041): Monday 08:00-11:50 and 12:10-17:50 at two made-up places.
+  static let dayVisits = [(10.25, 480.0, 710.0), (10.75, 730.0, 1070.0)].map { place in
+    LocationEvent.visit(
+      arrival: dataWeekDay(5, hour: 0) + place.1 * 60,
+      departure: dataWeekDay(5, hour: 0) + place.2 * 60,
+      latitude: place.0, longitude: -30.5, accuracy: 40)
   }
 
   /// "background-sync" (S-033): a visit queued as if recorded while the app was closed.
