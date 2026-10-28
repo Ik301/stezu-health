@@ -124,10 +124,10 @@ enum UITestFixtures {
       (.inBed, -60, 420), (.asleepCore, -45, 180), (.asleepDeep, 180, 240),
       (.asleepREM, 240, 330), (.awake, 330, 340), (.asleepCore, 340, 405),
     ]
-    // "home-week" (S-037) adds last night, ending Sunday: 6h 15m asleep.
+    // "home-week" (S-037) adds last night, ending Sunday: 6h 15m asleep, two wake-ups (S-040).
     let lastNight: [(SleepStage, Double, Double)] = [
       (.inBed, -60, 420), (.asleepCore, -30, 180), (.asleepDeep, 180, 240), (.awake, 240, 250),
-      (.asleepREM, 250, 355),
+      (.asleepREM, 250, 300), (.awake, 300, 305), (.asleepREM, 305, 360),
     ]
     let nights: [(Int, [(SleepStage, Double, Double)])] =
       [5, 6, 7, 9, 10].map { ($0, stages) }
