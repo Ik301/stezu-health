@@ -1637,3 +1637,37 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The standalone rest card is gone; the Live Activity is unchanged.
 - Evidence: App/Sources/Workout/WorkoutLoggerView.swift (`restCard`), App/UITests/WorkoutLoggerUITests.swift (Log's frame before and after Log and Skip), commit on wt/S-044.
 - Reverse if: Isaac prefers the mock's behaviour (the band only while resting, Log moving down by its height).
+
+## D-115 A This week row is one button laid over its content, so the row's texts and sparkline keep their own ids
+
+- Status: proposed by night agent, 2026-10-28 (S-039).
+- Problem: design/system makes the whole MetricRow the control, at least 44 pt tall, but a SwiftUI Button folds everything in its label into one accessibility element, and a dozen UI tests read the row's coverage and value by id (`data.<id>.coverage`, `data.<id>.value`) and the new one reads `data.spark.<id>`.
+- Given: rows used to have a 44 x 22 chevron button `data.<metric>.open`, which MetricDetailUITests, DayViewUITests, SheetHeaderUITests and HermesSyncUITests tap. XCUITest taps an element at its centre.
+- Constraints:
+  - Texts inside a Button label cannot be found by id (breaks the S-021 to S-027 tests).
+  - A tap gesture on the row is not a button for VoiceOver and gives no button trait (breaks accessibility).
+  - Restyling the old chevron as the only target keeps the 22 pt height the design calls too short (breaks the story).
+- Options:
+  - (a) `MetricRow` draws the content, then an `.overlay` Button over the whole row (`Color.clear` with a rectangle content shape) with id `data.<id>.open` and the row's words as its label; the texts and the Sparkline stay separate elements under it.
+  - (b) A Button with `.accessibilityElement(children: .contain)`, so its children stay visible.
+  - (c) An `onTapGesture` on the row plus an accessibility action.
+- Decision: (a). It keeps every existing id, the old `data.<metric>.open` now spans the row, and tapping its middle opens the detail. VoiceOver also reads the texts beside the button; hiding them outside -uitest (as CoverageDots does) is left for a device check.
+- Evidence: App/Sources/Data/MetricRow.swift, App/UITests/DataUITests.swift (testThisWeekGroupsRowsWithSparklines), commit on wt/S-039.
+- Reverse if: VoiceOver on a device reads each row twice in an unhelpful way (then hide the content from VoiceOver except under -uitest), or (b) proves to keep both the button trait and the child ids.
+
+## D-116 This week's Health rows read the same 8-week MetricHistory as their detail, one card at a time
+
+- Status: proposed by night agent, 2026-10-28 (S-039).
+- Problem: every row now needs its days Monday to Sunday for the sparkline as well as the week's value and coverage, and the row and its detail must not disagree.
+- Given: `WeeklyHealth.load` gives only week totals; `MetricHistory.load` already reads 8 weeks per metric for the detail, with the current week first and its days (a night keyed by the day it ends on), and `ChartSeries.sparkline` takes its first week. Their week statistics use the same `WeeklyStats` functions.
+- Constraints:
+  - A second, week-only read path can drift from the detail's numbers (breaks trust in the overview).
+  - Reading 8 weeks for a 7-day row reads more from Health than it shows (costs time on a device).
+  - Cards that load separately fill in at different moments (UI tests that read one card right after another fail).
+- Options:
+  - (a) `WeeklyHealthRows(metrics:)` loads `MetricHistory.load` for its metrics in order and builds each row from the first week; the Body card (weight, steps) and Recovery card (sleep, HRV, resting HR, breathing) are two instances, and Body reloads after a weigh-in.
+  - (b) Keep `WeeklyHealth.load` for values and add a 7-day daily read per metric.
+  - (c) One loader in DataView for every metric, passed down.
+- Decision: (a). Blood oxygen and temperature lose their rows (D-093) but `WeeklyHealth` and the Health read set still read them for Sources and /sync. The Sources hint now looks at the Recovery card's four metrics. UI tests that read several cards wait for each card's last row first.
+- Evidence: App/Sources/Data/WeeklyHealthRows.swift, App/Sources/Data/WeightRow.swift (`BodyCard`), Packages/StezuCore/Tests/StezuCoreTests/SparklineTests.swift, App/UITests/WeeklyHealthUITests.swift, commit on wt/S-039.
+- Reverse if: the 8-week reads make This week slow on a device (then (b) for the overview), or Isaac wants the hint to cover weight and steps again.

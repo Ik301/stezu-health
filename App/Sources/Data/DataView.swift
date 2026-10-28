@@ -14,16 +14,22 @@ struct DataView: View {
 
   var body: some View {
     let isConnected = connected ?? environment.healthConnection.isConnected
-    AreaScaffold(
-      area: .data, title: "This week", action: isConnected ? sources : nil, goHome: goHome
-    ) {
+    AreaScaffold(area: .data, title: "This week", goHome: goHome) {
       if isConnected {
         ScrollView {
           VStack(spacing: Theme.spaceMd) {
-            WeightRow { metric = $0 }
-            WeeklyHealthRows { metric = $0 }
-            WeeklyFoodWorkoutRows { metric = $0 }
+            BodyCard { metric = $0 }
+            MetricCard(title: "Food and training") { WeeklyFoodWorkoutRows { metric = $0 } }
+            MetricCard(title: "Recovery", tag: "context only") {
+              WeeklyHealthRows(metrics: [.sleep, .hrv, .restingHR, .breathing], hint: true) {
+                metric = $0
+              }
+            }
             PlacesRow()
+            Button("Sources", action: sources).textStyle(.subtitle).foregroundStyle(Theme.muted)
+              .buttonStyle(.plain)
+              .frame(maxWidth: .infinity, minHeight: Theme.sizeTarget, alignment: .leading)
+              .padding(.horizontal, Theme.spaceLg).accessibilityIdentifier("data.sources")
           }
         }
         .scrollIndicators(.hidden)
@@ -50,10 +56,8 @@ struct DataView: View {
     .sheet(item: $metric) { MetricDetailView(metric: $0).presentationDragIndicator(.visible) }
   }
 
-  private var sources: TopBar.Action {
-    .init(title: "Sources", id: "data.sources") {
-      Task { (notInHealth, sourcesOpen) = (await environment.weighInsNotInHealth(), true) }
-    }
+  private func sources() {
+    Task { (notInHealth, sourcesOpen) = (await environment.weighInsNotInHealth(), true) }
   }
 
   private func pill(_ title: String, id: String, inverted: Bool, action: @escaping () -> Void)

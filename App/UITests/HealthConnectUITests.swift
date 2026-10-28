@@ -34,7 +34,9 @@ final class HealthConnectUITests: XCTestCase {
     XCTAssertFalse(app.element("data.connect").exists, "the empty state came back")
     saveScreenshot("s020-overview-empty", of: app)
 
-    // Step 3: one tap to Sources; every type is absent with "--" and the hint.
+    // Step 3: one tap to Sources (a quiet row at the bottom since S-039); every type is absent
+    // with "--" and the hint.
+    for _ in 0..<3 where !sources.isHittable { app.swipeUp() }
     sources.tap()
     XCTAssertTrue(app.element("screen.sources.title").waitForExistence(timeout: 10))
     let weight = app.element("sources.row.bodyMass.status")

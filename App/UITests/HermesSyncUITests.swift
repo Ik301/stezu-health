@@ -170,8 +170,8 @@ final class HermesSyncUITests: XCTestCase {
     XCTAssertTrue(save.waitForExistence(timeout: 10), "no weigh-in stepper")
     let value = app.element("data.weighIn.value").label
     save.tap()
-    wait(for: "label == 'Weigh-ins: 1 of 7'", on: app.element("data.weight.coverage"))
-    XCTAssertEqual(app.element("data.weight.trend").label, value, "the row is not the weigh-in")
+    wait(for: "label == 'Weigh-ins 1 of 7'", on: app.element("data.weight.coverage"))
+    XCTAssertEqual(app.element("data.weight.value").label, value, "the row is not the weigh-in")
 
     // The fake server received one weigh_in record.
     app.element("nav.home").tap()

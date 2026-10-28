@@ -2,7 +2,9 @@ import XCTest
 
 /// S-021: Data shows this week's Weight row from synthetic Stezu weigh-ins (the data-week
 /// scenario pins the clock to a Sunday), one tap opens a prefilled stepper, Save writes one
-/// sample and the row updates; with no weigh-ins the row shows "--".
+/// sample and the row updates; with no weigh-ins the row shows "--". Since S-039 the row is a
+/// MetricRow: the trend, weigh-in days and a sparkline; the change, reason and sources moved off
+/// the overview (the detail keeps the sources).
 final class WeightUITests: XCTestCase {
   @MainActor
   func testWeightTrendAndOneTapWeighIn() {
@@ -15,13 +17,13 @@ final class WeightUITests: XCTestCase {
     dataCard.tap()
     let coverage = app.element("data.weight.coverage")
     XCTAssertTrue(coverage.waitForExistence(timeout: 10), "no Weight row")
-    XCTAssertTrue(waitForLabel(coverage, "Weigh-ins: 5 of 7"), "coverage: \(coverage.label)")
+    XCTAssertTrue(waitForLabel(coverage, "Weigh-ins 5 of 7"), "coverage: \(coverage.label)")
     XCTAssertTrue(
       app.element("data.week.range").label.hasPrefix("Mon"), "week does not start Monday")
-    XCTAssertNotEqual(app.element("data.weight.trend").label, "--")
-    XCTAssertTrue(app.element("data.weight.change").label.hasPrefix("This week: -"))
-    XCTAssertTrue(app.element("data.weight.reason").label.contains("weigh-ins"))
-    XCTAssertEqual(app.element("data.weight.sources").label, "From: Stezu")
+    XCTAssertNotEqual(app.element("data.weight.value").label, "--")
+    // Thursday and Sunday have no weigh-in: two dashed slots, not dips to 0.
+    XCTAssertEqual(
+      app.element("data.spark.weight").value as? String, "2 of 7 days without data")
     XCTAssertFalse(app.element("data.connect").exists, "the scenario should be connected")
     saveScreenshot("s021-weight", of: app)
 
@@ -35,7 +37,7 @@ final class WeightUITests: XCTestCase {
     saveScreenshot("s021-weigh-in", of: app)
     app.element("data.weighIn.save").tap()
     XCTAssertTrue(
-      waitForLabel(coverage, "Weigh-ins: 6 of 7"), "row did not update: \(coverage.label)")
+      waitForLabel(coverage, "Weigh-ins 6 of 7"), "row did not update: \(coverage.label)")
 
     // Step 3: a week with no weigh-ins shows "--".
     app.terminate()
@@ -44,10 +46,10 @@ final class WeightUITests: XCTestCase {
     let connect = empty.element("data.connect")
     XCTAssertTrue(connect.waitForExistence(timeout: 10))
     connect.tap()
-    let trend = empty.element("data.weight.trend")
+    let trend = empty.element("data.weight.value")
     XCTAssertTrue(trend.waitForExistence(timeout: 10), "no Weight row")
+    XCTAssertTrue(waitForLabel(empty.element("data.weight.coverage"), "Weigh-ins 0 of 7"))
     XCTAssertEqual(trend.label, "--")
-    XCTAssertTrue(waitForLabel(empty.element("data.weight.coverage"), "Weigh-ins: --"))
   }
 
   @MainActor
