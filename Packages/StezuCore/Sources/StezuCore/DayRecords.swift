@@ -56,8 +56,8 @@ public enum DayRecords {
     }
     for meal in meals where span.contains(meal.loggedAt) {
       let names = meal.items.map(\.name).joined(separator: ", ")
-      let kcal = range(FoodRange.total(meal.items.map(\.kcal)), "kcal")
-      let protein = range(FoodRange.total(meal.items.map(\.proteinG)), "g protein")
+      let kcal = FoodRange.text(.total(meal.items.map(\.kcal)), unit: "kcal")
+      let protein = FoodRange.text(.total(meal.items.map(\.proteinG)), unit: "g protein")
       records.append(
         DayRecord(
           kind: .meal, time: meal.loggedAt, detail: "\(names): \(kcal), \(protein)",
@@ -114,10 +114,5 @@ public enum DayRecords {
         ? ($0.time, $0.detail) < ($1.time, $1.detail)
         : order.firstIndex(of: $0.kind)! < order.firstIndex(of: $1.kind)!
     }
-  }
-
-  private static func range(_ range: FoodRange?, _ unit: String) -> String {
-    guard let range else { return "-- \(unit)" }
-    return "\(Int(range.low.rounded()))-\(Int(range.high.rounded())) \(unit)"
   }
 }

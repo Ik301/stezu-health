@@ -1751,3 +1751,19 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). One owner for the open session, two fewer state variables, and Finish, Undo, Resume and Continue all set the same `logger`. (b) routes a tap through a side channel; (c) needs a Sendable preference closure under Swift 6.
 - Evidence: App/Sources/Workout/WorkoutView.swift, App/Sources/Workout/WorkoutLoggerView.swift, App/Sources/AppShell.swift, App/UITests/WorkoutLoggerUITests.swift (testTopBarFinishSkipAndHiddenNav), commit on wt/S-046.
 - Reverse if: another area needs to hide the nav (then make it a shell-level "focused session" flag every area can set), or the logger moves into its own pushed screen.
+
+## D-123 Every food range is written by one core formatter that groups thousands itself
+
+- Status: proposed by night agent, 2026-10-28 (S-050).
+- Problem: food ranges were written by six hand-rolled formatters (the match sheet, the camera strip, Food Today, History, the week bands, the Day list and summary, the pending line), some with a hyphen and no grouping, some with an en dash and locale grouping, so the same range read differently on different screens.
+- Given: RangeValue says "1,240–1,480 kcal" everywhere; StezuCore's `DayRecords` and `MealQueue` build range strings that the app shows as they are; StezuCore tests run on Linux, where `Int.formatted()` follows the process locale.
+- Constraints:
+  - Formatting in the app only (breaks the core strings in the Day list and the pending line, which would keep the hyphen).
+  - Locale grouping through `formatted()` (breaks the Linux tests' expectations when the locale has no comma, and lets the same range read "1.240" on a German phone while the tests assert "1,240").
+- Options:
+  - (a) `FoodRange.text(_:unit:)` in StezuCore: rounds to whole numbers, inserts a comma every three digits itself, joins with U+2013, "--" when the range is nil; every food screen and the two core strings call it.
+  - (b) A SwiftUI `FormatStyle` in the app, with the core strings left alone.
+  - (c) Keep each screen's formatter and fix the hyphens one by one.
+- Decision: (a). Data's weekly rows, the metric detail and Home keep their own en dash formatters for now; they are outside this card and already use the en dash.
+- Evidence: Packages/StezuCore/Sources/StezuCore/FoodRange.swift, Packages/StezuCore/Tests/StezuCoreTests/MealServingTests.swift (testRangeFormatterUsesEnDashAndGrouping), App/Sources/Food/PhotoMatchSheet.swift, commit on wt/S-050.
+- Reverse if: the app is localised and ranges should follow the phone's number format.

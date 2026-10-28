@@ -28,10 +28,10 @@ final class BarcodeUITests: XCTestCase {
     XCTAssertEqual(app.element("food.match.item.0.name").label, "Oat Bar")
     XCTAssertEqual(app.element("food.match.item.0.hall").label, "Example Foods")
     XCTAssertEqual(app.element("food.match.item.0.servings").label, "1 x 1 bar (40 g)")
-    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "120-200 kcal")
-    XCTAssertEqual(app.element("food.match.item.0.protein").label, "3-5 g protein")
+    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "120–200 kcal")
+    XCTAssertEqual(app.element("food.match.item.0.protein").label, "3–5 g protein")
     XCTAssertFalse(app.element("food.match.item.0.rough").exists)
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "120-200 kcal")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "120–200 kcal")
     XCTAssertTrue(app.element("food.edit.log").exists, "not ready to Log")
     saveScreenshot("s016-product", of: app)
 

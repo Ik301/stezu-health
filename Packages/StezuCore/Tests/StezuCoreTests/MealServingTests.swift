@@ -46,4 +46,20 @@ final class MealServingTests: XCTestCase {
     XCTAssertEqual(edit.items.count, 2, "stepping down never removes the item")
     XCTAssertEqual(edit.totalKcal, FoodRange(low: 140, high: 200))
   }
+
+  /// S-050: one formatter writes every food range: an en dash, thousands commas, whole numbers,
+  /// "--" when unknown, never a hyphen or a midpoint.
+  func testRangeFormatterUsesEnDashAndGrouping() {
+    XCTAssertEqual(
+      FoodRange.text(FoodRange(low: 1240, high: 1480), unit: "kcal"), "1,240\u{2013}1,480 kcal")
+    XCTAssertEqual(FoodRange.text(FoodRange(low: 92.4, high: 117.6), unit: "g"), "92\u{2013}118 g")
+    XCTAssertEqual(FoodRange.text(FoodRange(low: 999.6, high: 12_345)), "1,000\u{2013}12,345")
+    XCTAssertEqual(FoodRange.text(FoodRange(low: 0, high: 5)), "0\u{2013}5")
+    XCTAssertEqual(FoodRange.text(nil, unit: "kcal"), "-- kcal", "absent is --, not 0")
+    XCTAssertEqual(FoodRange.text(nil), "--")
+    XCTAssertFalse(FoodRange.text(FoodRange(low: 200, high: 260)).contains("-"), "a hyphen")
+    XCTAssertEqual(
+      MealQueue.todayText(loggedKcal: FoodRange(low: 1080, high: 1440), pending: 1),
+      "1,080\u{2013}1,440 kcal, +1 pending")
+  }
 }

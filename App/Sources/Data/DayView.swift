@@ -131,10 +131,7 @@ struct DayView: View {
     session.templateKey.flatMap { environment.workoutNames().templates[$0] } ?? "Workout"
   }
 
-  private func range(_ range: FoodRange?) -> String {
-    range.map { "\(Int($0.low.rounded()).formatted())–\(Int($0.high.rounded()).formatted())" }
-      ?? "--"
-  }
+  private func range(_ range: FoodRange?) -> String { FoodRange.text(range) }
 
   private func hm(_ seconds: TimeInterval) -> String {
     let minutes = Int((seconds / 60).rounded())

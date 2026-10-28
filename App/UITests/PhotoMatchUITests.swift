@@ -23,9 +23,9 @@ final class PhotoMatchUITests: XCTestCase {
     XCTAssertTrue(app.element("food.match.title").waitForExistence(timeout: 15), "no match sheet")
     let expected: [(name: String, hall: String, servings: String, kcal: String, protein: String)] =
       [
-        ("Herb Rice", "North Hall", "1.5 x 4 oz", "230-310 kcal", "4-6 g protein"),
-        ("Roast Vegetables", "South Hall", "1 x 1/2 cup", "80-120 kcal", "2-3 g protein"),
-        ("Brownie", "Not on a menu", "1 x serving", "150-350 kcal", "1-4 g protein"),
+        ("Herb Rice", "North Hall", "1.5 x 4 oz", "230–310 kcal", "4–6 g protein"),
+        ("Roast Vegetables", "South Hall", "1 x 1/2 cup", "80–120 kcal", "2–3 g protein"),
+        ("Brownie", "Not on a menu", "1 x serving", "150–350 kcal", "1–4 g protein"),
       ]
     for (index, item) in expected.enumerated() {
       let id = "food.match.item.\(index)"
@@ -36,8 +36,8 @@ final class PhotoMatchUITests: XCTestCase {
       XCTAssertEqual(app.element("\(id).kcal").label, item.kcal)
       XCTAssertEqual(app.element("\(id).protein").label, item.protein)
     }
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "460-780 kcal")
-    XCTAssertEqual(app.element("food.match.total.protein").label, "7-13 g protein")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "460–780 kcal")
+    XCTAssertEqual(app.element("food.match.total.protein").label, "7–13 g protein")
 
     // Step 3: only the item on no menu carries the rough badge.
     XCTAssertTrue(app.element("food.match.item.2.rough").exists, "the unlisted item is not rough")

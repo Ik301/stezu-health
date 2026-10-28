@@ -1703,7 +1703,7 @@
         "s050-toast"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     }
   ]
 }

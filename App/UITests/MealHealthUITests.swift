@@ -1,7 +1,7 @@
 import XCTest
 
 /// S-018: logging a meal (the synthetic fixture match) saves it on the phone, then writes it to
-/// Health through the fake HealthStore as one food entry. The toast then says "In Health".
+/// Health through the fake HealthStore as one food entry. The toast then says "in Health".
 final class MealHealthUITests: XCTestCase {
   @MainActor
   func testLoggedMealIsInHealth() {
@@ -18,7 +18,7 @@ final class MealHealthUITests: XCTestCase {
     shutter.tap()
     let title = app.element("food.match.title")
     XCTAssertTrue(title.waitForExistence(timeout: 15), "no match sheet")
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "460-780 kcal")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "460–780 kcal")
 
     // Step 1: the Log tap saves the meal and writes it to Health; no extra tap.
     app.element("food.edit.log").tap()
@@ -26,13 +26,11 @@ final class MealHealthUITests: XCTestCase {
     waitForExpectations(timeout: 10)
     let toast = app.element("food.logged.toast")
     XCTAssertTrue(toast.waitForExistence(timeout: 5), "no toast")
-    XCTAssertEqual(toast.label, "Meal logged")
+    XCTAssertTrue(toast.label.hasPrefix("Lunch logged"), "toast: \(toast.label)")
     XCTAssertFalse(app.element("food.log.error").exists, "the meal was not saved")
 
-    // Step 2: the fake HealthStore took the write, so the meal shows In Health.
-    let health = app.element("food.logged.health")
-    XCTAssertTrue(health.waitForExistence(timeout: 5), "no Health state on the logged meal")
-    XCTAssertEqual(health.label, "In Health")
+    // Step 2: the fake HealthStore took the write, so the toast says in Health (S-050).
+    XCTAssertEqual(toast.label, "Lunch logged, in Health")
     saveScreenshot("s018-in-health", of: app)
   }
 }

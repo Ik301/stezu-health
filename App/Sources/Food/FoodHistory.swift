@@ -86,8 +86,8 @@ struct FoodHistory: View {
       Text(day.day.formatted(.dateTime.weekday(.wide).month().day()))
         .textStyle(.headline).accessibilityIdentifier(id)
       HStack(spacing: Theme.spaceMd) {
-        Text(PhotoMatchSheet.range(day.kcal, unit: "kcal")).accessibilityIdentifier("\(id).kcal")
-        Text(PhotoMatchSheet.range(day.proteinG, unit: "g protein"))
+        Text(FoodRange.text(day.kcal, unit: "kcal")).accessibilityIdentifier("\(id).kcal")
+        Text(FoodRange.text(day.proteinG, unit: "g protein"))
           .accessibilityIdentifier("\(id).protein")
       }
       meals(day, id: id)
@@ -126,8 +126,8 @@ struct FoodHistory: View {
       .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
     let health = meal.inHealth.map { $0 ? ["In Health"] : ["Not in Health"] } ?? []
     return [
-      PhotoMatchSheet.range(totals.kcal, unit: "kcal") + ", "
-        + PhotoMatchSheet.range(totals.proteinG, unit: "g protein"),
+      FoodRange.text(totals.kcal, unit: "kcal") + ", "
+        + FoodRange.text(totals.proteinG, unit: "g protein"),
       ([meal.loggedAt.formatted(date: .omitted, time: .shortened)] + sources + health)
         .joined(separator: ", "),
     ]

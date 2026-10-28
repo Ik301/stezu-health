@@ -83,6 +83,6 @@ final class MealQueueTests: XCTestCase {
     XCTAssertEqual(MealQueue.todayText(loggedKcal: nil, pending: 0), "-- kcal")
     XCTAssertEqual(
       MealQueue.todayText(loggedKcal: FoodRange(low: 400, high: 520), pending: 2),
-      "400-520 kcal, +2 pending")
+      "400–520 kcal, +2 pending")
   }
 }

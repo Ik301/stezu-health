@@ -49,7 +49,7 @@ final class DayUITests: XCTestCase {
     app.element("day.timeline.meal.1").tap()
     XCTAssertTrue(wait(row, "isHittable == true"), "the list did not scroll to the meal")
     XCTAssertEqual(
-      app.element("day.record.2.detail").label, "Grain Bowl: 700-900 kcal, 40-50 g protein")
+      app.element("day.record.2.detail").label, "Grain Bowl: 700–900 kcal, 40–50 g protein")
 
     // The arrows move a day: Tuesday has one meal, no workout and no visits.
     app.element("day.next").tap()

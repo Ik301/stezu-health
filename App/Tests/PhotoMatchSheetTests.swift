@@ -29,8 +29,19 @@ final class PhotoMatchSheetTests: XCTestCase {
 
   @MainActor
   func testMissingRangeShowsDashesNeverZero() {
-    XCTAssertEqual(PhotoMatchSheet.range(nil, unit: "kcal"), "-- kcal")
+    XCTAssertEqual(FoodRange.text(nil, unit: "kcal"), "-- kcal")
     XCTAssertEqual(
-      PhotoMatchSheet.range(FoodRange(low: 99.6, high: 140.2), unit: "kcal"), "100-140 kcal")
+      FoodRange.text(FoodRange(low: 99.6, high: 140.2), unit: "kcal"), "100–140 kcal")
+  }
+
+  /// S-050: meals have no names, so the toast names one by the time of day.
+  func testToastNamesTheMealByTimeOfDay() {
+    let at = { (hour: Int, minute: Int) in
+      Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date())!
+    }
+    XCTAssertEqual(FoodView.toast(at: at(10, 59), inHealth: true), "Breakfast logged, in Health")
+    XCTAssertEqual(FoodView.toast(at: at(12, 30), inHealth: true), "Lunch logged, in Health")
+    XCTAssertEqual(FoodView.toast(at: at(15, 59), inHealth: false), "Lunch logged, not in Health")
+    XCTAssertEqual(FoodView.toast(at: at(16, 0), inHealth: nil), "Dinner logged")
   }
 }

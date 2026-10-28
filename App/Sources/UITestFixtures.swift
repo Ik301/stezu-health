@@ -78,7 +78,12 @@ enum UITestFixtures {
   /// weighed in on 5 of the week's 7 days (Mon, Tue, Wed, Fri, Sat) and 3 days the week before;
   /// a strap's profile weight on Thursday must not count. All weights are made up.
   static let dataWeekScenario = "data-week"
+  /// "photo-match" pins the clock to 12:30 today, so the fixture meal is a lunch (S-050).
   static func clock(scenario: String?) -> @Sendable () -> Date {
+    if scenario == photoMatchScenario {
+      let lunch = Calendar.current.date(bySettingHour: 12, minute: 30, second: 0, of: Date())
+      return { lunch ?? Date() }
+    }
     guard isDataWeek(scenario) else { return { Date() } }
     let sunday = dataWeekDay(11)
     return { sunday }

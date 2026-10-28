@@ -23,4 +23,21 @@ public struct FoodRange: Sendable, Equatable, Codable {
     }
     return FoodRange(low: low, high: high)
   }
+
+  /// How every food range is written (RangeValue, S-050): whole numbers with thousands commas
+  /// and an en dash, such as "1,240–1,480 kcal", or "-- kcal" when unknown. Never a midpoint.
+  public static func text(_ range: FoodRange?, unit: String? = nil) -> String {
+    let numbers = range.map { "\(grouped($0.low))\u{2013}\(grouped($0.high))" } ?? "--"
+    return unit.map { "\(numbers) \($0)" } ?? numbers
+  }
+
+  private static func grouped(_ value: Double) -> String {
+    var digits = String(Int(value.rounded()))
+    var end = digits.endIndex
+    while digits.distance(from: digits.startIndex, to: end) > 3 {
+      end = digits.index(end, offsetBy: -3)
+      digits.insert(",", at: end)
+    }
+    return digits
+  }
 }

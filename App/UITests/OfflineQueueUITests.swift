@@ -28,10 +28,10 @@ final class OfflineQueueUITests: XCTestCase {
       app.element("food.match.title").waitForExistence(timeout: 20), "the queued meal never matched"
     )
     XCTAssertEqual(app.element("food.match.item.0.name").label, "Herb Rice")
-    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "230-310 kcal")
+    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "230–310 kcal")
     XCTAssertEqual(app.element("food.match.item.2.name").label, "Brownie")
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "460-780 kcal")
-    XCTAssertEqual(app.element("food.match.total.protein").label, "7-13 g protein")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "460–780 kcal")
+    XCTAssertEqual(app.element("food.match.total.protein").label, "7–13 g protein")
     XCTAssertFalse(app.element("food.match.pending").exists)
     saveScreenshot("s017-matched-later", of: app)
   }
