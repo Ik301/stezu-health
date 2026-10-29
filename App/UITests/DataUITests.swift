@@ -97,7 +97,7 @@ final class DataUITests: XCTestCase {
     let spark = app.element("data.spark.places")
     XCTAssertTrue(spark.exists, "no Places sparkline")
     XCTAssertEqual(spark.value as? String, "6 of 7 days without data")
-    XCTAssertFalse(app.element("data.places.open").exists, "Places has no detail yet")
+    XCTAssertTrue(app.element("data.places.open").exists, "the Places row does not open")
 
     let sources = app.element("data.sources")
     for _ in 0..<3 where !sources.isHittable { app.swipeUp() }

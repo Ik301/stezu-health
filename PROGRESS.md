@@ -578,4 +578,4 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - The camera's bottom nav shows Data and Workout only; Food's own circle (which led nowhere) is gone. ShellNavigationUITests now checks that the circle is absent on the camera, because the requested behavior changed.
 - Black camera (D-129): one preview layer for the app, bound at launch; each Food screen moves it in. A Food screen already left no longer starts the camera. Not reproduced: no device or camera here.
 - Places: the row is a button (`data.places.open`) that opens Places, this week's visits newest first, with names (D-119) and times.
-- Tests: StezuCoreTests HealthFoodTests (4); AppUITests PlacesUITests/testPlacesRowOpensTheWeeksVisits (screenshot places-week); ShellNavigationUITests changed as above.
+- Tests: StezuCoreTests HealthFoodTests (4); AppUITests PlacesUITests/testPlacesRowOpensTheWeeksVisits (screenshot places-week). Changed because the requested behavior changed: ShellNavigationUITests (as above) and DataUITests/testPlacesRowSourcesRowAndWeekDots, which asserted the old "Places has no detail yet" and now asserts `data.places.open` exists.
