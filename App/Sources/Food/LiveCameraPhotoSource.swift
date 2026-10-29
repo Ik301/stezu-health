@@ -6,8 +6,18 @@ import UIKit
 /// after access is granted; `capturePhoto()` returns JPEG data.
 final class LiveCameraPhotoSource: PhotoSource, @unchecked Sendable {
   let session = AVCaptureSession()
+  /// The one preview layer, bound to the session at launch, before it ever runs. Every Food
+  /// screen shows this layer rather than binding a new one: a session feeds one preview layer,
+  /// so a new layer bound while the last screen's was still alive stayed black, and binding on
+  /// the main thread while the camera queue started or stopped the session could stall taps.
+  let previewLayer = AVCaptureVideoPreviewLayer()
   private let output = AVCapturePhotoOutput()
   private let queue = DispatchQueue(label: "stezu.camera")
+
+  init() {
+    previewLayer.session = session
+    previewLayer.videoGravity = .resizeAspectFill
+  }
 
   func authorize() async -> Bool {
     switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -66,22 +76,30 @@ private final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate, @unc
   }
 }
 
-/// The live camera image, filling its frame.
+/// The live camera image, filling its frame: the source's one preview layer, moved into this
+/// view (adding a layer takes it out of the last screen's view).
 struct CameraPreview: UIViewRepresentable {
-  let session: AVCaptureSession
+  let preview: AVCaptureVideoPreviewLayer
 
   func makeUIView(context: Context) -> PreviewView {
     let view = PreviewView()
-    view.previewLayer.session = session
-    view.previewLayer.videoGravity = .resizeAspectFill
+    view.layer.addSublayer(preview)
+    view.preview = preview
     return view
   }
 
   func updateUIView(_ uiView: PreviewView, context: Context) {}
 
   final class PreviewView: UIView {
-    override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
-    // swift-format-ignore: NeverForceUnwrap
-    var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    var preview: AVCaptureVideoPreviewLayer?
+
+    override func layoutSubviews() {
+      super.layoutSubviews()
+      guard let preview, preview.superlayer === layer else { return }
+      CATransaction.begin()
+      CATransaction.setDisableActions(true)
+      preview.frame = bounds
+      CATransaction.commit()
+    }
   }
 }

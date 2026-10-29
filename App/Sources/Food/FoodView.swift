@@ -99,7 +99,7 @@ struct FoodView: View {
     {
       BarcodeScannerView { code in Task { await scanned(code) } }
     } else if let live = environment.photoSource as? LiveCameraPhotoSource, cameraAllowed == true {
-      CameraPreview(session: live.session)
+      CameraPreview(preview: live.previewLayer)
     } else if environment.isUITest, let plate = UIImage(data: FixturePhotoSource.plateJPEG()) {
       Image(uiImage: plate).resizable().scaledToFill()
         .accessibilityLabel("Camera").accessibilityIdentifier("food.camera.preview")
@@ -176,7 +176,7 @@ struct FoodView: View {
   }
 
   private func loadToday() async {
-    let meals = await environment.mealCaptures.logged()
+    let meals = await environment.mealCaptures.logged() + environment.healthMeals()
     day = FoodDay.on(environment.now(), meals: meals)
   }
 
@@ -250,7 +250,8 @@ struct FoodView: View {
   private func startCamera() async {
     let allowed = await environment.photoSource.authorize()
     cameraAllowed = allowed
-    if allowed { (environment.photoSource as? LiveCameraPhotoSource)?.start() }
+    // A screen already left (its task cancelled) must not start the camera behind another area.
+    if allowed, !Task.isCancelled { (environment.photoSource as? LiveCameraPhotoSource)?.start() }
   }
 
   private func shutter() async {

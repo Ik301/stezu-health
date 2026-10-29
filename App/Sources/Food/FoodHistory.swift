@@ -108,11 +108,14 @@ struct FoodHistory: View {
             meal.id, id: "\(id).meal.\(index)", meal.items.map(\.name).joined(separator: ", "),
             Self.detail(meal), ranges: (totals.kcal, totals.proteinG)
           )
-          .contentShape(Rectangle()).onTapGesture { editing = meal }
-          Button("Delete") { Task { await change(meal, delete: true) } }
-            .textStyle(.label, weight: .medium).padding(.horizontal, Theme.spaceMd)
-            .frame(minHeight: 32).background(Theme.surfaceRaised, in: Capsule())
-            .accessibilityIdentifier("\(id).meal.\(index).delete")
+          .contentShape(Rectangle()).onTapGesture { if !meal.isFromHealth { editing = meal } }
+          // Another app's food is read from Health; that app edits and deletes it.
+          if !meal.isFromHealth {
+            Button("Delete") { Task { await change(meal, delete: true) } }
+              .textStyle(.label, weight: .medium).padding(.horizontal, Theme.spaceMd)
+              .frame(minHeight: 32).background(Theme.surfaceRaised, in: Capsule())
+              .accessibilityIdentifier("\(id).meal.\(index).delete")
+          }
         }
       }
     }
@@ -178,7 +181,7 @@ struct FoodHistory: View {
 
   /// Every day with food, newest first, with today always first so Food Today has its day.
   private func load() async {
-    var loaded = await environment.mealCaptures.days()
+    var loaded = await environment.mealCaptures.days(adding: environment.healthMeals())
     let now = environment.now()
     if !(loaded.first.map { Calendar.current.isDate($0.day, inSameDayAs: now) } ?? false) {
       loaded.insert(FoodDay(day: Calendar.current.startOfDay(for: now), meals: []), at: 0)

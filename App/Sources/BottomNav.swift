@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// The bottom nav on every area screen (DESIGN.md): three 58 pt circles, Data, Food and Workout.
-/// The active area's circle is black. Each circle is "nav.circle.<area>", and its accessibility
-/// value is "active" or "inactive" so UI tests can read which one is black.
+/// The bottom nav on every area screen (DESIGN.md): 58 pt circles, Data, Food and Workout. The
+/// active area's circle is black. The camera leaves out Food's own circle, which led nowhere.
+/// Each circle is "nav.circle.<area>", and its accessibility value is "active" or "inactive" so
+/// UI tests can read which one is black.
 struct BottomNav: View {
   let active: Area
   let open: (Area) -> Void
 
   var body: some View {
     HStack(spacing: Theme.spaceXl) {
-      ForEach(Area.allCases, id: \.self) { area in
+      ForEach(Area.allCases.filter { active != .food || $0 != .food }, id: \.self) { area in
         Button {
           open(area)
         } label: {
