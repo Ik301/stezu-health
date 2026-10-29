@@ -32,7 +32,9 @@ struct WeeklyFoodWorkoutRows: View {
   /// the finished-workout file, and Health's workouts; a Health read that throws is none.
   private func load() async {
     let week = WeeklyStats.week(containing: environment.now())
-    let meals = await environment.mealCaptures.logged() + environment.mealHistory
+    let meals =
+      await environment.mealCaptures.logged() + environment.mealHistory
+      + environment.healthMeals()
     food = WeeklyIntake.food(meals, in: week)
     let finished = FinishedWorkoutStore(storage: environment.storage).load().map(\.session)
     let health = (try? await environment.healthStore.samples(of: .workout, since: week.start)) ?? []

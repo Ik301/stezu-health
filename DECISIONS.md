@@ -1834,3 +1834,35 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). It costs one more pass over the Health types when This week opens, the same reads the Sources screen makes.
 - Evidence: App/Sources/Data/DataView.swift (`sourcesRow`), commit on wt/S-048.
 - Reverse if: the extra read slows This week on a device, or the row should name the phone's own sources (Location) too.
+
+## D-128 Food other apps wrote to Health shows beside the phone's meals, read-only
+
+- Status: proposed by builder (daytime, Isaac's feedback), 2026-10-29.
+- Problem: food that reaches Apple Health from anywhere but this phone's meal folder never appears in Food Today, the camera strip, Home's Food card or Data's Food row, because every food view reads only the `.log` files (D-073) and a scenario's `mealHistory`.
+- Given: `dietaryEnergyConsumed` and `dietaryProtein` have been in `HealthKitStore.readTypes` since the infra PR, so no new permission is needed; Stezu's own meals are written to Health as a food correlation (D-072), so reading them back would count them twice.
+- Constraints:
+  - Counting Stezu's own Health entries doubles every in-app meal (breaks the totals).
+  - Editing or deleting another app's entry from here is refused by HealthKit and would desync that app (breaks the one-owner rule of D-074).
+  - Inventing ranges for exact numbers would misstate them (breaks "never a midpoint").
+- Options:
+  - (a) `HealthFood.meals`: read the last 90 days of energy and protein, skip Stezu's bundle id, make one read-only meal per app and instant ("Food from Health", the app as its source, exact values as a zero-width range, missing protein absent); merge into every food read except the Day view.
+  - (b) Read food correlations instead of samples (needs a new HealthStore method and a correlation read in HealthKitStore).
+  - (c) Leave food app-only and say so in the UI.
+- Decision: (a). Health meals have no Edit or Delete in Food Today.
+- Evidence: Packages/StezuCore/Sources/StezuCore/HealthFood.swift, App/Sources/Food/MealCapture.swift (`healthMeals`), FoodView, FoodHistory, HomeViewModel, WeeklyFoodWorkoutRows, MetricDetailView; HealthFoodTests.
+- Reverse if: Isaac's food app writes several items per meal at different seconds (they would list as separate meals), or the Day view should list Health food too.
+
+## D-129 The camera has one preview layer, bound to the session at launch
+
+- Problem: opening Food from the bottom nav sometimes showed a black camera and the app stopped taking taps.
+- Given: every Food screen built a new `AVCaptureVideoPreviewLayer` and bound it to the one shared `AVCaptureSession` on the main thread, while the camera queue might be running `startRunning`/`stopRunning` from the screen just left; the old screen's layer was never unbound. The likely causes, not confirmed: a second layer bound while the first is still alive gets no video (a plain session is not meant to feed several previews; AVCaptureMultiCamSession is), and the main-thread bind waits on the session while it starts or stops, which freezes taps. Not reproduced here: there is no device or camera on the VM, and the simulator has no camera.
+- Constraints:
+  - Binding a fresh layer per screen keeps both hazards (breaks the fix).
+  - Stopping the camera later or never (to avoid the restart) leaves the camera light on behind other areas (breaks privacy).
+- Options:
+  - (a) `LiveCameraPhotoSource` owns one preview layer, bound once at launch before the session ever runs; each Food screen moves that layer into its view. A Food screen already left does not start the camera.
+  - (b) Unbind the layer when its view goes (`dismantleUIView`), still binding on the main thread.
+  - (c) Bind and unbind on the camera queue.
+- Decision: (a).
+- Evidence: App/Sources/Food/LiveCameraPhotoSource.swift, App/Sources/Food/FoodView.swift.
+- Reverse if: the black camera still happens on the phone; then log `AVCaptureSessionWasInterrupted` and runtime errors to find the real cause.

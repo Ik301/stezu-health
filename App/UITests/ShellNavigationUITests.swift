@@ -17,7 +17,8 @@ final class ShellNavigationUITests: XCTestCase {
     }
     saveScreenshot("s001-home", of: app)
 
-    // Step 2: one tap into Workout; the bottom nav shows three circles, Workout black.
+    // Step 2: one tap into Workout; the bottom nav shows three circles, Workout black. Step 3's
+    // camera shows only Data and Workout.
     app.element("home.card.workout").tap()
     XCTAssertTrue(app.element("screen.workout.title").waitForExistence(timeout: 10))
     assertActiveCircle("workout", in: app)
@@ -40,9 +41,14 @@ final class ShellNavigationUITests: XCTestCase {
     XCTAssertFalse(app.element("nav.circle.data").exists, "the bottom nav stayed on Home")
   }
 
+  /// The camera (Food) has no Food circle of its own; it shows Data and Workout, both inactive.
   @MainActor
   private func assertActiveCircle(_ active: String, in app: XCUIApplication) {
-    for area in ["data", "food", "workout"] {
+    if active == "food" {
+      XCTAssertTrue(app.element("nav.circle.data").waitForExistence(timeout: 10), "no data circle")
+      XCTAssertFalse(app.element("nav.circle.food").exists, "a Food circle on the camera")
+    }
+    for area in ["data", "food", "workout"] where !(active == "food" && area == "food") {
       let circle = app.element("nav.circle.\(area)")
       XCTAssertTrue(circle.waitForExistence(timeout: 10), "no \(area) circle")
       XCTAssertEqual(

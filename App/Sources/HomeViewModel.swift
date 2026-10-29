@@ -20,7 +20,9 @@ struct HomeInputs: Sendable, Equatable {
   static func load(from environment: AppEnvironment) async -> HomeInputs {
     let now = environment.now()
     let week = WeeklyStats.week(containing: now)
-    let meals = await environment.mealCaptures.logged() + environment.mealHistory
+    let meals =
+      await environment.mealCaptures.logged() + environment.mealHistory
+      + environment.healthMeals()
     let finished = FinishedWorkoutStore(storage: environment.storage).load()
     let stezu = environment.workoutHistory + finished.map(\.session)
     let health = (try? await environment.healthStore.samples(of: .workout, since: week.start)) ?? []

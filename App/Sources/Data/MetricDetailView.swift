@@ -50,7 +50,9 @@ struct MetricDetailView: View {
       let now = environment.now()
       switch metric {
       case .food:
-        meals = await environment.mealCaptures.logged() + environment.mealHistory
+        meals =
+          await environment.mealCaptures.logged() + environment.mealHistory
+          + environment.healthMeals()
         history = MetricHistory.food(meals, now: now)
       case .workouts:
         let finished = FinishedWorkoutStore(storage: environment.storage).load().map(\.session)

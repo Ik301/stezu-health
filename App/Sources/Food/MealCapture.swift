@@ -80,10 +80,10 @@ actor MealCaptureStore {
       .sorted { $0.loggedAt < $1.loggedAt }
   }
 
-  /// Logged meals and pending photos by day, newest first (S-019); a pending photo is one with
-  /// no server match and no Log.
-  func days() -> [FoodDay] {
-    let meals = logged()
+  /// Logged meals and pending photos by day, newest first (S-019), plus `health`'s meals; a
+  /// pending photo is one with no server match and no Log.
+  func days(adding health: [LoggedMeal] = []) -> [FoodDay] {
+    let meals = logged() + health
     let pending = queue().pending.filter { photo in !meals.contains { $0.id == photo.id } }
     return FoodDay.days(meals: meals, pending: pending)
   }
@@ -95,6 +95,19 @@ actor MealCaptureStore {
 
   private func file(named name: String) -> Data? {
     try? Data(contentsOf: folder.appending(path: name))
+  }
+}
+
+extension AppEnvironment {
+  /// Food other apps wrote to Health in the last 90 days, as read-only meals; a read that
+  /// throws or is denied is none. Stezu's own entries are skipped: the phone has them.
+  func healthMeals() async -> [LoggedMeal] {
+    let start = now() - 90 * 86_400
+    var samples: [HealthSample] = []
+    for type in [HealthType.dietaryEnergy, .dietaryProtein] {
+      samples += (try? await healthStore.samples(of: type, since: start)) ?? []
+    }
+    return HealthFood.meals(samples)
   }
 }
 
