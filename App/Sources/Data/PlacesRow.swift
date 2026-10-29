@@ -25,13 +25,17 @@ struct PlacesRow: View {
   }
 }
 
-/// Where Isaac has been this week: each visit from the phone's location log, newest first, with
-/// its name (Apple's geocoder, kept on the phone, D-119) or "Unnamed place", and its times.
+/// Where Isaac has been: a heat map of the whole location log, then this week's visits, newest
+/// first, with each name (Apple's geocoder or his label, kept on the phone, D-119) or "Unnamed
+/// place", and its times. A tap on the map or a visit opens that spot's label (D-130).
 struct PlacesView: View {
   @Environment(\.appEnvironment) private var environment
   @Environment(\.dismiss) private var dismiss
+  @State private var log: LocationLog?
   @State private var visits: [PlaceRecord]?
   @State private var names: [String: String] = [:]
+  /// The visits within 100 m of the last tap, nearest first; nil before a tap.
+  @State private var spot: [PlaceRecord]?
 
   var body: some View {
     ScrollView {
@@ -39,6 +43,14 @@ struct PlacesView: View {
         TopBar(
           title: "Places", titleID: "places.title",
           action: .init(title: "Done", id: "places.done") { dismiss() })
+        if let log, !log.places.isEmpty {
+          PlacesMap(places: log.places) { pick($0, $1) }
+        }
+        if let spot {
+          PlaceSpotCard(visits: spot, name: spot.first.flatMap { names[$0.id] }) { label in
+            Task { names = await environment.placeNames.label(label, visits: spot.map(\.id)) }
+          }
+        }
         if visits?.isEmpty == true { Text("--").accessibilityIdentifier("places.empty") }
         ForEach(Array((visits ?? []).enumerated()), id: \.element.id) { index, visit in
           VStack(alignment: .leading, spacing: Theme.space2xs) {
@@ -48,7 +60,8 @@ struct PlacesView: View {
           }
           .frame(maxWidth: .infinity, alignment: .leading).padding(Theme.spaceCard)
           .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
-          .accessibilityElement(children: .contain)
+          .contentShape(Rectangle()).onTapGesture { pick(visit.latitude, visit.longitude) }
+          .accessibilityElement(children: .contain).accessibilityAddTraits(.isButton)
           .accessibilityIdentifier("places.visit.\(index)")
         }
       }
@@ -67,9 +80,14 @@ struct PlacesView: View {
     return "\(start) to \(to.formatted(date: .omitted, time: .shortened))"
   }
 
+  private func pick(_ latitude: Double, _ longitude: Double) {
+    spot = log?.visits(near: latitude, longitude, within: 100)
+  }
+
   private func load() async {
     let week = WeeklyStats.week(containing: environment.now())
-    let found = await environment.places.log.places.filter { place in
+    log = await environment.places.log
+    let found = (log?.places ?? []).filter { place in
       place.at == nil && place.times.first.map(week.contains) == true
     }
     visits = found.sorted { ($0.times.first ?? .distantPast) > ($1.times.first ?? .distantPast) }

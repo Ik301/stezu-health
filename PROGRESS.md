@@ -579,3 +579,10 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Black camera (D-129): one preview layer for the app, bound at launch; each Food screen moves it in. A Food screen already left no longer starts the camera. Not reproduced: no device or camera here.
 - Places: the row is a button (`data.places.open`) that opens Places, this week's visits newest first, with names (D-119) and times.
 - Tests: StezuCoreTests HealthFoodTests (4); AppUITests PlacesUITests/testPlacesRowOpensTheWeeksVisits (screenshot places-week). Changed because the requested behavior changed: ShellNavigationUITests (as above) and DataUITests/testPlacesRowSourcesRowAndWeekDots, which asserted the old "Places has no detail yet" and now asserts `data.places.open` exists.
+
+## 2026-10-29 Places heat map with labels (builder, daytime, Isaac's request)
+
+- Places (opened from Data's Places row) now starts with a MapKit heat map of the whole location log: each visit and fix is a faint 80 m circle, so often-visited spots look darker (D-130).
+- A tap on the map, or on a visit in the list, opens that spot: its label or "No label", how many visits fall within 100 m, a Label field and Save. Save names all those visits in place-names.json on the phone (D-119); the list updates. Tapping where there is no visit says "No visit here".
+- Tests: StezuCoreTests PlaceLabelTests (3); AppUITests PlacesHeatMapUITests/testHeatMapSpotTakesALabel (screenshots places-heatmap, places-label-saved).
+- Left undone: a new visit to a labelled spot gets the geocoder's name, not the label; the heat map is stacked circles, not a smoothed gradient.

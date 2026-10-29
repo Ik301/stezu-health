@@ -93,6 +93,30 @@ public struct LocationLog: Codable, Sendable, Equatable {
   }
 }
 
+extension LocationLog {
+  /// The heat map's spot under a tap: the visits within `meters` of the point, nearest first.
+  public func visits(near latitude: Double, _ longitude: Double, within meters: Double)
+    -> [PlaceRecord]
+  {
+    places.filter(\.isVisit)
+      .map { ($0, PlaceRecord.meters(latitude, longitude, $0.latitude, $0.longitude)) }
+      .filter { $0.1 <= meters }.sorted { $0.1 < $1.1 }.map(\.0)
+  }
+}
+
+extension PlaceRecord {
+  /// The great-circle distance between two coordinates, in metres.
+  public static func meters(_ lat1: Double, _ lon1: Double, _ lat2: Double, _ lon2: Double)
+    -> Double
+  {
+    let rad = Double.pi / 180
+    let a =
+      pow(sin((lat2 - lat1) * rad / 2), 2)
+      + cos(lat1 * rad) * cos(lat2 * rad) * pow(sin((lon2 - lon1) * rad / 2), 2)
+    return 6_371_000 * 2 * atan2(sqrt(a), sqrt(1 - a))
+  }
+}
+
 /// Holds the log: each event is saved on the phone first, then joins `sync`'s queue.
 public actor LocationRecorder {
   public private(set) var log: LocationLog

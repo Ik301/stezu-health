@@ -1866,3 +1866,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a).
 - Evidence: App/Sources/Food/LiveCameraPhotoSource.swift, App/Sources/Food/FoodView.swift.
 - Reverse if: the black camera still happens on the phone; then log `AVCaptureSessionWasInterrupted` and runtime errors to find the real cause.
+
+## D-130 Places' heat map draws the phone's location log with MapKit, and labels live in place-names.json
+
+- Status: proposed by builder (daytime, Isaac asked for it), 2026-10-29.
+- Problem: Isaac wants to see where he has been as a heat map and give a name to any spot that has none.
+- Given: the phone keeps every visit and significant-change fix in location-log.json (S-032, D-076), and the server has the same rows in `stezu_visits` and `stezu_locations` with no names. Names are kept by visit id in place-names.json on the phone and are never synced (D-119). MapKit ships with iOS, so no new dependency, entitlement or Info.plist key is needed.
+- Constraints:
+  - A true gradient heat map needs a custom MKOverlay renderer or a third-party library (breaks "minimal" and "no new dependencies").
+  - Storing labels on the server or in `PlaceRecord` would send them off the phone (breaks D-119).
+  - Visits have no place identity: each one has its own id (breaks "one label per place" unless a label covers nearby visits).
+- Options:
+  - (a) SwiftUI `Map` with one faint `MapCircle` (80 m, `dataEnergyBand`) per visit and fix, so repeated spots stack darker. A tap converts the screen point to a coordinate and takes the visits within 100 m. Save writes the label to every one of those visit ids through `PlaceNames.label`, and it replaces a looked-up name.
+  - (b) An MKMapView with a custom heat-map renderer.
+  - (c) A list of places with no map.
+- Decision: (a). A tap on a visit in the list opens its spot too, which is also how VoiceOver and the UI test reach it.
+- Evidence: App/Sources/Data/PlacesMap.swift, App/Sources/Data/PlacesRow.swift, Packages/StezuCore/Sources/StezuCore/LocationRecord.swift (`visits(near:)`, `PlaceRecord.meters`), Packages/StezuCore/Sources/StezuCore/PlaceNames.swift (`label`); PlaceLabelTests, PlacesHeatMapUITests.
+- Reverse if: a later visit to a labelled spot should inherit the label (it gets the geocoder's name today), or the map tiles' requests to Apple are unwanted.
