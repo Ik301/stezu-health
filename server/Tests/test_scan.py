@@ -109,7 +109,8 @@ def test_multipart_upload(make_client):
 def test_no_open_hall_falls_back_to_open_world(make_client):
     model = FakeModel({"items": []})
     closed = FakeHttp().add("menuDetails.asp", fixture("foodpro_nodata.html"))
-    out = make_client(closed, model).post("/scan", json=body(meal="dinner"))
+    saturday = "2026-10-31"  # Frist Late Meal runs on weekdays only
+    out = make_client(closed, model).post("/scan", json=body(meal="dinner", date=saturday))
     assert out.json()["mode"] == "open_world" and out.json()["rough"] is True
     assert "No menu applies" in model.calls[0]["text"]
 

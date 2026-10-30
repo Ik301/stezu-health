@@ -47,7 +47,8 @@ def test_search_groups_dining_off_usda_and_estimate(make_client):
 def test_meal_filter_and_no_usda_key(make_client):
     client = make_client(http_with_sources())
     g = groups(client.get(f"/search?q=bacon&date={DATE}&meal=dinner"))
-    assert all(r["meal"] == "Dinner" for r in g["dining"]["results"])
+    meals = {r["meal"] for r in g["dining"]["results"]}
+    assert meals and meals <= {"Dinner", "Late Dinner"}  # Late Meal's bacon items, never breakfast
     assert g["usda_fdc"]["status"] == "skipped"
 
 

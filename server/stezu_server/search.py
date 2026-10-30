@@ -40,9 +40,12 @@ def score(query: str, name: str) -> float:
 
 
 def dining(items: list[dict[str, Any]], query: str, limit: int = 15) -> list[dict[str, Any]]:
+    """An item's `keywords` (Frist Late Meal's hall words) count as part of its name."""
     groups: dict[tuple, dict[str, Any]] = {}
     for item in items:
         s = score(query, item["name"])
+        if item.get("keywords"):
+            s = max(s, score(query, f"{item['keywords']} {item['name']}"))
         if s < 0.6:
             continue
         key = (item["name"].lower(), item["meal"], item["serving"], item["kcal"])
