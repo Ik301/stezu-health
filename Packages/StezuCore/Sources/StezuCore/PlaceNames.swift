@@ -21,6 +21,15 @@ public actor PlaceNames {
     (self.names, self.geocoder, self.save) = (names, geocoder, save)
   }
 
+  /// Isaac's own label for a spot: every visit id given gets it, replacing a looked-up name,
+  /// and is saved; an empty label removes the names. Returns every name.
+  public func label(_ label: String, visits ids: [String]) -> [String: String] {
+    let label = label.trimmingCharacters(in: .whitespacesAndNewlines)
+    for id in ids { names[id] = label.isEmpty ? nil : label }
+    save(names)
+    return names
+  }
+
   /// Names these places' visits (fixes are skipped), one lookup at a time; returns every name.
   public func name(_ places: [PlaceRecord]) async -> [String: String] {
     for visit in places where visit.isVisit && names[visit.id] == nil {
