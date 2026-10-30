@@ -70,6 +70,30 @@ dates for good, today and later for 6 hours; a day where a hall failed to load i
 `status` is `available`, `unavailable` (the hall posts no menu that day) or `error`.
 Cafes publish all-day cards such as "Today's Menu"; those count for every meal.
 
+**Frist Late Meal (`hall_id` `LM`, D-131).** The Frist Gallery grill counter, where a meal-plan
+swipe buys a grill plate, is not in FoodPro (location 15 "The Gallery" has the rest of Frist). Its
+items exist only in Agilysys OnDemand, which publishes no nutrition and sits behind DataDome, so
+the menu is a static file, `stezu_server/data/frist_late_meal.json`, and every number is an
+estimate built from components (USDA FoodData Central or a restaurant equivalent, written in
+each item's `basis`). On weekdays `/menu` appends
+`{"hall_id": "LM", "hall": "Frist Late Meal", "status": "available", "source": "static", "estimated": true, ...}`
+with a "Late Lunch" card (Mon-Fri 14:00-16:00, ids `LM-LL-<slug>`) and a "Late Dinner" card
+(Mon-Thu 20:30-22:00, `LM-LD-<slug>`); weekends have no `LM` hall, and university breaks are not
+known. The card names make it count for lunch and dinner, never breakfast. It is added after the
+FoodPro cache, so a FoodPro failure never hides it. Items carry `estimated: true`, `basis`,
+`description` and `keywords` beside the FoodPro fields (`recipe_id` is `null`).
+
+A grill entree served with fries appears three times: the plate "Chicken Tenders with fries"
+(serving "1 plate, with fries", `plate: true`, `parts` = the two ids below, values summed), the
+entree alone ("Chicken Tenders", "4 tenders (entree only; the fries are a separate item)") and
+"French Fries" (one order, the same portion as the side). Search and the menu offer the plate; a
+photo scan never sees plates, only entrees and fries, so a plate cannot be counted twice.
+
+To refresh: read the grill menu (tenant 2047, display profile 4880, concept 9461, menu 14323;
+Late Meal is profile 4912, concept 10110) in a browser, edit the JSON (an item with fries gets a
+`plate`), keep every number > 0 with a `basis`, set `retrieved`, run `server/run_tests.sh` and
+restart the server (the file is read once per process).
+
 ### `POST /scan`
 
 JSON body, or `multipart/form-data` with the same fields and the JPEG in a `photo` file field:
@@ -103,6 +127,9 @@ with `cached: true`. Errors: 400 for a bad request, 502 when the model call fail
 
 Range half-width for a menu item: 15% with a good depth region (confidence at least 0.6), else
 25%, plus 15% times (1 − confidence), at most 50%, around FoodPro value × servings (D-037).
+An item whose menu values are estimates (Frist Late Meal) gets 15 points more (30% or 40% base,
+at most 65%) and `estimated: true`; the reply has `estimated: true` when any item does. Every
+item carries `estimated` (`false` for FoodPro and unlisted items; unlisted ones are `rough`).
 
 ### `GET /search?q=…[&date=…][&meal=…][&estimate=true]`
 
@@ -110,7 +137,8 @@ Grouped results, each group with `source`, `status` (`ok`, `error`, `skipped`, `
 and `results`:
 
 1. `dining`: fuzzy name matches across all halls for the date (and meal, if given), one
-   entry per dish with every hall that serves it;
+   entry per dish with every hall that serves it. Frist Late Meal items also match on
+   "Frist Late Meal grill" ("late meal burger" finds its burgers) and carry `estimated: true`;
 2. `open_food_facts`: packaged foods, per serving, per package and per 100 g or mL;
 3. `usda_fdc`: FoodData Central, when `STEZU_USDA_KEY` is set;
 4. `estimate`: `available` until asked; with `estimate=true` the model gives a rough kcal and

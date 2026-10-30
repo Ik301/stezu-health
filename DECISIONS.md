@@ -1883,3 +1883,19 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A tap on a visit in the list opens its spot too, which is also how VoiceOver and the UI test reach it.
 - Evidence: App/Sources/Data/PlacesMap.swift, App/Sources/Data/PlacesRow.swift, Packages/StezuCore/Sources/StezuCore/LocationRecord.swift (`visits(near:)`, `PlaceRecord.meters`), Packages/StezuCore/Sources/StezuCore/PlaceNames.swift (`label`); PlaceLabelTests, PlacesHeatMapUITests.
 - Reverse if: a later visit to a labelled spot should inherit the label (it gets the geocoder's name today), or the map tiles' requests to Apple are unwanted.
+
+## D-131 Frist Late Meal is a static, estimated menu: OnDemand has no nutrition and is behind DataDome
+
+- Status: proposed by builder (daytime, Isaac asked for it), 2026-10-30.
+- Problem: Isaac eats Frist Late Meal (a meal-plan swipe at the Frist Gallery grill counter, Mon-Fri 2-4 PM, Mon-Thu 8:30-10 PM). Its grill items are on no FoodPro menu, so a photo or search of them finds nothing.
+- Given: the items exist only in Agilysys OnDemand (princeton.buy-ondemand.com, tenant 2047), which publishes no nutrition and sits behind DataDome. The grill menu (concept 9461, menu 14323) was read by hand on 2026-10-30; the Late Meal concept (10110) was closed and is to be confirmed.
+- Constraints:
+  - Scraping OnDemand means beating DataDome (breaks "no fragile scraping") and still yields no nutrition.
+  - An entree's numbers that include its fries, listed beside a separate fries item, let a scan count the fries twice (breaks the totals).
+- Options:
+  - (a) A static JSON menu with component-built estimates, served as a pseudo-hall `LM` on weekdays, entree and fries as separate scan candidates and the summed plate only for search and the menu; estimated items get a 15-point wider scan range and `estimated: true`.
+  - (b) Scrape OnDemand on a schedule.
+  - (c) Leave Late Meal to open-world scans and text estimates.
+- Decision: (a).
+- Evidence: server/stezu_server/data/frist_late_meal.json, server/stezu_server/latemeal.py, scan.py (`candidates`, `spread`), search.py (`dining`); server/Tests/test_late_meal.py.
+- Reverse if: Frist publishes nutrition for the grill (FoodPro or a label), or the Late Meal list on Mon 2026-11-02 differs from the grill menu.

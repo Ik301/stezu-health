@@ -39,10 +39,10 @@ def test_number_keeps_absent_distinct_from_zero():
 def test_menu_lists_every_hall_and_marks_closed_ones_unavailable(make_client):
     body = make_client(foodpro_http()).get(f"/menu?date={DATE}").json()
     halls = {h["hall_id"]: h for h in body["halls"]}
-    assert len(halls) == 13 and body["date"] == DATE
+    assert len(halls) == 14 and body["date"] == DATE  # 13 FoodPro halls + Frist Late Meal (a Monday)
     assert halls["03"]["status"] == "available"
     assert [m["meal"] for m in halls["03"]["meals"]] == ["Breakfast", "Lunch", "Dinner"]
-    assert all(h["status"] == "unavailable" and h["meals"] == [] for k, h in halls.items() if k != "03")
+    assert all(h["status"] == "unavailable" and h["meals"] == [] for k, h in halls.items() if k not in ("03", "LM"))
     item = halls["03"]["meals"][1]["items"][0]
     assert {"id", "name", "hall", "meal", "serving", "kcal", "protein_g", "carbs_g", "fat_g"} <= set(item)
 

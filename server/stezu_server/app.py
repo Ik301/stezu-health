@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 
-from . import __version__, barcode, foodpro, scan, search
+from . import __version__, barcode, foodpro, latemeal, scan, search
 from .config import Settings, load_settings
 from .health import HealthDB, TooLarge, gunzip
 from .model import AnthropicClient, ModelError
@@ -52,7 +52,7 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
             raise HTTPException(400, "date must be YYYY-MM-DD") from None
 
     def menu_for(d: str, refresh: bool = False) -> dict[str, Any]:
-        return foodpro.get_menu(store, http, d, today(), refresh)
+        return latemeal.add_to(foodpro.get_menu(store, http, d, today(), refresh), d)
 
     api = APIRouter(dependencies=[Depends(require_token)])
 

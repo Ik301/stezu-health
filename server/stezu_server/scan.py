@@ -50,6 +50,7 @@ TOOL = {
     },
 }
 ROUGH_SPREAD = 0.4  # open-world estimates are off by 35-50% (research report 03)
+ESTIMATED_EXTRA = 0.15  # menu values that are estimates themselves (Frist Late Meal, D-131)
 MAX_IMAGE_BYTES = 6 * 1024 * 1024
 
 
@@ -72,9 +73,15 @@ def decode_image(image: bytes | None, image_b64: str | None, claimed_sha: str | 
 
 
 def candidates(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One code per distinct dish; the same recipe served at several halls lists every hall."""
+    """One code per distinct dish; the same recipe served at several halls lists every hall.
+
+    Plates (an entree with its fries summed) are left out: the photo shows the entree and the
+    fries, which are candidates of their own, so a plate could only double count.
+    """
     groups: dict[tuple, dict[str, Any]] = {}
     for item in items:
+        if item.get("plate"):
+            continue
         key = (item["name"].lower(), item["serving"], item["kcal"], item["protein_g"])
         if key in groups:
             groups[key]["halls"].append(item["hall"])
@@ -83,9 +90,13 @@ def candidates(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(groups.values())
 
 
-def spread(confidence: float, depth_ok: bool) -> float:
-    """Half-width of a range as a fraction: 15-25% on campus (report 03), wider when unsure."""
-    return min(0.5, (0.15 if depth_ok else 0.25) + 0.15 * (1 - confidence))
+def spread(confidence: float, depth_ok: bool, estimated: bool = False) -> float:
+    """Half-width of a range as a fraction: 15-25% on campus (report 03), wider when unsure.
+
+    An estimated menu value (no published nutrition) adds 15 points: 30-40%, at most 65%.
+    """
+    extra = ESTIMATED_EXTRA if estimated else 0.0
+    return min(0.5 + extra, (0.15 if depth_ok else 0.25) + extra + 0.15 * (1 - confidence))
 
 
 def span(per_serving: float | None, servings: float, s: float, digits: int) -> dict[str, Any]:
@@ -107,7 +118,7 @@ def widen(r: dict[str, Any] | None, digits: int) -> dict[str, Any]:
 
 def prompt(req: dict[str, Any], cands: list[dict[str, Any]], image: bytes) -> list[dict[str, Any]]:
     lines = [f"{c['code']} | {c['name']} | {c['serving'] or '?'} | {c['kcal']} | {c['protein_g']} | "
-             + ", ".join(c["halls"]) for c in cands]
+             + ", ".join(c["halls"]) + (" (estimated values)" if c.get("estimated") else "") for c in cands]
     regions = [f"{r.get('region_id', '?')}: {r.get('volume_ml')} mL, depth confidence "
                f"{r.get('depth_confidence')}" for r in req["regions"]]
     text = (f"Date {req['date']}, meal {req['meal'] or 'unknown'}.\n"
@@ -142,12 +153,15 @@ def run_scan(store: Any, model: Any, menu_items: list[dict[str, Any]], req: dict
         if c is None:  # unlisted, or a code the model invented
             items.append(base | {"item_id": "unlisted", "name": raw.get("name") or "Unknown food",
                                  "hall": None, "halls": [], "serving": None, "rough": True,
+                                 "estimated": False,
                                  "kcal": widen(raw.get("unlisted_kcal"), 0),
                                  "protein_g": widen(raw.get("unlisted_protein_g"), 1)})
             continue
-        s = spread(conf, depth.get(raw.get("region_id"), False))
+        estimated = bool(c.get("estimated"))
+        s = spread(conf, depth.get(raw.get("region_id"), False), estimated)
         items.append(base | {"item_id": c["id"], "name": c["name"], "hall": c["hall"],
                              "halls": c["halls"], "serving": c["serving"], "rough": False,
+                             "estimated": estimated,
                              "kcal": span(c["kcal"], servings, s, 0),
                              "protein_g": span(c["protein_g"], servings, s, 1)})
     totals = {k: {"low": round(sum(i[k]["low"] or 0 for i in items), 1),
@@ -157,6 +171,7 @@ def run_scan(store: Any, model: Any, menu_items: list[dict[str, Any]], req: dict
         "meal_id": req["meal_id"], "photo_sha256": sha, "date": req["date"], "meal": req["meal"],
         "mode": req["mode"], "model_id": model.model_id, "candidates": len(cands),
         "rough": req["mode"] == "open_world" or any(i["rough"] for i in items),
+        "estimated": any(i["estimated"] for i in items),
         "complete": all(i[k]["low"] is not None for i in items for k in ("kcal", "protein_g")),
         "items": items, "totals": totals,
     }
