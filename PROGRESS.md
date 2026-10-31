@@ -625,3 +625,10 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Tests: StezuCoreTests PlaceNamesTests/testPOINameBeatsAreaOfInterest, testVersionOneNamesAreLookedUpAgainOnce; AppUITests PlacesUITests/testBuildingNamesReplaceCampusName (screenshot s054-building-names). No existing test changed; DayTimelineTests and PlaceLabelTests use the kept `PlaceNames(names:geocoder:save:)` init.
 - Not verifiable here: the MapKit lookup itself runs only on a phone (UI tests use the fake), so whether Apple returns "Frist Campus Center" for a real visit is for the walkthrough.
 - Left undone: nothing from the story's steps. An old name that was a bare street address stays (read as a label).
+
+## 2026-10-31 Server: my_place records and visits named by his places (server card, D-140, D-141)
+
+- /sync: record kind `my_place`, payload `id`, `name`, `note`, `latitude`, `longitude`, `radius_m`, `created_at`; the record's `updated_at` in milliseconds; delete is the same id with `deleted: true`. A live one is validated (name 1 to 200 characters, not blank; note null or at most 1,000; latitude -90 to 90; longitude -180 to 180; radius_m 10 to 2,000; created_at with an offset; payload id equal to the record id). A bad one is counted in `rejected` with `records[i]: my_place <field> ...` in `errors`; the rest of the batch is stored.
+- Views: `stezu_my_places`; `stezu_visits_named` (every visit plus `my_place_id` and `my_place_name` from the smallest live circle that holds it, NULL otherwise); `place_time_daily` (per day and place name: `visits`, `timed_visits`, `total_min`). The distance is the phone's haversine in SQLite's built-in math functions, so the views work from the plain `sqlite3` CLI (checked with Ubuntu's 3.45.1).
+- Tests: server/Tests/test_my_place_views.py (nested circles take the smaller, outside is NULL, the edge at 99 and 101 m, longitude shrinking with latitude, delete, move and resize, daily sums, every validation limit). No existing test changed.
+- Left undone: the rows fill only once the app sends `my_place` records (S-056).
