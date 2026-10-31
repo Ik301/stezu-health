@@ -109,6 +109,19 @@ extension AppEnvironment {
     }
   }
 
+  /// S-053 (D-133): his own places in my-places.json beside the log.
+  static func myPlacesFile(storage: StorageMode) -> MyPlacesStore {
+    let file = FinishedWorkoutStore(storage: storage).file?.deletingLastPathComponent()
+      .appendingPathComponent("my-places.json")
+    let saved = file.flatMap {
+      try? JSONDecoder().decode(MyPlaces.self, from: Data(contentsOf: $0))
+    }
+    return MyPlacesStore(saved ?? MyPlaces()) { places in
+      guard let file, let data = try? JSONEncoder().encode(places) else { return }
+      try? data.write(to: file, options: .atomic)
+    }
+  }
+
   /// At every launch, background relaunches too: save, queue (D-076), then one pass.
   func startLocation() {
     Task {

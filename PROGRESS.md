@@ -605,3 +605,13 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Deviation: on the CI simulator the Sleep row's subtitle wraps to two lines ("Last night 6h 15m, 6 of / 7 nights") beside the bars and "7h 9m avg".
 - Left undone: nothing from the story's steps.
 
+
+## 2026-10-31 S-053 Isaac draws his own places (night agent)
+
+- Core: `MyPlace` (id, name, optional note, centre, radiusM) and `MyPlaces` (`place(for:)`: the smallest circle holding the visit; `name(_:looked:)`: his place, then the looked-up name, else nil). `MyPlacesStore` saves my-places.json beside location-log.json, on the phone only (D-133, D-137).
+- Names resolve when drawn, in Places, the spot card and the Day timeline, so a place names every visit inside it, past and future, and an edit or delete changes them all at once.
+- Full-screen map: a long press starts a place there (75 m), in the same medium sheet as the spot card: Save (and Delete when editing) at the top, name, an optional context note, the count of visits inside ("2 visits inside"), and a 25 to 400 m slider that resizes the circle live; the visits inside turn solid. His places are outlined with their name; a tap on the name edits. A long press while one is open moves it.
+- Spot card: inside one of his places it shows the name, the note and "Edit place" (the per-visit label field is hidden); elsewhere "New place here", which opens the full map with a place started at that spot.
+- Fixture: data-food-week's Monday Dining hall visit moves to 44 m from the Library (latitude 10.2504; the fake geocoder names it "Dining hall" too), so one circle can hold both. DayUITests' expectations are unchanged.
+- Tests: StezuCoreTests PlaceNamesTests/testSmallestEnclosingPlaceWins, testMyPlaceOverridesLookedUpName, testDeletingPlaceRestoresFallback; AppUITests PlacesUITests/testDrawPlaceLabelsEveryVisitInside (screenshots s053-new-place, s053-place-applied). No existing test changed.
+- Left undone: moving a place is a long press at the new centre, not a drag of the circle; "New place here" from the list's inline card opens the full map on the newest visit, not on that spot; the 100 m spot pick radius still does not follow the zoom.

@@ -1948,3 +1948,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The extra reads are small (61 days of intervals) and the views stay independent.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SleepSummary.swift (`weekMean`, `text`), MetricHistory.swift (sleep), App/Sources/Data/WeeklyHealthRows.swift, SleepDetailView.swift, MetricRow.swift (`unit`); SleepDetailTests/testRowHomeAndScreenShareLastNightAndWeekMean, SleepDetailUITests/testSleepNumbersAreLabelled. Commit: the S-051 squash on main.
 - Reverse if: Health reads on opening Data or Sleep become slow enough to see, then cache one summary in the environment (b).
+
+## D-137 His places resolve at display time from my-places.json; nothing is written per visit
+
+- Status: proposed by night agent, 2026-10-31 (S-053). Implements D-133.
+- Problem: a name Isaac gives one spot reaches only the visits under that tap (D-130 writes a label per visit id), so later visits to the same building stay unnamed, and changing or deleting the name would mean rewriting every visit's entry.
+- Given: visits live in location-log.json, looked-up names and spot labels by visit id in place-names.json (D-119), both on the phone only. Places, the spot card and the Day timeline each read those names when they load.
+- Constraints:
+  - Writing his place's name into place-names.json per visit leaves future visits unnamed and makes an edit or delete a rewrite of many ids (breaks "past and future", "editing or deleting updates them all").
+  - Keeping places inside PlaceNames ties them to the geocoder's lookup and S-054's re-lookup rules (breaks "his own labels are never touched").
+  - Any name on a PlaceRecord would ride along to /sync (breaks D-119, D-133).
+- Options:
+  - (a) A separate `MyPlacesStore` actor (my-places.json beside the log) holding `MyPlaces`, a list of circles; each screen asks `MyPlaces.name(visit, looked:)` when it draws: the smallest circle holding the visit, then the looked-up name, else nil (the visit's times).
+  - (b) Stamp each visit's id with the place name in place-names.json on save and on every new visit.
+  - (c) Add a place id to PlaceRecord.
+- Decision: (a). A save or delete replaces the place by id and returns the new list, which Places keeps in state; Day reads the store on load. On the full map the long press uses the finger's point (LongPress then a zero-distance Drag), falling back to the map's centre when no drag event arrives.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MyPlaces.swift, App/Sources/Data/PlacesRow.swift, PlacesMap.swift, DayView.swift, LocationService.swift (`myPlacesFile`); PlaceNamesTests (3), PlacesUITests/testDrawPlaceLabelsEveryVisitInside; commit on wt/S-053.
+- Reverse if: his places should sync to the VM (D-133's open question), or a visit should keep a name after the circle around it moves away.
