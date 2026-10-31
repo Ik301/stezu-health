@@ -220,11 +220,19 @@ tombstone, so the sample stays deleted if it arrives (or is replayed) later.
 
 | Field | Type | Rules |
 |---|---|---|
-| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`, `visit`, `location`, `app_usage`; others are stored too. |
+| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`, `visit`, `location`, `app_usage`, `my_place`; others are stored too. Only a live `my_place` is validated (below); other payloads are stored as sent. |
 | `id` | string, 1–128 | The app's stable id for the record. |
 | `updated_at` | string | ISO 8601 with an offset. The newest version wins; an equal or older `updated_at` is a duplicate and changes nothing, so bump it on every edit. |
 | `deleted` | bool | Default `false`. `true` is a tombstone. |
 | `payload` | object | The record as the app models it, stored verbatim. May be `null` only when `deleted` is true. |
+
+A live `my_place` (D-140) is rejected unless its payload has: `id` equal to the record's `id`;
+`name` a string of 1 to 200 characters that is not only spaces; `note` `null` or a string of at
+most 1,000 characters; `latitude` a number from -90 to 90; `longitude` from -180 to 180;
+`radius_m` from 10 to 2,000 (limits included; JSON numbers only, not strings or booleans); and
+`created_at` an ISO 8601 string with an offset. A rejected record is counted in `rejected` with
+a message such as `records[3]: my_place radius_m must be a number from 10 to 2000`; the rest of
+the batch is stored. A tombstone (`deleted: true`) is not checked and may carry `payload: null`.
 
 Answer (200):
 
@@ -310,6 +318,9 @@ NULL, never 0.
 | `stezu_visits` | One row per live `visit` record: `id`, `arrived_at`, `departed_at` (NULL while unknown), `day`, `latitude`, `longitude`, `horizontal_accuracy_m`, `duration_min` (NULL unless both ends are known and departure is not before arrival), `updated_at`. |
 | `stezu_locations` | One row per live `location` record: `id`, `at`, `day`, `latitude`, `longitude`, `horizontal_accuracy_m`, `speed_mps`, `updated_at`. |
 | `places_daily` | Per `day` with at least one visit or fix: `visits` (visits by their `day`) and `location_fixes`; a count with nothing recorded that day is NULL, not 0. |
+| `stezu_my_places` | One row per live `my_place` record (D-140): `id`, `name`, `note` (NULL when empty), `latitude`, `longitude`, `radius_m`, `created_at`, `updated_at`. |
+| `stezu_visits_named` | Every `stezu_visits` row and its columns, plus `my_place_id` and `my_place_name`: the smallest live place whose circle holds the visit (great-circle distance <= `radius_m`), NULL when none does or the visit has no coordinates. |
+| `place_time_daily` | Per `day` and `my_place_name` with at least one named visit: `visits` (all of them), `timed_visits` (those with a known `duration_min`), `total_min` (their minutes, rounded to 0.1; NULL when none has a duration). Places that share a name are summed together. |
 | `stezu_app_usage` | One row per live `app_usage` record (an iPhone app-focus interval from the Mac uploader): `id`, `device_name`, `device_model`, `bundle_id`, `app_name`, `started_at`, `ended_at`, `day`, `duration_s` (the payload's when positive, else `ended_at` minus `started_at`, else NULL), `capped` (1/0), `updated_at`. |
 | `screen_time_daily` | Per `day` and `device_name` with at least one interval that has a bundle id and a length: `total_min`, `apps` (distinct bundle ids), `top_apps` (JSON array of the five apps with the most minutes, `[{"bundle_id", "minutes"}]`, most first), `intervals`, `capped_intervals` (NULL when no interval says). An interval counts toward the day it started. |
 | `stezu_meals` | One row per live `meal` record: `id`, `eaten_at`, `day`, `status`, `edited` (1/0), `in_health` (1/0), `n_items`, `kcal_low`, `kcal_high`, `protein_g_low`, `protein_g_high` (the items' ranges summed), `items` (names, `; `-separated), `updated_at`. |
@@ -328,6 +339,14 @@ the app (`FoodRange.total`). Booleans are 1, 0 or NULL. In the place views a lat
 (CLVisit's `distantPast` and `distantFuture`) is NULL. A visit's `day` falls back to the date of
 `arrived_at`, then `departed_at`.
 
+A visit is named by the smallest of Isaac's places that contains it, as the phone does
+(`MyPlaces.place(for:)`): the distance is the haversine of `PlaceRecord.meters` (R = 6,371,000 m),
+computed in the view with SQLite's built-in math functions (`sin`, `cos`, `sqrt`, `atan2`,
+`radians`; in SQLite since 3.35 and in Ubuntu's `sqlite3` CLI), so it needs no Python function and
+works from the plain `sqlite3` CLI. Equal radii go to the earlier `created_at`, then the lower id.
+A place that is deleted, moved or resized renames every visit at the next query; nothing is stored
+per visit. A visit counts toward its own `day`, even when it runs past midnight.
+
 Record payloads (snake_case, as `MealRecord` in StezuCore's SyncRecord.swift). The views read
 these names; the names in brackets are also accepted:
 
@@ -339,6 +358,7 @@ these names; the names in brackets are also accepted:
 | `visit` (S-032) | `id`, `arrived_at` (ISO 8601 with offset, or `null` when unknown), `departed_at` (`null` until the departure is known), `latitude`, `longitude` (degrees, WGS 84), `horizontal_accuracy_m` (metres), `day`. A departure, or any other change, resends the same id with a newer `updated_at`; it replaces the row, never adds one. Send `null` for an unknown end, not `distantPast` or `distantFuture`. |
 | `location` (S-032) | `id`, `at` (ISO 8601 with offset), `latitude`, `longitude`, `horizontal_accuracy_m`, `speed_mps` (`null` when CoreLocation reports none, never a negative or 0 for missing), `day`. A significant location change. |
 | `app_usage` (Mac uploader, D-081) | `id` (sha256 hex of device id, bundle id and UTC start), `device_name`, `device_model` (e.g. `iPhone15,2`), `bundle_id`, `app_name` (`null`: Biome has only the bundle id), `start`, `end` (ISO 8601 with the Mac's offset, milliseconds), `duration_s` (> 0; at most the cap), `capped` (true when the interval was cut at the uploader's cap, 4 h by default), `day` (local date of `start`). Sent by `mac/screentime/stezu_screentime.py` with batch `device_id` `mac-screentime`; every daily run re-sends the trailing 7 days with a newer `updated_at` (milliseconds), which replaces the row. An interval still open at run time is not sent until it ends. |
+| `my_place` (S-056, D-140) | `id` (the record's id), `name`, `note` (`null` when empty), `latitude`, `longitude` (degrees, WGS 84, the circle's centre), `radius_m` (metres, 10 to 2,000), `created_at` (ISO 8601 with offset, milliseconds); the record's `updated_at` in milliseconds. A move, resize, rename or note change resends the same id with a newer `updated_at`; a delete sends the same id with `deleted: true`. Checked as above. Looked-up place names (S-054) never sync (D-119). |
 | `meal` (S-029) | `id`, `eaten_at`, `day`, `status`, `edited`, `in_health`, `items`: `[{item_id, name, source, halls, serving, servings, confidence, rough, kcal: {low, high}, protein_g: {low, high}}]`. |
 
 A night is keyed by its wake date: a sleep segment belongs to the local date of its end plus

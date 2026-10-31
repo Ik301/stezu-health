@@ -2006,3 +2006,20 @@ The research notes cited here are kept private, because they contain personal he
 - What: each of his circles (name, note, centre, radius) is a `my_place` record, sent after the phone saves it, with tombstones for deletes. The server matches each visit to the smallest circle that contains it, so Hermes can answer "how many gym visits this week" or "hours at the library".
 - What doesn't sync: looked-up names (POI and geocoder) and per-visit names. They stay on the phone (D-119), and a circle is enough to name every visit inside it.
 - Privacy: the place names live only in the VM's health database (mode 0600). They never enter the public repo, logs or PR text (D-034).
+
+## D-141 The server names visits in SQL views with SQLite's own haversine; nothing is stored per visit
+
+- Status: proposed by the server card, 2026-10-31. Implements D-140's server side (the app side is S-056).
+- Problem: Hermes reads the health database with the plain `sqlite3` CLI or Python, read-only, so whatever names a visit must run there with no Python functions, and an edit or delete of a place must rename past visits too.
+- Given: SQLite has had built-in math functions since 3.35. The VM's library and Ubuntu's `sqlite3` CLI (3.45.1) and the server's Python (3.53.1) all answer `select sin(1), atan2(1, 1), sqrt(2), radians(180)`. The phone matches with the haversine in `PlaceRecord.meters` (R = 6,371,000 m) and takes the smallest circle (`MyPlaces.place(for:)`).
+- Constraints:
+  - A table filled at /sync would go stale when a place changes after its visits (breaks "an edit renames every visit").
+  - Different distance maths on phone and server would name a visit near an edge differently (breaks "the server matches what the phone shows").
+  - A plain correlated view re-reads both payloads' JSON for every visit and place pair: 4,900 visits and 50 places took about 15 s.
+- Options:
+  - (a) Views: `stezu_my_places`, `stezu_visits_named` and `place_time_daily`, with the phone's haversine in SQL; places and visits materialized once per query in CTEs, and a latitude box that skips the trigonometry for far circles.
+  - (b) Equirectangular distance with cos(latitude) computed in Python at ingest and stored per place, so the view needs only arithmetic.
+  - (c) A `visit_places` table rewritten on every /sync that touches a visit or a place.
+- Decision: (a). The same 4,900 by 50 case takes about 0.5 s in the CLI, and its matches equal a Python haversine on every visit. Ties go to the earlier `created_at`, then the lower id. A live `my_place` is validated at /sync (name 1 to 200 characters and not blank, note null or at most 1,000, latitude -90 to 90, longitude -180 to 180, radius_m 10 to 2,000, created_at with an offset, payload id equal to the record id) and a bad one is rejected per record; tombstones are not checked.
+- Evidence: server/Tests/test_my_place_views.py; server/README.md (records and views).
+- Reverse if: a reader's SQLite lacks the math functions (then (b)), or visits and places grow so large that the views take more than a few seconds (then (c)).

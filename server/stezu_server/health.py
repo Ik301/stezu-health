@@ -96,6 +96,30 @@ def jtime(path: str) -> str:
 PLACE = (f"{jbetween('$.latitude', -90, 90)} AS latitude", f"{jbetween('$.longitude', -180, 180)} AS longitude",
          f"{jbetween('$.horizontal_accuracy_m', 0, 1e9)} AS horizontal_accuracy_m")
 
+# Isaac's own places (D-140): a circle he drew. Limits checked at /sync; out-of-range values never match.
+RADIUS_M = (10, 2000)
+NAME_MAX, NOTE_MAX = 200, 1000
+
+
+def meters(lat1: str, lon1: str, lat2: str, lon2: str) -> str:
+    """Great-circle metres between two points, the haversine of StezuCore's PlaceRecord.meters
+    (R = 6,371,000 m), so the server and the phone draw the same edge. Uses SQLite's built-in
+    math functions (sin, cos, sqrt, atan2, radians), which the sqlite3 CLI has too: no Python UDF."""
+    a = (f"(power(sin(radians({lat2} - {lat1}) / 2), 2) + cos(radians({lat1})) * cos(radians({lat2}))"
+         f" * power(sin(radians({lon2} - {lon1}) / 2), 2))")
+    return f"(6371000.0 * 2 * atan2(sqrt({a}), sqrt(max(0.0, 1 - {a}))))"
+
+
+def smallest_place(visit: str) -> str:
+    """The id of the smallest of his places (the CTE p) whose circle holds the visit (distance <=
+    radius_m), else NULL. Ties go to the earlier created_at, then the id. A visit without coordinates
+    matches none. The latitude box (111 km a degree, never less than the true distance) skips the
+    trigonometry for circles that are plainly too far north or south."""
+    inside = meters("q.latitude", "q.longitude", f"{visit}.latitude", f"{visit}.longitude")
+    return (f"(SELECT q.id FROM p q WHERE abs(q.latitude - {visit}.latitude) <= q.radius_m / 111000.0"
+            f" AND {inside} <= q.radius_m ORDER BY q.radius_m, q.created, q.id LIMIT 1)")
+
+
 # A finished session's sets, read from its exercises[].sets[] (objects only, so odd payloads never fail).
 SESSION_SETS = ("FROM json_each(CASE WHEN json_type(payload_json, '$.exercises') = 'array' THEN payload_json END,"
                 " '$.exercises') e, json_each(coalesce(CASE WHEN e.type = 'object' THEN CASE WHEN"
@@ -195,6 +219,27 @@ VIEWS = {
                     " nullif(sum(kind = 'location'), 0) AS location_fixes FROM (SELECT day, 'visit' AS kind"
                     " FROM stezu_visits UNION ALL SELECT day, 'location' FROM stezu_locations)"
                     " WHERE day IS NOT NULL GROUP BY day",
+    # His own places (D-140), validated at /sync. Looked-up names never reach the server (D-119).
+    "stezu_my_places": "SELECT id, name, note, latitude, longitude, radius_m, created_at, updated_at FROM "
+                       + live("my_place", f"trim({jtext('$.name')}) AS name",
+                              f"nullif(trim({jtext('$.note')}), '') AS note",
+                              f"{jbetween('$.latitude', -90, 90)} AS latitude",
+                              f"{jbetween('$.longitude', -180, 180)} AS longitude",
+                              f"{jbetween('$.radius_m', *RADIUS_M)} AS radius_m",
+                              f"{jtime('$.created_at')} AS created_at"),
+    # Every visit, named by the smallest of his circles that holds it; NULL when none does.
+    # Places and visits are materialized once per query, so the JSON is read once, not per pair.
+    "stezu_visits_named": "WITH p AS MATERIALIZED (SELECT id, name, latitude, longitude, radius_m,"
+                          " julianday(created_at) AS created FROM stezu_my_places WHERE latitude IS NOT NULL"
+                          " AND longitude IS NOT NULL AND radius_m IS NOT NULL),"
+                          " v AS MATERIALIZED (SELECT * FROM stezu_visits),"
+                          f" m AS MATERIALIZED (SELECT v.*, {smallest_place('v')} AS my_place_id FROM v)"
+                          " SELECT m.*, p.name AS my_place_name FROM m LEFT JOIN p ON p.id = m.my_place_id",
+    # Per day and place name: all visits, the ones with a known duration, and their minutes (NULL when
+    # none has one). Places sharing a name are summed together; a visit counts toward its own day.
+    "place_time_daily": "SELECT day, my_place_name, count(*) AS visits, count(duration_min) AS timed_visits,"
+                        " round(sum(duration_min), 1) AS total_min FROM stezu_visits_named"
+                        " WHERE day IS NOT NULL AND my_place_name IS NOT NULL GROUP BY day, my_place_name",
     # iPhone app-focus intervals sent by the Mac uploader (mac/screentime, D-081). The length is the
     # payload's duration_s when positive, else end minus start; anything else is NULL, never 0.
     "stezu_app_usage": f"SELECT id, device_name, device_model, bundle_id, app_name, started_at, ended_at,"
@@ -247,6 +292,32 @@ def text(obj: dict[str, Any], key: str, limit: int, required: bool = True) -> st
     if not isinstance(value, str) or not 0 < len(value) <= limit:
         raise ValueError(f"{key} must be a string of 1 to {limit} characters")
     return value
+
+
+def number(obj: dict[str, Any], key: str, lo: float, hi: float) -> float:
+    value = obj.get(key)
+    if (isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value)
+            or not lo <= value <= hi):
+        raise ValueError(f"my_place {key} must be a number from {lo:g} to {hi:g}")
+    return value
+
+
+def my_place(rid: str | None, p: dict[str, Any]) -> None:
+    """D-140: a live my_place must be able to match a visit, so a bad one is rejected, not stored."""
+    if p.get("id") != rid:
+        raise ValueError("my_place payload id must equal the record id")
+    name, note = p.get("name"), p.get("note")
+    if not isinstance(name, str) or not name.strip() or len(name) > NAME_MAX:
+        raise ValueError(f"my_place name must be a non-blank string of at most {NAME_MAX} characters")
+    if note is not None and (not isinstance(note, str) or len(note) > NOTE_MAX):
+        raise ValueError(f"my_place note must be null or a string of at most {NOTE_MAX} characters")
+    number(p, "latitude", -90, 90)
+    number(p, "longitude", -180, 180)
+    number(p, "radius_m", *RADIUS_M)
+    try:
+        parse_ts(p.get("created_at"))
+    except ValueError as exc:
+        raise ValueError(f"my_place created_at: {exc}") from None
 
 
 def gunzip(data: bytes, limit: int) -> bytes:
@@ -317,6 +388,8 @@ class HealthDB:
             raise ValueError("deleted must be true or false")
         if not isinstance(payload, dict) and not (deleted and payload is None):
             raise ValueError("payload must be an object (or null when deleted)")
+        if kind == "my_place" and isinstance(payload, dict) and not deleted:
+            my_place(rid, payload)
         return (kind, rid, utc(parse_ts(r.get("updated_at"))), int(deleted),
                 None if payload is None else json.dumps(payload), now)
 
