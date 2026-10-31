@@ -106,8 +106,7 @@ struct PlacesView: View {
             PlaceEditor(
               place: Binding(get: { draft }, set: { self.draft = $0 }),
               isNew: !mine.places.contains { $0.id == draft.id },
-              inside: log?.visits(near: draft.latitude, draft.longitude, within: draft.radiusM)
-                .count ?? 0
+              inside: inside(draft)
             ) { delete in
               self.draft = nil
               Task { mine = await environment.myPlaces.set(draft, delete: delete) }
@@ -136,6 +135,10 @@ struct PlacesView: View {
       save: { label in
         Task { names = await environment.placeNames.label(label, visits: spot.map(\.id)) }
       })
+  }
+
+  private func inside(_ place: MyPlace) -> Int {
+    log?.visits(near: place.latitude, place.longitude, within: place.radiusM).count ?? 0
   }
 
   /// A new place centred there (S-053), 75 m across by default; while one is being drawn, a

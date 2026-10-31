@@ -5,9 +5,8 @@ import SwiftUI
 /// Places' heat map (native MapKit): every visit is a faint circle as large as its accuracy, and
 /// every location fix a fainter 10 m dot, so the spots Isaac goes back to stack up darker
 /// (S-052). On Places it is a still preview; full screen, pinch, pan and rotate all work and it
-/// opens on the newest visit. A tap passes the coordinate under the finger on. S-053: his own
-/// places are outlined circles with their name (a tap edits one); a long press starts a place
-/// there, and the place being drawn colours the visits inside it.
+/// opens on the newest visit. A tap passes the coordinate under the finger on. S-053: his places
+/// are outlined and named (a tap edits one); a long press starts one there.
 struct PlacesMap: View {
   let places: [PlaceRecord]
   var full = false
@@ -22,24 +21,16 @@ struct PlacesMap: View {
     MapReader { proxy in
       Map(initialPosition: full ? start : .automatic, interactionModes: full ? .all : []) {
         ForEach(places, id: \.id) { place in
-          let inside = place.at == nil && draft?.contains(place) == true
           MapCircle(
             center: CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude),
             radius: place.mapRadius
           )
-          .foregroundStyle(
-            (inside ? Theme.dataEnergy : Theme.dataEnergyBand).opacity(place.at == nil ? 1 : 0.5))
+          .foregroundStyle(fill(place))
         }
-        ForEach(mine.places.filter { $0.id != draft?.id } + (draft.map { [$0] } ?? []), id: \.id) {
-          place in
-          let at = CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
-          MapCircle(center: at, radius: place.radiusM).foregroundStyle(Theme.track.opacity(0.25))
-            .stroke(place.id == draft?.id ? Theme.dataEnergy : Theme.ink, lineWidth: 2)
-          Annotation(place.name, coordinate: at) {
-            Button(place.name) { edit(place) }.textStyle(.label, weight: .medium)
-              .foregroundStyle(Theme.ink).padding(.horizontal, Theme.spaceSm)
-              .background(Theme.surface, in: Capsule()).opacity(place.name.isEmpty ? 0 : 1)
-          }
+        ForEach(circles, id: \.id) { place in
+          MapCircle(center: at(place), radius: place.radiusM)
+            .foregroundStyle(Theme.track.opacity(0.25)).stroke(outline(place), lineWidth: 2)
+          Annotation(place.name, coordinate: at(place)) { tag(place) }
         }
         UserAnnotation()
       }
@@ -66,6 +57,30 @@ struct PlacesMap: View {
     .accessibilityIdentifier(full ? "places.map.full" : "places.map")
   }
 
+  /// His places, then the one being drawn (in place of its saved copy).
+  private var circles: [MyPlace] {
+    mine.places.filter { $0.id != draft?.id } + (draft.map { [$0] } ?? [])
+  }
+
+  private func at(_ place: MyPlace) -> CLLocationCoordinate2D {
+    CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
+  }
+
+  private func fill(_ place: PlaceRecord) -> Color {
+    let inside = place.at == nil && draft?.contains(place) == true
+    return (inside ? Theme.dataEnergy : Theme.dataEnergyBand).opacity(place.at == nil ? 1 : 0.5)
+  }
+
+  private func outline(_ place: MyPlace) -> Color {
+    place.id == draft?.id ? Theme.dataEnergy : Theme.ink
+  }
+
+  private func tag(_ place: MyPlace) -> some View {
+    Button(place.name) { edit(place) }.textStyle(.label, weight: .medium)
+      .foregroundStyle(Theme.ink).padding(.horizontal, Theme.spaceSm)
+      .background(Theme.surface, in: Capsule()).opacity(place.name.isEmpty ? 0 : 1)
+  }
+
   /// About 1 km around the newest visit, where the circles are drawn to scale; else all of it.
   private var start: MapCameraPosition {
     guard let newest else { return .automatic }
@@ -80,10 +95,8 @@ struct PlacesMap: View {
   }
 }
 
-/// The tapped spot: its name (his place's, then a label, or "No label"), how many visits it
-/// holds, and a field to add or change the label; Save names every visit at the spot, on the
-/// phone only (D-119). Inside one of his places it shows that place's note and "Edit place";
-/// elsewhere "New place here" (S-053).
+/// The tapped spot: its name or "No label", its visits, and a label field; Save names every visit
+/// at the spot (D-119). Inside his place: its note and "Edit place", else "New place here".
 struct PlaceSpotCard: View {
   let visits: [PlaceRecord]
   let name: String?
