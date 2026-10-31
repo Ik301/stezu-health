@@ -11,6 +11,9 @@ struct WorkoutHistoryView: View {
   let names: [String: String]
   var continuable: (WorkoutSession) -> Bool = { _ in false }
   var onContinue: (WorkoutSession) -> Void = { _ in }
+  /// S-055: whether a session's sets can be changed (a finished one), and what a change does.
+  var editable: (WorkoutSession) -> Bool = { _ in false }
+  var onEdit: (PastSet, SetEdit) -> Void = { _, _ in }
 
   var body: some View {
     NavigationStack {
@@ -63,23 +66,38 @@ struct WorkoutHistoryView: View {
           .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 1))
           .accessibilityIdentifier("history.session.continue")
       }
-      ForEach(Array(session.exercises.enumerated()), id: \.offset) { index, log in
-        VStack(alignment: .leading, spacing: Theme.spaceXs) {
-          NavigationLink {
-            exercise(log.exercise, rung: name(session))
-          } label: {
-            Text(log.exercise).textStyle(.subtitle, weight: .semibold)
-          }
-          .accessibilityIdentifier("history.exercise.\(index)")
-          Text(Self.sets(log.sets))
-            .textStyle(.subtitle)
-            .accessibilityIdentifier("history.exercise.\(index).sets")
+      if editable(session) {  // S-055: a finished session's sets are chips that open SetEditor
+        EditableSets(session: session, save: onEdit) { index, log, chips in
+          card(index, log.exercise, rung: name(session)) { chips }
         }
-        .padding(Theme.spaceLg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
+      } else {
+        ForEach(Array(session.exercises.enumerated()), id: \.offset) { index, log in
+          card(index, log.exercise, rung: name(session)) {
+            Text(Self.sets(log.sets))
+              .textStyle(.subtitle)
+              .accessibilityIdentifier("history.exercise.\(index).sets")
+          }
+        }
       }
     }
+  }
+
+  /// One exercise of a session: its name, which opens its past sessions, then its sets.
+  private func card<Sets: View>(
+    _ index: Int, _ exercise: String, rung: String, @ViewBuilder sets: () -> Sets
+  ) -> some View {
+    VStack(alignment: .leading, spacing: Theme.spaceXs) {
+      NavigationLink {
+        self.exercise(exercise, rung: rung)
+      } label: {
+        Text(exercise).textStyle(.subtitle, weight: .semibold)
+      }
+      .accessibilityIdentifier("history.exercise.\(index)")
+      sets()
+    }
+    .padding(Theme.spaceLg)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
   }
 
   /// Every session with this exercise, newest first, with that session's sets of it.
@@ -143,5 +161,35 @@ private struct HistoryPage<Content: View>: View {
     .foregroundStyle(Theme.ink)
     .background(Theme.ground.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)
+  }
+}
+
+/// S-055: a finished session's exercises with their sets as chips; a tap opens SetEditor. The
+/// page keeps its own copy, so a saved change shows at once, and `save` keeps it.
+private struct EditableSets<Card: View>: View {
+  @State var session: WorkoutSession
+  let save: (PastSet, SetEdit) -> Void
+  let card: (Int, ExerciseLog, SetChips) -> Card
+  @State private var editing: PastSet?
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: Theme.spaceMd) {
+      ForEach(Array(session.exercises.enumerated()), id: \.offset) { index, log in
+        card(
+          index, log,
+          SetChips(sets: log.sets, id: "history.set.\(index)") { set in
+            editing = PastSet(
+              sessionStart: session.startedAt, exercise: log.exercise, number: set + 1,
+              set: log.sets[set])
+          })
+      }
+    }
+    .sheet(item: $editing) { past in
+      SetEditor(past: past) { edit in
+        editing = nil
+        guard let edit, session.apply(edit, toSetAt: past.set.loggedAt) != nil else { return }
+        save(past, edit)
+      }
+    }
   }
 }
