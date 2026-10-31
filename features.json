@@ -1863,7 +1863,7 @@
         "s055-day-sets"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     }
   ]
 }
