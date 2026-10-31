@@ -282,6 +282,23 @@ enum UITestFixtures {
   /// 10.2504, 44 m from the Library, is Monday's Dining hall, so one circle holds both (S-053).
   static let placeNames = [10.25: "Library", 10.75: "Dining hall", 10.2504: "Dining hall"]
 
+  /// S-054: the fake geocoder finds those points of interest inside one campus-wide area.
+  static let geocoder = FakeReverseGeocoder(names: placeNames, area: "University campus")
+
+  /// S-054 (data-food-week with -uitest-persist): place-names.json as the area-first lookup
+  /// left it, a bare map naming Monday's Library visit "University campus"; written once.
+  static func oldPlaceNames(storage: StorageMode) -> PlaceNames {
+    var log = LocationLog()
+    _ = log.apply(dayVisits[0], at: Date())
+    let file = AppEnvironment.placeNamesURL(storage: storage)
+    if let file, let id = log.places.first?.id, !FileManager.default.fileExists(atPath: file.path) {
+      try? FileManager.default.createDirectory(
+        at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+      try? JSONEncoder().encode([id: "University campus"]).write(to: file)
+    }
+    return AppEnvironment.placeNamesFile(storage: storage, geocoder: geocoder)
+  }
+
   /// "background-sync" (S-033): a visit queued as if recorded while the app was closed.
   static func backgroundVisit(now: Date = Date()) -> LocationEvent {
     .visit(arrival: now - 1800, departure: nil, latitude: 10.25, longitude: -30.5, accuracy: 40)

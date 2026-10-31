@@ -67,7 +67,7 @@ struct AppEnvironment: Sendable {
   var locationSource: any LocationSource = FixtureLocationSource(events: [])
   var places = LocationRecorder { _ in }
   /// S-049: visit names, on the phone only (D-119); the fixture's names in `-uitest`.
-  var placeNames = PlaceNames(geocoder: FakeReverseGeocoder(names: UITestFixtures.placeNames))
+  var placeNames = PlaceNames(geocoder: UITestFixtures.geocoder)
   /// S-053: the places Isaac draws, on the phone only (D-133); memory in `-uitest`.
   var myPlaces = MyPlacesStore()
   /// `-uitest-dark`: the app draws in Dark whatever the simulator's setting. Otherwise Light and
@@ -147,6 +147,9 @@ struct AppEnvironment: Sendable {
       let finished = FinishedWorkoutStore(storage: environment.storage)
       if scenario == UITestFixtures.rotationScenario, finished.load().isEmpty {
         finished.save(UITestFixtures.rotationFinished())
+      }
+      if scenario == UITestFixtures.foodWeekScenario {
+        environment.placeNames = UITestFixtures.oldPlaceNames(storage: environment.storage)
       }
     }
     return environment

@@ -1965,3 +1965,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A save or delete replaces the place by id and returns the new list, which Places keeps in state; Day reads the store on load. On the full map the long press uses the finger's point (LongPress then a zero-distance Drag), falling back to the map's centre when no drag event arrives.
 - Evidence: Packages/StezuCore/Sources/StezuCore/MyPlaces.swift, App/Sources/Data/PlacesRow.swift, PlacesMap.swift, DayView.swift, LocationService.swift (`myPlacesFile`); PlaceNamesTests (3), PlacesUITests/testDrawPlaceLabelsEveryVisitInside; commit on wt/S-053.
 - Reverse if: his places should sync to the VM (D-133's open question), or a visit should keep a name after the circle around it moves away.
+
+## D-138 place-names.json records each name's lookup version; old names are looked up again once, one lookup at a time
+
+- Status: proposed by night agent, 2026-10-31 (S-054). Implements D-134.
+- Problem: every visit already named by the area-first lookup keeps "the campus" forever, because a saved name is never looked up again, and the file cannot tell a looked-up name from a label Isaac typed on a spot (D-130); both are bare strings by visit id.
+- Given: place-names.json is a bare id-to-name map on the phone (D-119). PlaceNames is an actor that Places and the Day view both call when they load, only while the app is active. Apple rate-limits geocoding and MapKit searches per app.
+- Constraints:
+  - Re-looking up every saved name on each launch would spend Apple's quota on names that are already right (breaks the throttle step).
+  - Replacing every old name would overwrite his own spot labels (breaks "his own labels are never touched").
+  - Two screens loading at once each ran their own loop, so two lookups could be in flight together (breaks "one lookup at a time").
+- Options:
+  - (a) The file becomes `SavedPlaceNames` (names plus a version per id); a bare map decodes as version 1. A version 1 name is looked up again once (at most 10 a launch) and replaced only if it equals the lookup's area or placemark name, i.e. Apple gave it; either way it is then saved as version 2. Labels are saved as version 2. Each `name(_:)` call chains behind the previous pass (a stored Task), and `PlaceLookupThrottled` from the geocoder ends lookups for the launch.
+  - (b) Drop place-names.json and look everything up again.
+  - (c) A separate file listing the ids still to re-look-up.
+- Decision: (a). The lookup order (point of interest, then placemark name, then area) is `PlaceLookup.best` in the core. The app's `AppleReverseGeocoder` always runs both requests (points of interest and reverse geocoding), so the area is known even when a building is found; without it an old campus name would look like a label and stay.
+- Evidence: Packages/StezuCore/Sources/StezuCore/PlaceNames.swift, App/Sources/Data/LocationService.swift (`AppleReverseGeocoder`, `placeNamesFile`), App/Sources/UITestFixtures.swift (`oldPlaceNames`); PlaceNamesTests/testPOINameBeatsAreaOfInterest, testVersionOneNamesAreLookedUpAgainOnce, PlacesUITests/testBuildingNamesReplaceCampusName; commit on wt/S-054.
+- Reverse if: an old name that was a bare street address (the area-first lookup's fallback) should be replaced too; today it reads as his label and stays, because the new lookup no longer returns street names.

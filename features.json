@@ -1827,7 +1827,7 @@
         "s054-building-names"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     }
   ]
 }
