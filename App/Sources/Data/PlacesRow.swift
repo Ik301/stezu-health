@@ -30,6 +30,8 @@ struct PlacesRow: View {
 /// first, with each name (Apple's geocoder or his label, kept on the phone, D-119) or "Unnamed
 /// place", and its times. A tap on a visit opens that spot's label (D-130); a tap on the map, or
 /// its Expand button, opens the map full screen, where a tap on a spot opens its label as a sheet.
+/// S-053: his own places (D-133) name every visit inside them first; a long press on the full
+/// map, or "New place here" on a spot, draws one in the same sheet.
 struct PlacesView: View {
   @Environment(\.appEnvironment) private var environment
   @Environment(\.dismiss) private var dismiss
@@ -39,6 +41,8 @@ struct PlacesView: View {
   /// The visits within 100 m of the last tap, nearest first; nil before a tap.
   @State private var spot: [PlaceRecord]?
   @State private var full = false
+  @State private var mine = MyPlaces()
+  @State private var draft: MyPlace?  // the place being drawn or edited
 
   var body: some View {
     ScrollView {
@@ -62,7 +66,7 @@ struct PlacesView: View {
         if visits?.isEmpty == true { Text("--").accessibilityIdentifier("places.empty") }
         ForEach(Array((visits ?? []).enumerated()), id: \.element.id) { index, visit in
           VStack(alignment: .leading, spacing: Theme.space2xs) {
-            Text(names[visit.id] ?? "Unnamed place").textStyle(.headline)
+            Text(mine.name(visit, looked: names) ?? "Unnamed place").textStyle(.headline)
               .accessibilityIdentifier("places.visit.\(index).name")
             Text(Self.times(visit)).textStyle(.label).foregroundStyle(Theme.muted)
           }
@@ -81,25 +85,65 @@ struct PlacesView: View {
       VStack(spacing: 0) {
         TopBar(
           title: "Places", titleID: "places.map.title",
-          action: .init(title: "Done", id: "places.map.done") { (spot, full) = (nil, false) }
+          action: .init(title: "Done", id: "places.map.done") {
+            (spot, draft, full) = (nil, nil, false)
+          }
         )
         .padding(.horizontal, Theme.spaceLg)
-        PlacesMap(places: log?.places ?? [], full: true) { pick($0, $1) }
-          .ignoresSafeArea(edges: .bottom).mapControls { MapUserLocationButton() }
+        PlacesMap(
+          places: log?.places ?? [], full: true, mine: mine, draft: draft, pressed: start,
+          edit: { (spot, draft) = (nil, $0) }, tapped: { if draft == nil { pick($0, $1) } }
+        )
+        .ignoresSafeArea(edges: .bottom).mapControls { MapUserLocationButton() }
       }
       .foregroundStyle(Theme.ink).background(Theme.ground)
-      .sheet(isPresented: Binding(get: { spot != nil }, set: { if !$0 { spot = nil } })) {
-        if let spot {
-          card(spot).presentationDetents([.medium]).presentationBackgroundInteraction(.enabled)
+      .sheet(
+        isPresented: Binding(
+          get: { spot != nil || draft != nil }, set: { if !$0 { (spot, draft) = (nil, nil) } })
+      ) {
+        Group {
+          if let draft {
+            PlaceEditor(
+              place: Binding(get: { draft }, set: { self.draft = $0 }),
+              isNew: !mine.places.contains { $0.id == draft.id },
+              inside: log?.visits(near: draft.latitude, draft.longitude, within: draft.radiusM)
+                .count ?? 0
+            ) { delete in
+              self.draft = nil
+              Task { mine = await environment.myPlaces.set(draft, delete: delete) }
+            }
+          } else if let spot {
+            card(spot)
+          }
         }
+        .presentationDetents([.medium]).presentationBackgroundInteraction(.enabled)
       }
     }
   }
 
   private func card(_ spot: [PlaceRecord]) -> some View {
-    PlaceSpotCard(visits: spot, name: spot.first.flatMap { names[$0.id] }) { label in
-      Task { names = await environment.placeNames.label(label, visits: spot.map(\.id)) }
-    }
+    let place = spot.first.flatMap(mine.place(for:))
+    return PlaceSpotCard(
+      visits: spot, name: spot.first.flatMap { mine.name($0, looked: names) }, mine: place,
+      place: {
+        if let place {
+          (self.spot, draft) = (nil, place)
+        } else if let at = spot.first {
+          start(at.latitude, at.longitude)
+        }
+        full = true
+      },
+      save: { label in
+        Task { names = await environment.placeNames.label(label, visits: spot.map(\.id)) }
+      })
+  }
+
+  /// A new place centred there (S-053), 75 m across by default; while one is being drawn, a
+  /// long press moves it instead.
+  private func start(_ latitude: Double, _ longitude: Double) {
+    var place = draft ?? MyPlace(id: UUID().uuidString, name: "", latitude: 0, longitude: 0)
+    (place.latitude, place.longitude) = (latitude, longitude)
+    (spot, draft) = (nil, place)
   }
 
   /// The map full screen (S-052), with no spot open yet.
@@ -126,6 +170,7 @@ struct PlacesView: View {
     }
     visits = found.sorted { ($0.times.first ?? .distantPast) > ($1.times.first ?? .distantPast) }
     names = await environment.placeNames.names
+    mine = await environment.myPlaces.places
     // D-119: looked up only while the app is open, once a visit; the names stay on the phone.
     if UIApplication.shared.applicationState == .active {
       names = await environment.placeNames.name(found)

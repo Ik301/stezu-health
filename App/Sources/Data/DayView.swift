@@ -13,6 +13,7 @@ struct DayView: View {
   @State private var night: SleepNight?
   @State private var places: [PlaceRecord] = []  // the day's visits
   @State private var names: [String: String] = [:]  // S-049: by visit id, on the phone only
+  @State private var mine = MyPlaces()  // S-053: his places name the visits inside them first
   @State private var sleepOpen = false
   /// Deleted this visit; a scenario's seeded meals and sessions live only in memory.
   @State private var removed: [DayRecord.Owner] = []
@@ -41,7 +42,8 @@ struct DayView: View {
           day: day, marks: marks { proxy.scrollTo("day.record.\($0)", anchor: .top) },
           visits: places.compactMap { place in
             guard let from = place.times.first, let to = place.times.last else { return nil }
-            return .init(span: DateInterval(start: from, end: to), name: names[place.id])
+            return .init(
+              span: DateInterval(start: from, end: to), name: mine.name(place, looked: names))
           }
         )
         .padding(Theme.spaceMd).background(Theme.surface, in: shape)
@@ -207,6 +209,7 @@ struct DayView: View {
       }
       return to >= start && from < start + 86_400
     }
+    mine = await environment.myPlaces.places
     // D-119: looked up only while the app is open, once a visit; the names stay on the phone.
     if UIApplication.shared.applicationState == .active {
       names = await environment.placeNames.name(places)

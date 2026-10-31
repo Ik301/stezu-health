@@ -271,7 +271,7 @@ enum UITestFixtures {
   }
 
   /// "data-food-week" (S-041): Monday 08:00-11:50 and 12:10-17:50 at two made-up places.
-  static let dayVisits = [(10.25, 480.0, 710.0), (10.75, 730.0, 1070.0)].map { place in
+  static let dayVisits = [(10.25, 480.0, 710.0), (10.2504, 730.0, 1070.0)].map { place in
     LocationEvent.visit(
       arrival: dataWeekDay(5, hour: 0) + place.1 * 60,
       departure: dataWeekDay(5, hour: 0) + place.2 * 60,
@@ -279,7 +279,8 @@ enum UITestFixtures {
   }
 
   /// S-049: the fake geocoder's names for those made-up places, by latitude.
-  static let placeNames = [10.25: "Library", 10.75: "Dining hall"]
+  /// 10.2504, 44 m from the Library, is Monday's Dining hall, so one circle holds both (S-053).
+  static let placeNames = [10.25: "Library", 10.75: "Dining hall", 10.2504: "Dining hall"]
 
   /// "background-sync" (S-033): a visit queued as if recorded while the app was closed.
   static func backgroundVisit(now: Date = Date()) -> LocationEvent {
