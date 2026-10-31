@@ -1933,6 +1933,22 @@ The research notes cited here are kept private, because they contain personal he
 - Evidence: App/Sources/Data/PlacesMap.swift, App/Sources/Data/PlacesRow.swift, Packages/StezuCore/Sources/StezuCore/LocationRecord.swift (`mapRadius`); LocationRecordTests/testVisitRadiusUsesAccuracyWithFloor, PlacesUITests/testFullScreenMapZoomAndSpot; commit on wt/S-052.
 - Reverse if: Isaac wants the full map to open on the whole log or on where he is now, or the pick radius should follow the zoom (it is a fixed 100 m).
 
+## D-136 Sleep's last night and week mean live on SleepSummary, which each sleep view loads itself
+
+- Status: proposed by night agent, 2026-10-31 (S-051, the mechanism behind D-132).
+- Problem: Home showed last night from `SleepSummary`, This week's Sleep row showed the week's mean from `MetricHistory`, and nothing tied the two together or said which was which, so they read as a contradiction and could drift if either computation changed.
+- Given: both already build nights with `SleepNights.nights`; Home loads one `SleepSummary`; This week's row and the Sleep screen are separate views with their own `.task` loads from `environment.healthStore`; the row's sparkline still needs `MetricHistory`.
+- Constraints:
+  - Passing Home's summary down to Data and Sleep would thread a value through the shell's navigation (breaks the one-folder-per-area layout and the card's boundaries).
+  - Computing the mean twice, once per type, lets the two drift (breaks the story's step 5).
+- Options:
+  - (a) `SleepSummary` gains `weekMean` (a `WeeklyStat`) from a static `SleepSummary.weekMean(nights, in:)`, which `MetricHistory`'s sleep weeks also call; `SleepSummary.text` writes every sleep duration (nearest minute, "--" when absent). Home, the row and the Sleep screen each call `SleepSummary.load`, one extra Health sleep read per view.
+  - (b) One shared cache of the last `SleepSummary` in `AppEnvironment`.
+  - (c) Derive last night from `MetricHistory`'s current week in the row.
+- Decision: (a). The extra reads are small (61 days of intervals) and the views stay independent.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SleepSummary.swift (`weekMean`, `text`), MetricHistory.swift (sleep), App/Sources/Data/WeeklyHealthRows.swift, SleepDetailView.swift, MetricRow.swift (`unit`); SleepDetailTests/testRowHomeAndScreenShareLastNightAndWeekMean, SleepDetailUITests/testSleepNumbersAreLabelled. Commit: the S-051 squash on main.
+- Reverse if: Health reads on opening Data or Sleep become slow enough to see, then cache one summary in the environment (b).
+
 ## D-137 His places resolve at display time from my-places.json; nothing is written per visit
 
 - Status: proposed by night agent, 2026-10-31 (S-053). Implements D-133.

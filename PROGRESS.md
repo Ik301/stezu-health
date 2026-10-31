@@ -595,6 +595,17 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Tests: StezuCoreTests LocationRecordTests/testVisitRadiusUsesAccuracyWithFloor; AppUITests PlacesUITests/testFullScreenMapZoomAndSpot (screenshot s052-places-full-map). No existing test changed: no test tapped the old interactive map.
 - Left undone: the 100 m pick radius does not follow the zoom, so far out a tap on a dot can say "No visit here"; zoom in first.
 
+## 2026-10-31 S-051 Every sleep number says which one it is (night agent)
+
+- This week's Sleep row: the value is the week's mean with a small muted "avg" after it (`data.sleep.value`, "7h 9m avg" in home-week); the subtitle is "Last night 6h 15m, 6 of 7 nights" ("Last night --" without one). Both come from `SleepSummary`, the same type Home's Data card loads (D-136). With no nights the value stays "--" with no "avg".
+- Sleep screen: under the big number and the in-bed line, "This week avg 7h 9m" (`sleep.week`) above the existing "Usual 7h 20m, your median of 6 nights".
+- Core: `SleepSummary.weekMean` (a `WeeklyStat`) and `SleepSummary.text` (nearest minute, "--" when absent). `MetricHistory`'s sleep weeks call the same `weekMean`, so the row, its detail and the Sleep screen cannot differ; `Metric.sleep.format` now rounds through `text` instead of truncating. `MetricRow` takes an optional `unit`, and its value is one accessibility element ("7h 9m avg").
+- Home's Data card is unchanged (it reads `lastNight`, as before).
+- Tests: StezuCoreTests SleepDetailTests/testRowHomeAndScreenShareLastNightAndWeekMean; AppUITests SleepDetailUITests/testSleepNumbersAreLabelled (screenshots s051-this-week-sleep, s051-sleep-screen). Changed because the story changes what they check: WeeklyHealthUITests/testHealthRowsShowCoverage now expects "7h 20m avg" and "Last night --, 5 of 7 nights" (and "Last night --, 0 of 7 nights" with no data). `FEATURE_ID=S-051 scripts/gate-linux.sh` passed G1 to G8.
+- Deviation: on the CI simulator the Sleep row's subtitle wraps to two lines ("Last night 6h 15m, 6 of / 7 nights") beside the bars and "7h 9m avg".
+- Left undone: nothing from the story's steps.
+
+
 ## 2026-10-31 S-053 Isaac draws his own places (night agent)
 
 - Core: `MyPlace` (id, name, optional note, centre, radiusM) and `MyPlaces` (`place(for:)`: the smallest circle holding the visit; `name(_:looked:)`: his place, then the looked-up name, else nil). `MyPlacesStore` saves my-places.json beside location-log.json, on the phone only (D-133, D-137).

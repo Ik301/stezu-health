@@ -4,6 +4,8 @@ import SwiftUI
 /// This week's Health rows (S-022, S-039) from the same 8-week history as the detail (D-116). No
 /// data shows "--" beside the coverage, never 0; with `hint`, a metric without data adds the
 /// Sources hint. Blood oxygen and temperature have no row (D-093); Health still reads them.
+/// Sleep's value is the week's mean, marked "avg", over last night from Home's SleepSummary
+/// (S-051), so the row never reads as a contradiction of Home.
 struct WeeklyHealthRows: View {
   let metrics: [Metric]
   var reload = 0
@@ -11,17 +13,20 @@ struct WeeklyHealthRows: View {
   var open: (Metric) -> Void = { _ in }
   @Environment(\.appEnvironment) private var environment
   @State private var histories: [Metric: MetricHistory] = [:]
+  @State private var sleep: SleepSummary?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       ForEach(metrics) { metric in
-        let week = histories[metric]?.weeks.first
+        let stat = metric == .sleep ? sleep?.weekMean : histories[metric]?.weeks.first?.stat
+        let night = metric == .sleep ? "Last night \(SleepSummary.text(sleep?.lastNight)), " : ""
         MetricRow(
           title: metric.title, id: metric.rawValue,
-          coverage: week.map { coverage(metric, $0.stat.coverage) } ?? "--",
+          coverage: stat.map { night + coverage(metric, $0.coverage) } ?? "--",
           values: histories[metric].map(ChartSeries.sparkline) ?? [],
           bars: metric == .steps || metric == .sleep, color: metric.color,
-          value: week?.stat.value.map(metric.format) ?? "--", first: metric == metrics.first
+          value: stat?.value.map(metric.format) ?? "--",
+          unit: metric == .sleep && stat?.value != nil ? "avg" : nil, first: metric == metrics.first
         ) { open(metric) }
       }
       if hint, histories.count == metrics.count,
@@ -31,6 +36,9 @@ struct WeeklyHealthRows: View {
       }
     }
     .task(id: reload) {
+      if metrics.contains(.sleep) {
+        sleep = await SleepSummary.load(from: environment.healthStore, now: environment.now())
+      }
       for metric in metrics {
         histories[metric] = await MetricHistory.load(
           metric, from: environment.weightHealth, now: environment.now())

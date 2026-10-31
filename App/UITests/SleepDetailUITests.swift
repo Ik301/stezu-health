@@ -96,6 +96,44 @@ final class SleepDetailUITests: XCTestCase {
     XCTAssertTrue(app.element("sleep.asleep").waitForExistence(timeout: 10), "not on Sleep")
   }
 
+  /// S-051: with home-week (made up: 7h 20m on five nights, 6h 15m last night) This week's Sleep
+  /// row shows the week's mean marked "avg" and last night from the same summary as Home's card;
+  /// the Sleep screen labels the week's mean and the usual night under last night.
+  @MainActor
+  func testSleepNumbersAreLabelled() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "home-week")
+    let card = app.element("home.card.data")
+    XCTAssertTrue(card.waitForExistence(timeout: 30), "no Data card on Home")
+    let asleep = NSPredicate(format: "label CONTAINS %@", " minutes asleep")
+    XCTAssertEqual(
+      XCTWaiter().wait(for: [expectation(for: asleep, evaluatedWith: card)], timeout: 10),
+      .completed, "no last night on Home: \(card.label)")
+    // "Data, Last night, 6 hours 15 minutes asleep, ..." gives "6h 15m".
+    let words = card.label.components(separatedBy: ", ")[2].components(separatedBy: " ")
+    let lastNight = "\(words[0])h \(words[2])m"
+    XCTAssertEqual(lastNight, "6h 15m")
+
+    // Step 2: the row's value is the week's mean with "avg"; last night leads the subtitle.
+    card.tap()
+    let coverage = app.element("data.sleep.coverage")
+    XCTAssertTrue(waitForLabel(coverage, "Last night \(lastNight), 6 of 7 nights"), coverage.label)
+    let value = app.element("data.sleep.value").label
+    XCTAssertTrue(value.hasSuffix(" avg"), "no avg: \(value)")
+    XCTAssertEqual(value, "7h 9m avg")
+    let row = app.element("data.sleep.open")
+    for _ in 0..<3 where !row.isHittable { app.swipeUp() }
+    saveScreenshot("s051-this-week-sleep", of: app)
+
+    // Step 3: the Sleep screen labels both reference numbers under last night.
+    row.tap()
+    XCTAssertTrue(waitForLabel(app.element("sleep.asleep"), lastNight), "Sleep did not open")
+    XCTAssertEqual(app.element("sleep.night").label, "Last night")
+    XCTAssertTrue(waitForLabel(app.element("sleep.week"), "This week avg 7h 9m"))
+    XCTAssertEqual(app.element("sleep.usual").label, "Usual 7h 20m, your median of 6 nights")
+    saveScreenshot("s051-sleep-screen", of: app)
+  }
+
   /// Home, Data, then the Sleep row (1 tap from This week); waits for last night.
   @MainActor
   private func openSleep(_ app: XCUIApplication) {

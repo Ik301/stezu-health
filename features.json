@@ -1735,7 +1735,7 @@
         "s051-sleep-screen"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-052",

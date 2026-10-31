@@ -162,4 +162,39 @@ final class SleepDetailTests: XCTestCase {
     XCTAssertEqual(bare?.map(\.value), ["--", "--", "--"], "absent, not 0")
     XCTAssertEqual(bare?.map(\.unit), ["", "", ""])
   }
+
+  /// S-051: Home's last night, This week's Sleep row (last night and the week's mean) and the
+  /// Sleep screen (its big number and the "This week avg" line) come from one place. With the
+  /// home-week nights (made up): 7h 20m on Mon, Tue, Wed, Fri, Sat, 6h 15m last night.
+  func testRowHomeAndScreenShareLastNightAndWeekMean() async {
+    let usual: [(SleepStage, Double, Double)] = [
+      (.inBed, -60, 420), (.asleepCore, -45, 180), (.asleepDeep, 180, 240),
+      (.asleepREM, 240, 330), (.awake, 330, 340), (.asleepCore, 340, 405),
+    ]
+    let last: [(SleepStage, Double, Double)] = [
+      (.inBed, -60, 420), (.asleepCore, -30, 180), (.asleepDeep, 180, 240), (.awake, 240, 250),
+      (.asleepREM, 250, 300), (.awake, 300, 305), (.asleepREM, 305, 360),
+    ]
+    let nights = ([5, 6, 7, 9, 10].map { ($0, usual) } + [(11, last)]).flatMap { day, stages in
+      stages.map { stage($0.0, day, $0.1, $0.2) }
+    }
+    let summary = SleepSummary.make(nights, now: now, calendar: calendar)
+    let detail = SleepDetail.make(nights, samples: [], now: now, calendar: calendar)
+    let history = await MetricHistory.load(
+      .sleep, from: FakeHealthStore(sleep: nights), now: now, calendar: calendar)
+
+    XCTAssertEqual(summary.lastNight, 375 * 60, "Home's last night")
+    XCTAssertEqual(detail.nights[at(11, 0)]?.asleep, summary.lastNight, "the Sleep screen's")
+    XCTAssertEqual(summary.weekMean.coverage, 6)
+    XCTAssertEqual(summary.weekMean.value ?? 0, (5 * 440 + 375) * 60 / 6, accuracy: 0.001)
+    XCTAssertEqual(history.weeks.first?.stat, summary.weekMean, "the row and its detail agree")
+    XCTAssertEqual(SleepSummary.text(summary.lastNight), "6h 15m")
+    XCTAssertEqual(SleepSummary.text(summary.weekMean.value), "7h 9m")
+
+    let none = SleepSummary.make([], now: now, calendar: calendar)
+    XCTAssertNil(none.lastNight, "absent, not 0")
+    XCTAssertNil(none.weekMean.value, "absent, not 0")
+    XCTAssertEqual(none.weekMean.coverage, 0)
+    XCTAssertEqual(SleepSummary.text(none.lastNight), "--")
+  }
 }
