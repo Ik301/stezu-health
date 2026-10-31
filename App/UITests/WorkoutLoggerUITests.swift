@@ -83,7 +83,9 @@ final class WorkoutLoggerUITests: XCTestCase {
     XCTAssertTrue(first.waitForExistence(timeout: 10), "the session has no exercises")
     XCTAssertEqual(first.label, "Bench press")
     XCTAssertEqual(app.element("history.exercise.1").label, "Cable crunch")
-    XCTAssertEqual(app.element("history.exercise.1.sets").label, "30 x 10")
+    // S-055: a finished session's sets are chips, one per set.
+    XCTAssertEqual(app.element("history.set.1.0").label, "30 x 10")
+    XCTAssertFalse(app.element("history.set.1.1").exists, "a second Cable crunch set")
     XCTAssertFalse(app.element("history.exercise.2").exists, "an unlogged exercise was saved")
   }
 

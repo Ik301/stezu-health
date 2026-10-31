@@ -63,7 +63,11 @@ struct WorkoutView: View {
       WorkoutHistoryView(
         sessions: history, names: library?.names ?? [:],
         continuable: { continuing($0) != nil },
-        onContinue: { continuing($0).map(continueSession) })
+        onContinue: { continuing($0).map(continueSession) },
+        editable: { s in (finished ?? []).contains { $0.session.startedAt == s.startedAt } },
+        onEdit: { past, edit in
+          Task { finished = await environment.editSet(edit, past, in: finished ?? []) }
+        })
     }
     .alert(
       pending.map(WorkoutTemplateStore.question) ?? "",
