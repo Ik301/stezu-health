@@ -1828,6 +1828,42 @@
       ],
       "needs_server": false,
       "passes": true
+    },
+    {
+      "id": "S-055",
+      "kind": "story",
+      "area": "workout",
+      "title": "Change or delete a set of a finished workout, from History or the Day view",
+      "steps": [
+        "Open Workout, History, a finished session. Each set of each exercise is its own chip, \"60 x 8\" (\"BW x 10\" for bodyweight), id history.set.<exercise>.<set>. In the Day view, a Stezu session saved in finished-workouts.json shows the same chips under its record, id day.record.<n>.set.<exercise>.<set>. Seeded fixture sessions and Health's workouts have no chips.",
+        "Tap a set. A sheet opens titled with the exercise and set number, with weight and reps steppers (5 lb steps, as in the logger; a bodyweight set stays BW), Save, Cancel and Delete. Save changes the set, and the session page or the Day record shows the new numbers at once.",
+        "Delete turns into Confirm on the first tap, like the Day view's other deletes; the second tap removes the set. An exercise with no sets left is dropped. A session with no sets left is kept with 0 sets; the Day view's existing session Delete removes it.",
+        "The phone first (D-076): finished-workouts.json is saved, then the sync queue gets the set again under the same id with a newer updated_at (deleted: the same id with deleted: true, as Undo sends it), and the workout_session record again under the same id with a newer updated_at, so the server's n_sets and total_reps follow.",
+        "Apple Health is not touched: Stezu's workout there holds only the start, the end and the session id, and editing a set changes none of them (D-139).",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary and list the rest in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "1 tap opens a set; then 2 taps to delete it (Delete, Confirm) or 2 for a one-step change (+ or -, Save)",
+      "depends_on": [
+        "S-010",
+        "S-025",
+        "S-030"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SetEditTests/testChangeKeepsSetIdAndResendsSession",
+        "StezuCoreTests.SetEditTests/testDeleteSendsTombstoneAndSessionWithoutTheSet",
+        "StezuCoreTests.SetEditTests/testDeletingLastSetKeepsEmptySession",
+        "AppTests.PastSetEditTests/testEditSavesOnPhoneThenQueuesRecords"
+      ],
+      "ui_tests": [
+        "AppUITests.SetEditUITests/testEditAndDeleteAPastSet"
+      ],
+      "screenshots": [
+        "s055-set-editor",
+        "s055-history-edited",
+        "s055-day-sets"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }

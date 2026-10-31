@@ -1982,3 +1982,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The lookup order (point of interest, then placemark name, then area) is `PlaceLookup.best` in the core. The app's `AppleReverseGeocoder` always runs both requests (points of interest and reverse geocoding), so the area is known even when a building is found; without it an old campus name would look like a label and stay.
 - Evidence: Packages/StezuCore/Sources/StezuCore/PlaceNames.swift, App/Sources/Data/LocationService.swift (`AppleReverseGeocoder`, `placeNamesFile`), App/Sources/UITestFixtures.swift (`oldPlaceNames`); PlaceNamesTests/testPOINameBeatsAreaOfInterest, testVersionOneNamesAreLookedUpAgainOnce, PlacesUITests/testBuildingNamesReplaceCampusName; commit on wt/S-054.
 - Reverse if: an old name that was a bare street address (the area-first lookup's fallback) should be replaced too; today it reads as his label and stays, because the new lookup no longer returns street names.
+
+## D-139 A finished session's sets can be changed or deleted afterwards; Health's workout is left alone
+
+- Status: decided by Isaac, 2026-10-31 (he logged a demo set by mistake and could not remove it). The mechanism is proposed (S-055).
+- Problem: the only way to remove a set is the logger's Undo, for the last set only, while the logger is open. A wrong set in a finished session stays on the phone, in History, in the Day view and on the server for good.
+- Given: set ids derive from the session's start and the set's logged time (S-030), so a set keeps its id when its numbers change. The server keeps the newest `updated_at` per (kind, id), and a tombstone removes a record. The Day view already deletes meals, weigh-ins and sessions with a Delete that turns into Confirm (S-025). Stezu's Health workout holds only start, end and the session id (`HealthKitStore.saveStrengthWorkout`).
+- Constraints:
+  - Re-sending only the set leaves the workout_session record's sets stale, so the server's n_sets and total_reps are wrong (breaks the server's counts).
+  - Rewriting the Health workout as Continue does (delete, then save) changes nothing in it, and a failed save after the delete loses it (breaks "Health has the workout").
+  - Editing the open logger's session is Undo's job; two ways to change it would race (breaks S-004's undo order).
+- Options:
+  - (a) Finished sessions only: save finished-workouts.json, then queue the set (or its tombstone) and the session record, both with a newer `updated_at`; Health untouched.
+  - (b) As (a), and also delete and rewrite the Health workout.
+  - (c) Delete only, no edit.
+- Decision: (a). A session left with no sets stays, with 0 sets; the Day view's session Delete removes it.
+- Evidence: features.json S-055.
+- Reverse if: Stezu starts writing sets, volume or energy into the Health workout (then an edit must rewrite it), or Isaac wants a session with no sets removed automatically.
