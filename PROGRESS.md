@@ -586,3 +586,11 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - A tap on the map, or on a visit in the list, opens that spot: its label or "No label", how many visits fall within 100 m, a Label field and Save. Save names all those visits in place-names.json on the phone (D-119); the list updates. Tapping where there is no visit says "No visit here".
 - Tests: StezuCoreTests PlaceLabelTests (3); AppUITests PlacesHeatMapUITests/testHeatMapSpotTakesALabel (screenshots places-heatmap, places-label-saved).
 - Left undone: a new visit to a labelled spot gets the geocoder's name, not the label; the heat map is stacked circles, not a smoothed gradient.
+
+## 2026-10-31 S-052 Places map full screen, visits drawn to scale (night agent)
+
+- The map on Places is now a still preview (no interaction modes), so the page scrolls normally. A tap on it, or its Expand button (`places.map.expand`, top right), opens it full screen (`places.map.full`) under a TopBar with the title "Places" and Done (`places.map.done`). There pinch, pan and rotate all work, it shows the user's location and a recenter button, and it opens about 1 km around the newest visit (D-135).
+- Visits are drawn to scale: a circle as large as the visit's accuracy, at least 15 m (`PlaceRecord.mapRadius`), at the band's low opacity so repeats stack darker. Fixes are 10 m dots at half that opacity.
+- In full screen a tap on a spot opens the existing PlaceSpotCard as a medium sheet over the map; the map stays usable behind it. A tap on a visit in the list still opens the card inline.
+- Tests: StezuCoreTests LocationRecordTests/testVisitRadiusUsesAccuracyWithFloor; AppUITests PlacesUITests/testFullScreenMapZoomAndSpot (screenshot s052-places-full-map). No existing test changed: no test tapped the old interactive map.
+- Left undone: the 100 m pick radius does not follow the zoom, so far out a tap on a dot can say "No visit here"; zoom in first.

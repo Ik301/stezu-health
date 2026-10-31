@@ -105,6 +105,10 @@ extension LocationLog {
 }
 
 extension PlaceRecord {
+  /// The heat map's circle, in metres (S-052): a visit is drawn as large as its accuracy, at
+  /// least 15 m; a fix is a 10 m dot, smaller than any visit.
+  public var mapRadius: Double { isVisit ? max(horizontalAccuracyM, 15) : 10 }
+
   /// The great-circle distance between two coordinates, in metres.
   public static func meters(_ lat1: Double, _ lon1: Double, _ lat2: Double, _ lon2: Double)
     -> Double

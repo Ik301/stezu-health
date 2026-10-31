@@ -2,30 +2,48 @@ import MapKit
 import StezuCore
 import SwiftUI
 
-/// Places' heat map (native MapKit): every visit and location fix in the phone's log is a faint
-/// circle, so the spots Isaac goes back to stack up darker. A tap passes the coordinate under
-/// the finger on; Places finds the visits there.
+/// Places' heat map (native MapKit): every visit is a faint circle as large as its accuracy, and
+/// every location fix a fainter 10 m dot, so the spots Isaac goes back to stack up darker
+/// (S-052). On Places it is a still preview; full screen, pinch, pan and rotate all work and it
+/// opens on the newest visit. A tap passes the coordinate under the finger on.
 struct PlacesMap: View {
   let places: [PlaceRecord]
+  var full = false
   let tapped: (_ latitude: Double, _ longitude: Double) -> Void
 
   var body: some View {
     MapReader { proxy in
-      Map(initialPosition: .automatic) {
+      Map(initialPosition: full ? start : .automatic, interactionModes: full ? .all : []) {
         ForEach(places, id: \.id) { place in
           MapCircle(
             center: CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude),
-            radius: 80
+            radius: place.mapRadius
           )
-          .foregroundStyle(Theme.dataEnergyBand)
+          .foregroundStyle(Theme.dataEnergyBand.opacity(place.at == nil ? 1 : 0.5))
         }
+        UserAnnotation()
       }
       .onTapGesture { point in
         if let spot = proxy.convert(point, from: .local) { tapped(spot.latitude, spot.longitude) }
       }
     }
-    .frame(height: 280).clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard))
-    .accessibilityIdentifier("places.map")
+    .frame(height: full ? nil : 280).clipShape(
+      RoundedRectangle(cornerRadius: full ? 0 : Theme.radiusCard)
+    )
+    .accessibilityIdentifier(full ? "places.map.full" : "places.map")
+  }
+
+  /// About 1 km around the newest visit, where the circles are drawn to scale; else all of it.
+  private var start: MapCameraPosition {
+    let visits = places.filter { $0.at == nil }
+    guard
+      let newest = visits.max(by: {
+        ($0.times.first ?? .distantPast) < ($1.times.first ?? .distantPast)
+      })
+    else { return .automatic }
+    let center = CLLocationCoordinate2D(latitude: newest.latitude, longitude: newest.longitude)
+    return .region(
+      MKCoordinateRegion(center: center, latitudinalMeters: 1000, longitudinalMeters: 1000))
   }
 }
 

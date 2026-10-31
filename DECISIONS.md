@@ -1915,3 +1915,20 @@ The research notes cited here are kept private, because they contain personal he
 
 - Status: decided by Isaac, 2026-10-30 ("even in maps, they have more granular location labels, use those"). The mechanism is proposed (S-054).
 - What: MKLocalPointsOfInterestRequest first, then the placemark name, then the area of interest. Names from the old lookup are looked up again.
+
+## D-135 The full-screen Places map shares Places' spot state and opens on the newest visit
+
+- Status: proposed by night agent, 2026-10-31 (S-052).
+- Problem: Isaac cannot zoom into the heat map: the 280 pt map sits in a scrolling screen, so pinch and pan fight the scroll, and every point was a fixed 80 m circle that turns into a blob up close.
+- Given: Places (PlacesView) already holds the location log, the looked-up and labelled names, and the picked spot (the visits within 100 m of a tap, D-130). PlaceSpotCard saves labels through `PlaceNames.label`. The fixture's visits are tens of kilometres apart.
+- Constraints:
+  - A second view with its own copy of the log and names would let a label saved in full screen miss the list behind it (breaks "the list updates on Save").
+  - Opening on the whole log (`.automatic`) shows 15 m circles as invisible specks when the visits are far apart, and gives a UI test no fixed point to tap (breaks the story's test).
+  - An interactive preview inside the ScrollView keeps the gesture fight (breaks step 2).
+- Options:
+  - (a) One `PlacesMap` with a `full` flag: the preview has no interaction modes and a tap or the Expand button opens a fullScreenCover from PlacesView; the cover's map has all modes, starts about 1 km around the newest visit (else `.automatic`), and its taps set the same `spot` state, shown as a medium-detent sheet with background interaction on. Done clears the spot and closes the cover.
+  - (b) A separate full-screen view with its own state, passed callbacks for names and labels.
+  - (c) Keep one map in the ScrollView and disable scrolling while it is touched.
+- Decision: (a). Radii come from the core (`PlaceRecord.mapRadius`: a visit max(accuracy, 15 m), a fix 10 m, drawn at half the band's opacity).
+- Evidence: App/Sources/Data/PlacesMap.swift, App/Sources/Data/PlacesRow.swift, Packages/StezuCore/Sources/StezuCore/LocationRecord.swift (`mapRadius`); LocationRecordTests/testVisitRadiusUsesAccuracyWithFloor, PlacesUITests/testFullScreenMapZoomAndSpot; commit on wt/S-052.
+- Reverse if: Isaac wants the full map to open on the whole log or on where he is now, or the pick radius should follow the zoom (it is a fixed 100 m).
