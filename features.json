@@ -1704,6 +1704,130 @@
       ],
       "needs_server": false,
       "passes": true
+    },
+    {
+      "id": "S-051",
+      "kind": "story",
+      "area": "data",
+      "title": "Every sleep number says which one it is: last night, this week's average, or your usual",
+      "steps": [
+        "Bug report from Isaac: Home's Data card and the Sleep screen show last night (3h 52m), while This week's Sleep row shows a different number. That row shows the week's mean, but nothing says so, so it reads as a contradiction.",
+        "This week's Sleep row: the value becomes the week's mean with a small \"avg\" after it (\"7h 47m avg\"). The subtitle reads \"Last night 3h 52m, 5 of 7 nights\" (\"Last night --\" when there is none). Last night comes from the same SleepSummary as Home's card, so the two always match.",
+        "Sleep screen: under the big \"Last night\" number, show both reference lines, each labelled: \"This week avg 7h 47m\" and \"Usual 7h 20m, your median of N nights\". Use the same MetricHistory mean as the row.",
+        "Home's Data card is unchanged: it already says \"Last night\".",
+        "Core: one shared function gives last night and the week's mean for Home, the row and the Sleep screen, so they can't drift.",
+        "UI test with the home-week fixture: the This week Sleep row's subtitle contains the same last-night value as Home's Data card, its value ends in \"avg\", and the Sleep screen shows both the \"This week avg\" and \"Usual\" lines.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-047",
+        "S-048"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SleepDetailTests/testRowHomeAndScreenShareLastNightAndWeekMean"
+      ],
+      "ui_tests": [
+        "AppUITests.SleepDetailUITests/testSleepNumbersAreLabelled"
+      ],
+      "screenshots": [
+        "s051-this-week-sleep",
+        "s051-sleep-screen"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-052",
+      "kind": "story",
+      "area": "data",
+      "title": "Places map opens full screen: zoom and pan freely, and visits drawn to scale",
+      "steps": [
+        "Isaac wants to zoom into the heat map. Today it is a 280 pt map inside a scrolling screen, so pinch and pan fight the scroll view, and every visit is a fixed 80 m circle that becomes a blob when zoomed in.",
+        "Tapping the map on Places, or an Expand button in its corner, opens it full screen (fullScreenCover), with a TopBar holding Done and the title \"Places\". Pinch, pan and rotate all work (all MapInteractionModes). The small map on Places stays as the preview, with interaction off, so the page scrolls normally.",
+        "Visits are drawn to scale: each visit is a MapCircle with radius max(its horizontal accuracy, 15 m) at a low opacity, so repeated visits still stack darker. Location fixes (not visits) are smaller and fainter. Show the user's location (UserAnnotation) and a recenter control (MapUserLocationButton).",
+        "In full screen, tapping a spot opens the existing PlaceSpotCard as a bottom sheet over the map. Keep the ids places.map, places.spot.*; add places.map.full and places.map.done.",
+        "UI test with the generic visits fixture: tap the preview, the full-screen map appears, tap a fixture visit and its spot card shows, Done closes it.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "1 tap to open the full map",
+      "depends_on": [
+        "S-049"
+      ],
+      "core_tests": [
+        "StezuCoreTests.LocationRecordTests/testVisitRadiusUsesAccuracyWithFloor"
+      ],
+      "ui_tests": [
+        "AppUITests.PlacesUITests/testFullScreenMapZoomAndSpot"
+      ],
+      "screenshots": [
+        "s052-places-full-map"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-053",
+      "kind": "story",
+      "area": "data",
+      "title": "Isaac draws his own places: a named circle with a note, and every visit inside it takes that name",
+      "steps": [
+        "Today a label applies only to the visits under one tap, so other visits at the same building stay unlabelled. Isaac wants to set one enclosing circle and have every visit inside it marked with his label.",
+        "Core: `MyPlace` {id, name, note (optional), latitude, longitude, radiusM} in a `MyPlaces` store, saved in my-places.json next to location-log.json. These stay on the phone like the other names (D-133). `MyPlaces.place(for:)` returns the place whose circle contains a visit's coordinate. When circles overlap, the smallest containing circle wins.",
+        "Name resolution order for a visit, everywhere names show (Places, the spot card, the Day timeline): his MyPlace, then a looked-up name (PlaceNames), then the visit's times. A MyPlace changes the name instantly for every visit inside it, past and future, and editing or deleting the circle updates them all.",
+        "Full-screen map (S-052): long-press anywhere, or tap \"New place\" on a spot card, to start a place. The circle appears centred there, with a radius slider from 25 to 400 m (default 75) that resizes it live. The visits it would contain are highlighted, with a count (\"12 visits inside\"). Then a name field and an optional note (\"context\", for example \"Lift on Mon and Thu\"), and Save. His places are drawn as outlined circles with their name; tap one to edit (name, note, radius, drag to move) or delete.",
+        "The spot card shows the place's name and note when a visit is inside one of his places, and offers \"New place here\" otherwise.",
+        "UI test with the generic visits fixture: long-press, set the radius to cover both fixture visits, name it \"Gym\", Save. Both visits read \"Gym\" on the spot card and the Day timeline. Delete it and they fall back.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "long-press, slider, name, Save",
+      "depends_on": [
+        "S-052"
+      ],
+      "core_tests": [
+        "StezuCoreTests.PlaceNamesTests/testSmallestEnclosingPlaceWins",
+        "StezuCoreTests.PlaceNamesTests/testMyPlaceOverridesLookedUpName",
+        "StezuCoreTests.PlaceNamesTests/testDeletingPlaceRestoresFallback"
+      ],
+      "ui_tests": [
+        "AppUITests.PlacesUITests/testDrawPlaceLabelsEveryVisitInside"
+      ],
+      "screenshots": [
+        "s053-new-place",
+        "s053-place-applied"
+      ],
+      "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-054",
+      "kind": "story",
+      "area": "data",
+      "title": "Looked-up place names are buildings, not \"Princeton University\"",
+      "steps": [
+        "Every visit is named \"Princeton University\", because AppleReverseGeocoder returns `areasOfInterest.first` (the whole campus) before anything finer. Apple Maps knows the buildings (\"Frist Campus Center\", \"Firestone Library\", \"Dillon Gymnasium\").",
+        "New lookup order (D-134):\n    1. Nearest point of interest: MKLocalPointsOfInterestRequest centred on the visit, with a radius of max(accuracy, 40) + 40 m, capped at 150 m. Pick the item nearest the visit, and skip categories that aren't places he spends time (ATM, EV charger, parking).\n    2. Otherwise the reverse-geocoded placemark's `name` when it isn't just a street address (MKReverseGeocodingRequest on iOS 26; CLGeocoder elsewhere).\n    3. Only then `areasOfInterest.first`.\n  Keep it behind the ReverseGeocoder protocol, with the fake in -uitest.",
+        "Re-look-up names saved by the old lookup: give PlaceNames a lookup version. Any name saved with version 1, or equal to an area of interest, is looked up again once, in the foreground, at most 10 per launch. His own labels (S-053) are never touched.",
+        "Throttle to Apple's limits: one lookup at a time, and stop for the launch on a throttling error.",
+        "UI test with a fake geocoder that returns both a POI and an area. The POI name wins, and an old \"Princeton University\" name is replaced on the next launch.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "unchanged",
+      "depends_on": [
+        "S-053"
+      ],
+      "core_tests": [
+        "StezuCoreTests.PlaceNamesTests/testPOINameBeatsAreaOfInterest",
+        "StezuCoreTests.PlaceNamesTests/testVersionOneNamesAreLookedUpAgainOnce"
+      ],
+      "ui_tests": [
+        "AppUITests.PlacesUITests/testBuildingNamesReplaceCampusName"
+      ],
+      "screenshots": [
+        "s054-building-names"
+      ],
+      "needs_server": false,
+      "passes": false
     }
   ]
 }

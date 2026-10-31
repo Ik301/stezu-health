@@ -1899,3 +1899,19 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a).
 - Evidence: server/stezu_server/data/frist_late_meal.json, server/stezu_server/latemeal.py, scan.py (`candidates`, `spread`), search.py (`dining`); server/Tests/test_late_meal.py.
 - Reverse if: Frist publishes nutrition for the grill (FoodPro or a label), or the Late Meal list on Mon 2026-11-02 differs from the grill menu.
+
+## D-132 Each sleep number carries its name: last night, this week's average, usual
+
+- Status: decided 2026-10-30, after Isaac read the row's weekly mean as a contradiction of last night (S-051).
+- What: one shared source for last night and the week's mean, and a label on every number. The row says "avg" and shows last night beneath it.
+
+## D-133 Isaac's own places are circles that name every visit inside them; they stay on the phone
+
+- Status: decided by Isaac, 2026-10-30 (S-053).
+- What: a named circle with an optional note and a radius from 25 to 400 m. The smallest enclosing circle wins, and his places outrank looked-up names.
+- Open: whether his own labels should sync to the VM, so Hermes can say "3 gym visits this week". Today no place name leaves the phone (D-119).
+
+## D-134 Looked-up names come from the nearest point of interest, not the campus
+
+- Status: decided by Isaac, 2026-10-30 ("even in maps, they have more granular location labels, use those"). The mechanism is proposed (S-054).
+- What: MKLocalPointsOfInterestRequest first, then the placemark name, then the area of interest. Names from the old lookup are looked up again.
