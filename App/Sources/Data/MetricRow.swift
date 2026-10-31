@@ -9,9 +9,11 @@ struct MetricRow: View {
   var bars = true
   var color = Theme.ink
   let value: String
+  var unit: String?  // S-051: a small muted word after the value, as Sleep's "avg"
   var first = false
   var open: (() -> Void)?
   @Environment(\.appEnvironment) private var environment
+  private var text: String { [value, unit].compactMap { $0 }.joined(separator: " ") }
 
   var body: some View {
     let days = values.isEmpty ? Array(repeating: nil, count: 7) : values
@@ -28,7 +30,12 @@ struct MetricRow: View {
       )
       .accessibilityValue("\(days.filter { $0 == nil }.count) of 7 days without data")
       .accessibilityIdentifier("data.spark.\(id)")
-      Text(value).textStyle(.value).accessibilityIdentifier("data.\(id).value")
+      HStack(alignment: .firstTextBaseline, spacing: Theme.space2xs) {
+        Text(value).textStyle(.value)
+        if let unit { Text(unit).textStyle(.label).foregroundStyle(Theme.muted) }
+      }
+      .accessibilityElement(children: .ignore).accessibilityLabel(text)
+      .accessibilityIdentifier("data.\(id).value")
       if open != nil {
         Image(systemName: "chevron.right").textStyle(.subtitle, weight: .semibold)
           .foregroundStyle(Theme.muted)
@@ -41,7 +48,7 @@ struct MetricRow: View {
     .overlay {
       if let open {
         Button(action: open) { Color.clear.contentShape(Rectangle()) }
-          .accessibilityLabel("\(title), \(coverage), \(value)")
+          .accessibilityLabel("\(title), \(coverage), \(text)")
           .accessibilityIdentifier("data.\(id).open")
       }
     }

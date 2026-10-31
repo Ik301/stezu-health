@@ -20,8 +20,9 @@ final class WeeklyHealthUITests: XCTestCase {
     let breathing = app.element("data.respiratory.coverage")
     XCTAssertTrue(waitForLabel(breathing, "5 of 7 nights"), "breathing: \(breathing.label)")
     XCTAssertEqual(app.element("data.steps.value").label, "7333")
-    XCTAssertEqual(app.element("data.sleep.value").label, "7h 20m")
-    XCTAssertEqual(app.element("data.sleep.coverage").label, "5 of 7 nights")
+    // S-051: the week's mean says "avg", and last night (none in data-week) leads the subtitle.
+    XCTAssertEqual(app.element("data.sleep.value").label, "7h 20m avg")
+    XCTAssertEqual(app.element("data.sleep.coverage").label, "Last night --, 5 of 7 nights")
     XCTAssertEqual(app.element("data.hrv.value").label, "47 ms")
     XCTAssertEqual(app.element("data.hrv.coverage").label, "5 samples")
     // Since S-039 the Recovery card's header carries the one "context only" tag.
@@ -46,7 +47,7 @@ final class WeeklyHealthUITests: XCTestCase {
     for metric in ["steps", "sleep", "hrv", "restingHR"] {
       XCTAssertEqual(empty.element("data.\(metric).value").label, "--", "\(metric) is not --")
     }
-    XCTAssertEqual(empty.element("data.sleep.coverage").label, "0 of 7 nights")
+    XCTAssertEqual(empty.element("data.sleep.coverage").label, "Last night --, 0 of 7 nights")
     XCTAssertEqual(empty.element("data.hrv.coverage").label, "0 samples")
     XCTAssertTrue(empty.element("data.health.hint").exists, "no Sources hint")
   }

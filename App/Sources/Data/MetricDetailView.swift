@@ -211,7 +211,7 @@ extension Metric {
     switch self {
     case .weight: String(format: "%.1f lb", value)
     case .steps: "\(Int(value.rounded()))"
-    case .sleep: "\(Int(value / 3600))h \(Int(value / 60) % 60)m"
+    case .sleep: SleepSummary.text(value)
     case .hrv: "\(Int(value.rounded())) ms"
     case .restingHR: "\(Int(value.rounded())) bpm"
     case .food: "\(Int(value.rounded())) kcal"
