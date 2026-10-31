@@ -133,4 +133,22 @@ final class LocationRecordTests: XCTestCase {
     XCTAssertEqual(places.confidence.level, .medium)
     XCTAssertEqual(places.confidence.reason, "location on 4 of 7 days")
   }
+
+  /// S-052: a visit is drawn to scale, as large as its accuracy but never under 15 m, and a fix
+  /// is drawn smaller than any visit, however poor its accuracy.
+  func testVisitRadiusUsesAccuracyWithFloor() {
+    var log = LocationLog()
+    _ = log.apply(
+      .visit(arrival: start, departure: nil, latitude: 10.25, longitude: -30.5, accuracy: 40),
+      at: start)
+    _ = log.apply(
+      .visit(arrival: start + 60, departure: nil, latitude: 10.5, longitude: -30.5, accuracy: 4),
+      at: start)
+    _ = log.apply(
+      .fix(at: start + 120, latitude: 10.75, longitude: -30.5, accuracy: 500, speed: nil),
+      at: start)
+    XCTAssertEqual(log.places.map(\.mapRadius), [40, 15, 10])
+    XCTAssertLessThan(
+      log.places[2].mapRadius, log.places.filter { $0.at == nil }.map(\.mapRadius).min()!)
+  }
 }

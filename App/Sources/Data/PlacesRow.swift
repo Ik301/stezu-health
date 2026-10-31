@@ -1,3 +1,4 @@
+import MapKit
 import StezuCore
 import SwiftUI
 import UIKit
@@ -27,7 +28,8 @@ struct PlacesRow: View {
 
 /// Where Isaac has been: a heat map of the whole location log, then this week's visits, newest
 /// first, with each name (Apple's geocoder or his label, kept on the phone, D-119) or "Unnamed
-/// place", and its times. A tap on the map or a visit opens that spot's label (D-130).
+/// place", and its times. A tap on a visit opens that spot's label (D-130); a tap on the map, or
+/// its Expand button, opens the map full screen, where a tap on a spot opens its label as a sheet.
 struct PlacesView: View {
   @Environment(\.appEnvironment) private var environment
   @Environment(\.dismiss) private var dismiss
@@ -36,6 +38,7 @@ struct PlacesView: View {
   @State private var names: [String: String] = [:]
   /// The visits within 100 m of the last tap, nearest first; nil before a tap.
   @State private var spot: [PlaceRecord]?
+  @State private var full = false
 
   var body: some View {
     ScrollView {
@@ -44,13 +47,18 @@ struct PlacesView: View {
           title: "Places", titleID: "places.title",
           action: .init(title: "Done", id: "places.done") { dismiss() })
         if let log, !log.places.isEmpty {
-          PlacesMap(places: log.places) { pick($0, $1) }
+          PlacesMap(places: log.places) { _, _ in expand() }
+            .overlay(alignment: .topTrailing) {
+              Button(action: expand) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right").textStyle(.headline)
+                  .frame(width: Theme.sizeTarget, height: Theme.sizeTarget)
+                  .background(Theme.surface, in: Circle())
+              }
+              .padding(Theme.spaceSm).accessibilityLabel("Expand map")
+              .accessibilityIdentifier("places.map.expand")
+            }
         }
-        if let spot {
-          PlaceSpotCard(visits: spot, name: spot.first.flatMap { names[$0.id] }) { label in
-            Task { names = await environment.placeNames.label(label, visits: spot.map(\.id)) }
-          }
-        }
+        if let spot { card(spot) }
         if visits?.isEmpty == true { Text("--").accessibilityIdentifier("places.empty") }
         ForEach(Array((visits ?? []).enumerated()), id: \.element.id) { index, visit in
           VStack(alignment: .leading, spacing: Theme.space2xs) {
@@ -69,7 +77,33 @@ struct PlacesView: View {
     }
     .foregroundStyle(Theme.ink).background(Theme.ground)
     .task { await load() }
+    .fullScreenCover(isPresented: $full) {
+      VStack(spacing: 0) {
+        TopBar(
+          title: "Places", titleID: "places.map.title",
+          action: .init(title: "Done", id: "places.map.done") { (spot, full) = (nil, false) }
+        )
+        .padding(.horizontal, Theme.spaceLg)
+        PlacesMap(places: log?.places ?? [], full: true) { pick($0, $1) }
+          .ignoresSafeArea(edges: .bottom).mapControls { MapUserLocationButton() }
+      }
+      .foregroundStyle(Theme.ink).background(Theme.ground)
+      .sheet(isPresented: Binding(get: { spot != nil }, set: { if !$0 { spot = nil } })) {
+        if let spot {
+          card(spot).presentationDetents([.medium]).presentationBackgroundInteraction(.enabled)
+        }
+      }
+    }
   }
+
+  private func card(_ spot: [PlaceRecord]) -> some View {
+    PlaceSpotCard(visits: spot, name: spot.first.flatMap { names[$0.id] }) { label in
+      Task { names = await environment.placeNames.label(label, visits: spot.map(\.id)) }
+    }
+  }
+
+  /// The map full screen (S-052), with no spot open yet.
+  private func expand() { (spot, full) = (nil, true) }
 
   /// "Mon 12:10 PM to 5:50 PM", or one time while the departure is unknown.
   static func times(_ visit: PlaceRecord) -> String {

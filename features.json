@@ -1764,7 +1764,7 @@
         "s052-places-full-map"
       ],
       "needs_server": false,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-053",
