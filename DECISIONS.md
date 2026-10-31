@@ -1909,7 +1909,7 @@ The research notes cited here are kept private, because they contain personal he
 
 - Status: decided by Isaac, 2026-10-30 (S-053).
 - What: a named circle with an optional note and a radius from 25 to 400 m. The smallest enclosing circle wins, and his places outrank looked-up names.
-- Open: whether his own labels should sync to the VM, so Hermes can say "3 gym visits this week". Today no place name leaves the phone (D-119).
+- Sync: his own places sync to the VM as `my_place` records (D-140, decided 2026-10-30). Looked-up names stay on the phone (D-119).
 
 ## D-134 Looked-up names come from the nearest point of interest, not the campus
 
@@ -1999,3 +1999,10 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A session left with no sets stays, with 0 sets; the Day view's session Delete removes it.
 - Evidence: features.json S-055.
 - Reverse if: Stezu starts writing sets, volume or energy into the Health workout (then an edit must rewrite it), or Isaac wants a session with no sets removed automatically.
+
+## D-140 Isaac's own places sync to the VM as `my_place` records; the server assigns visits to them
+
+- Status: decided by Isaac, 2026-10-30 ("labels sync to VM").
+- What: each of his circles (name, note, centre, radius) is a `my_place` record, sent after the phone saves it, with tombstones for deletes. The server matches each visit to the smallest circle that contains it, so Hermes can answer "how many gym visits this week" or "hours at the library".
+- What doesn't sync: looked-up names (POI and geocoder) and per-visit names. They stay on the phone (D-119), and a circle is enough to name every visit inside it.
+- Privacy: the place names live only in the VM's health database (mode 0600). They never enter the public repo, logs or PR text (D-034).
