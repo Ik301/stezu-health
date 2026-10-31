@@ -30,11 +30,10 @@ struct PlacesMap: View {
         ForEach(circles, id: \.id) { place in
           MapCircle(center: at(place), radius: place.radiusM)
             .foregroundStyle(Theme.track.opacity(0.25)).stroke(outline(place), lineWidth: 2)
-          Annotation(place.name, coordinate: at(place)) { tag(place) }
+          Annotation(place.name, coordinate: at(place)) { tag(place) }.annotationTitles(.hidden)
         }
         UserAnnotation()
       }
-      .annotationTitles(.hidden)
       .onMapCameraChange { center = $0.region.center }
       .onTapGesture { point in
         if let spot = proxy.convert(point, from: .local) { tapped(spot.latitude, spot.longitude) }
