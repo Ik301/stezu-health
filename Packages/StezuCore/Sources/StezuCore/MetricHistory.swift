@@ -107,7 +107,7 @@ public struct MetricHistory: Sendable, Equatable {
       let intervals = (try? await store.sleepIntervals(since: first - 86_400)) ?? []
       let nights = SleepNights.nights(intervals, calendar: calendar)
       return history(metric, daily: nights, now: now, calendar: calendar) {
-        WeeklyStats.meanPerDay(nights, in: $0, of: "of 7 nights with data")
+        SleepSummary.weekMean(nights, in: $0)
       }
     case .hrv:
       let samples = (try? await store.samples(of: .heartRateVariability, since: first)) ?? []

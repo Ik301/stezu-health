@@ -8,6 +8,7 @@ struct SleepDetailView: View {
   @Environment(\.appEnvironment) private var environment
   @Environment(\.dismiss) private var dismiss
   @State private var detail: SleepDetail?
+  @State private var summary: SleepSummary?  // S-051: the week's mean, as This week's row has it
   @State private var picked: Date?
   @State private var openDay: Date?  // S-047: the picked night's wake day as a day
   private let shape = RoundedRectangle(cornerRadius: Theme.radiusCard)
@@ -37,6 +38,8 @@ struct SleepDetailView: View {
           if let night {
             Text("asleep, in bed \(clock(night.bedMinutes)) to \(clock(night.wakeMinutes))")
           }
+          muted("This week avg \(SleepSummary.text(summary?.weekMean.value))")
+            .accessibilityIdentifier("sleep.week")
           let usual = "Usual \(detail.usual.map(hm) ?? "--"), your median of \(detail.usualNights)"
           muted(usual + " nights").accessibilityIdentifier("sleep.usual")
           window(detail, day).padding(Theme.spaceLg).background(Theme.surface, in: shape)
@@ -64,7 +67,10 @@ struct SleepDetailView: View {
       .textStyle(.subtitle).foregroundStyle(Theme.ink).padding(Theme.spaceLg)
     }
     .scrollIndicators(.hidden).background(Theme.ground.ignoresSafeArea())
-    .task { detail = await SleepDetail.load(from: environment.healthStore, now: environment.now()) }
+    .task {
+      summary = await SleepSummary.load(from: environment.healthStore, now: environment.now())
+      detail = await SleepDetail.load(from: environment.healthStore, now: environment.now())
+    }
   }
 
   /// Done on the night; back to it from its day.
