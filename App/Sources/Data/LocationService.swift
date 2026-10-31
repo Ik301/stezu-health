@@ -1,4 +1,5 @@
 import CoreLocation
+import MapKit
 import StezuCore
 
 /// S-032: visits and significant changes (no continuous GPS) wake or relaunch the app.
@@ -60,13 +61,52 @@ final class CoreLocationSource: NSObject, LocationSource, CLLocationManagerDeleg
   }
 }
 
-/// S-049: Apple's reverse geocoding; the point of interest, else the placemark's name. The
-/// coordinates go to Apple for the lookup (D-119); nil when offline or nothing is found.
+/// S-054 (D-134): the nearest point of interest within the visit's radius (not an ATM, EV
+/// charger or car park), the placemark's name unless it is a street address, and its first
+/// area of interest; `PlaceLookup.best` picks in that order. Both requests always run, so an
+/// old campus-wide name can be recognised as Apple's (D-138). The coordinates go to Apple for
+/// the lookup (D-119). A failure is an empty part, except Apple's throttling, which is thrown.
 struct AppleReverseGeocoder: ReverseGeocoder {
-  func name(latitude: Double, longitude: Double) async -> String? {
-    let place = CLLocation(latitude: latitude, longitude: longitude)
-    let mark = try? await CLGeocoder().reverseGeocodeLocation(place).first
-    return mark?.areasOfInterest?.first ?? mark?.name
+  func lookup(latitude: Double, longitude: Double, accuracy: Double) async throws -> PlaceLookup {
+    try await Self.find(CLLocation(latitude: latitude, longitude: longitude), accuracy: accuracy)
+  }
+
+  @MainActor private static func find(_ here: CLLocation, accuracy: Double) async throws
+    -> PlaceLookup
+  {
+    let request = MKLocalPointsOfInterestRequest(
+      center: here.coordinate, radius: PlaceLookup.radius(accuracy: accuracy))
+    request.pointOfInterestFilter = MKPointOfInterestFilter(excluding: [.atm, .evCharger, .parking])
+    var items: [MKMapItem] = []
+    do { items = try await MKLocalSearch(request: request).start().mapItems } catch {
+      try rethrowThrottling(error)
+    }
+    let distance = { (item: MKMapItem) in item.placemark.location?.distance(from: here) ?? 1e9 }
+    var found = PlaceLookup(pointOfInterest: items.min { distance($0) < distance($1) }?.name)
+    if #available(iOS 26, *) {
+      let geocoding: MKReverseGeocodingRequest? = MKReverseGeocodingRequest(location: here)
+      var item: MKMapItem?
+      do { item = try await geocoding?.mapItems.first } catch { try rethrowThrottling(error) }
+      found.placemark = PlaceLookup.placeName(item?.name, address: item?.address?.fullAddress)
+      found.area = item?.placemark.areasOfInterest?.first
+      return found
+    }
+    var mark: CLPlacemark?
+    do { mark = try await CLGeocoder().reverseGeocodeLocation(here).first } catch {
+      try rethrowThrottling(error)
+    }
+    let street = [mark?.subThoroughfare, mark?.thoroughfare].compactMap { $0 }
+    found.placemark = PlaceLookup.placeName(mark?.name, address: street.joined(separator: " "))
+    found.area = mark?.areasOfInterest?.first
+    return found
+  }
+
+  /// Apple's rate limit: MapKit's loadingThrottled, or the geocoder's network error.
+  private static func rethrowThrottling(_ error: any Error) throws {
+    let code = (error as? MKError)?.code
+    if code == .loadingThrottled || (error as? CLError)?.code == .network {
+      throw PlaceLookupThrottled()
+    }
   }
 }
 
@@ -96,15 +136,20 @@ extension AppEnvironment {
     }
   }
 
-  /// S-049 (D-119): visit names in place-names.json beside the log, from Apple's geocoder.
-  static func placeNamesFile(storage: StorageMode) -> PlaceNames {
-    let file = FinishedWorkoutStore(storage: storage).file?.deletingLastPathComponent()
+  /// S-049 (D-119): place-names.json beside the log.
+  static func placeNamesURL(storage: StorageMode) -> URL? {
+    FinishedWorkoutStore(storage: storage).file?.deletingLastPathComponent()
       .appendingPathComponent("place-names.json")
-    let saved = file.flatMap {
-      try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: $0))
-    }
-    return PlaceNames(names: saved ?? [:], geocoder: AppleReverseGeocoder()) { names in
-      guard let file, let data = try? JSONEncoder().encode(names) else { return }
+  }
+
+  /// Visit names and their lookup versions in place-names.json (S-054), from Apple's geocoder.
+  static func placeNamesFile(
+    storage: StorageMode, geocoder: any ReverseGeocoder = AppleReverseGeocoder()
+  ) -> PlaceNames {
+    let file = placeNamesURL(storage: storage)
+    let saved = file.flatMap { try? Data(contentsOf: $0) }.flatMap(SavedPlaceNames.decode)
+    return PlaceNames(saved: saved ?? SavedPlaceNames(), geocoder: geocoder) { saved in
+      guard let file, let data = try? JSONEncoder().encode(saved) else { return }
       try? data.write(to: file, options: .atomic)
     }
   }

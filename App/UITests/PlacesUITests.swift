@@ -135,6 +135,32 @@ final class PlacesUITests: XCTestCase {
     checkMonday(app, ["Library, 08:00–11:50", "Dining hall, 12:10–17:50"])
   }
 
+  /// S-054: place-names.json was left by the area-first lookup and names Monday's Library visit
+  /// "University campus" (made up). The fake geocoder returns a point of interest and that area
+  /// for both visits. On this launch the old name is looked up again and the building wins;
+  /// the unnamed visit gets its building, not the campus. A relaunch reads the saved names.
+  @MainActor
+  func testBuildingNamesReplaceCampusName() {
+    continueAfterFailure = false
+    var app = UITestApp.launch(scenario: "data-food-week", persist: true, reset: true)
+    for launch in 0..<2 {
+      let card = app.element("home.card.data")
+      XCTAssertTrue(card.waitForExistence(timeout: 30), "no Data card on Home")
+      card.tap()
+      let row = app.element("data.places.open")
+      XCTAssertTrue(row.waitForExistence(timeout: 10), "the Places row is not a button")
+      for _ in 0..<3 where !row.isHittable { app.swipeUp() }
+      row.tap()
+      wait(app.element("places.visit.1.name"), "label == 'Library'")
+      wait(app.element("places.visit.0.name"), "label == 'Dining hall'")
+      if launch == 0 {
+        saveScreenshot("s054-building-names", of: app)
+        app.terminate()
+        app = UITestApp.launch(scenario: "data-food-week", persist: true)
+      }
+    }
+  }
+
   /// From Data: Places, then its map full screen.
   @MainActor
   private func openFullMap(_ app: XCUIApplication) -> XCUIElement {
