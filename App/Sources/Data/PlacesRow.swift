@@ -104,7 +104,8 @@ struct PlacesView: View {
         Group {
           if let draft {
             PlaceEditor(
-              place: Binding(get: { draft }, set: { self.draft = $0 }),
+              // A field ending its edit after Save or Delete must not reopen the place.
+              place: Binding(get: { draft }, set: { if self.draft != nil { self.draft = $0 } }),
               isNew: !mine.places.contains { $0.id == draft.id },
               inside: inside(draft)
             ) { delete in

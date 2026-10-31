@@ -102,7 +102,12 @@ final class PlacesUITests: XCTestCase {
     app.element("places.new.save").tap()
     wait(radius, "exists == false")
 
-    map.tap()
+    // Beside the place's name tag (a tap there edits the place), within 100 m of both visits.
+    let beside = {
+      map.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).withOffset(
+        CGVector(dx: 30, dy: 0))
+    }
+    beside().tap()
     let spot = app.element("places.spot.name")
     wait(spot, "label == 'Gym'")
     XCTAssertEqual(app.element("places.spot.note").label, "Lift on Mon and Thu")
@@ -114,14 +119,14 @@ final class PlacesUITests: XCTestCase {
     checkMonday(app, ["Gym, 08:00–11:50", "Gym, 12:10–17:50"])
 
     map = openFullMap(app)
-    map.tap()
+    beside().tap()
     wait(spot, "label == 'Gym'")
     app.element("places.spot.place").tap()
     let delete = app.element("places.new.delete")
     XCTAssertTrue(delete.waitForExistence(timeout: 10), "Edit place opened no editor")
     delete.tap()
     wait(radius, "exists == false")
-    map.tap()
+    beside().tap()
     wait(spot, "label == 'Dining hall' OR label == 'Library'")
     app.element("places.map.done").tap()
     wait(app.element("places.visit.0.name"), "label == 'Dining hall'")
