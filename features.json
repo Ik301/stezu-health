@@ -1777,7 +1777,6 @@
         "Name resolution order for a visit, everywhere names show (Places, the spot card, the Day timeline): his MyPlace, then a looked-up name (PlaceNames), then the visit's times. A MyPlace changes the name instantly for every visit inside it, past and future, and editing or deleting the circle updates them all.",
         "Full-screen map (S-052): long-press anywhere, or tap \"New place\" on a spot card, to start a place. The circle appears centred there, with a radius slider from 25 to 400 m (default 75) that resizes it live. The visits it would contain are highlighted, with a count (\"12 visits inside\"). Then a name field and an optional note (\"context\", for example \"Lift on Mon and Thu\"), and Save. His places are drawn as outlined circles with their name; tap one to edit (name, note, radius, drag to move) or delete.",
         "The spot card shows the place's name and note when a visit is inside one of his places, and offers \"New place here\" otherwise.",
-        "Sync his places to Hermes (D-140). Each create, edit, move, resize or delete queues one `my_place` record on the existing sync queue (HealthSync.enqueue, D-075), after the local save. The payload, in snake_case: id, name, note (null when empty), latitude, longitude, radius_m, created_at; the record's updated_at is in milliseconds. A delete resends the same id with deleted: true, like the other records. On the first launch with this build, every existing place is queued once (a flag in the sync state). Looked-up names (PlaceNames) and per-visit names are NOT synced: the server works out which visits fall inside each circle on its own. The UI test's FakeVMTransport receives one my_place record on Save and a deleted one on Delete.",
         "UI test with the generic visits fixture: long-press, set the radius to cover both fixture visits, name it \"Gym\", Save. Both visits read \"Gym\" on the spot card and the Day timeline. Delete it and they fall back.",
         "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
       ],
@@ -1797,7 +1796,7 @@
         "s053-new-place",
         "s053-place-applied"
       ],
-      "needs_server": true,
+      "needs_server": false,
       "passes": true
     },
     {
@@ -1864,6 +1863,37 @@
         "s055-day-sets"
       ],
       "needs_server": false,
+      "passes": false
+    },
+    {
+      "id": "S-056",
+      "kind": "story",
+      "area": "data",
+      "title": "Isaac's own places sync to Hermes as my_place records",
+      "steps": [
+        "Decision D-140: his own places (MyPlaces, S-053) sync to the VM so Hermes can count visits and time per place. Looked-up names (PlaceNames, S-054) and per-visit names do NOT sync.",
+        "Each create, edit, move, resize or delete of a MyPlace queues one `my_place` record on the existing sync queue (HealthSync.enqueue, D-075), right after the local save to my-places.json. The payload, in snake_case: id, name, note (null when empty), latitude, longitude, radius_m, created_at; updated_at is in milliseconds. A delete resends the same id with deleted: true, as the other record kinds do. Use exactly the field names in server/README.md (the server PR for my_place lands first).",
+        "Backfill: on the first launch with this build, every existing MyPlace is queued once (a flag in the sync state, as S-030's workout backfill does).",
+        "Settings' records count includes them; nothing else in the UI changes.",
+        "UI test with -uitest-scenario sync and the generic visits fixture: draw a place and Save, and FakeVMTransport receives one my_place record with the fixture's synthetic name; delete it and a deleted record follows. A core test checks that the backfill runs once.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "0 taps",
+      "depends_on": [
+        "S-053",
+        "S-029"
+      ],
+      "core_tests": [
+        "StezuCoreTests.MyPlacesTests/testEditQueuesMyPlaceRecord",
+        "StezuCoreTests.MyPlacesTests/testBackfillQueuesExistingPlacesOnce"
+      ],
+      "ui_tests": [
+        "AppUITests.HermesSyncUITests/testMyPlaceIsSyncedAndDeleted"
+      ],
+      "screenshots": [
+        "s056-place-synced"
+      ],
+      "needs_server": true,
       "passes": false
     }
   ]
