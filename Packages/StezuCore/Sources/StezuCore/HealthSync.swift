@@ -65,6 +65,8 @@ public struct SyncState: Codable, Sendable, Equatable {
   public var recordsTotal: Int?
   /// True once the sessions and sets stored before S-030 were queued as records (never twice).
   public var workoutsBackfilled: Bool?
+  /// True once the places drawn before S-056 were queued as my_place records (never twice).
+  public var myPlacesBackfilled: Bool?
   /// S-033: the last background pass the server answered; nil before one, kept apart from
   /// `lastSyncAt`, which only foreground passes set.
   public var lastBackgroundSyncAt: Date?
@@ -100,6 +102,14 @@ public actor HealthSync {
   public func backfillWorkouts(_ records: [SyncRecord]) {
     guard state.workoutsBackfilled != true else { return }
     state.workoutsBackfilled = true
+    enqueue(records)
+    save(state)
+  }
+
+  /// Queues his places once per install (S-056's backfill); later calls only return.
+  public func backfillMyPlaces(_ records: [SyncRecord]) {
+    guard state.myPlacesBackfilled != true else { return }
+    state.myPlacesBackfilled = true
     enqueue(records)
     save(state)
   }

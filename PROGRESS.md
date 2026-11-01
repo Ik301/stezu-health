@@ -632,3 +632,15 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Views: `stezu_my_places`; `stezu_visits_named` (every visit plus `my_place_id` and `my_place_name` from the smallest live circle that holds it, NULL otherwise); `place_time_daily` (per day and place name: `visits`, `timed_visits`, `total_min`). The distance is the phone's haversine in SQLite's built-in math functions, so the views work from the plain `sqlite3` CLI (checked with Ubuntu's 3.45.1).
 - Tests: server/Tests/test_my_place_views.py (nested circles take the smaller, outside is NULL, the edge at 99 and 101 m, longitude shrinking with latitude, delete, move and resize, daily sums, every validation limit). No existing test changed.
 - Left undone: the rows fill only once the app sends `my_place` records (S-056).
+
+
+## 2026-10-31 S-056 His places sync to Hermes as my_place records (night agent)
+
+- Core: `MyPlace.createdAt` (optional, so S-053's my-places.json still loads), stamped by the first save and kept on edits. `MyPlacesStore.set(_:delete:into:)` writes the file, then queues one `my_place` record: payload `id`, `name`, `note` (null when empty), `latitude`, `longitude`, `radius_m`, `created_at` (ms, with offset), `updated_at` in ms; a delete is the same id with `deleted: true` and no payload. `MyPlaceRecord` is the payload; `SyncRecord` decodes and encodes it, so a queued place survives a relaunch and the fake server counts it. A place outside the server's limits (name 1 to 200 scalars and not blank, note at most 1,000, latitude, longitude, radius 10 to 2,000 m) stays on the phone and is not queued (D-142).
+- Backfill: `MyPlacesStore.backfill(into:)` runs from `syncHermesInBackground` after the workout backfill; it stamps old places, saves, and queues them all once (`SyncState.myPlacesBackfilled`).
+- `MyPlaces.place(for:)` breaks ties as the server does (D-141): smallest radius, then earlier created, then lower id.
+- App: Places' editor Save and Delete call the new `set(_:delete:into:)` and then one sync pass. Settings' record count comes from the server, so it includes places with no UI change. Looked-up names and per-visit labels still never sync.
+- Tests: StezuCoreTests MyPlacesTests/testEditQueuesMyPlaceRecord, testBackfillQueuesExistingPlacesOnce, testTieGoesToEarlierCreatedThenLowerID; AppUITests HermesSyncUITests/testMyPlaceIsSyncedAndDeleted (screenshot s056-place-synced). No existing test changed.
+- Deviation: the UI test runs in data-food-week, not sync. The sync scenario has no visits, so Places has no map to draw on, and giving it visits would change the record counts the S-030 and S-031 tests assert. data-food-week's two made-up visits are the generic visits fixture S-053 uses; the row goes 10 records (2 visits and the 8 Stezu weigh-ins imported from the fake Health), 11 after Save, 10 after Delete. The first CI run assumed 2 and failed at that first wait.
+- Not checked by the UI test: the record's name. The fake server only reports a count; the payload's fields and name are checked in MyPlacesTests.
+- Left undone: nothing from the story's steps.

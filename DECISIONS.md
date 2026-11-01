@@ -2023,3 +2023,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The same 4,900 by 50 case takes about 0.5 s in the CLI, and its matches equal a Python haversine on every visit. Ties go to the earlier `created_at`, then the lower id. A live `my_place` is validated at /sync (name 1 to 200 characters and not blank, note null or at most 1,000, latitude -90 to 90, longitude -180 to 180, radius_m 10 to 2,000, created_at with an offset, payload id equal to the record id) and a bad one is rejected per record; tombstones are not checked.
 - Evidence: server/Tests/test_my_place_views.py; server/README.md (records and views).
 - Reverse if: a reader's SQLite lacks the math functions (then (b)), or visits and places grow so large that the views take more than a few seconds (then (c)).
+
+## D-142 A place is queued right after its save, created_at is stamped once on the phone, and a place the server would reject is never queued
+
+- Status: proposed by night agent, 2026-10-31 (S-056). Implements D-140's phone side.
+- Problem: the server needs every place with a `created_at` and within D-141's limits, a rejected record is rejected again on every resend, and places drawn under S-053 have no creation time at all.
+- Given: `MyPlacesStore.set` writes my-places.json; `HealthSync.enqueue` saves the queue before it returns (D-075); S-030's workout backfill is a one-time flag in SyncState. The editor allows a 25 to 400 m radius and blocks a blank name, but not a 300-character name or a 2,000-character note.
+- Constraints:
+  - Queueing before the file write could send a place the phone then fails to keep (breaks D-076).
+  - A `created_at` taken at send time would change on every edit, so the server's tie-break would flip (breaks "the phone and the server name a visit alike").
+  - Queueing a record outside the limits blocks nothing but is rejected forever, so the server silently lacks the place.
+- Options:
+  - (a) `MyPlacesStore.set(_:delete:into:)` saves, then queues one record (a tombstone on delete); `createdAt` is set by the first save (or the backfill, for old places) and kept on every edit; `SyncRecord.myPlace` returns nil outside the limits, so the place stays on the phone only.
+  - (b) As (a), but clamp or cut an out-of-limit name or note before sending.
+  - (c) Queue from the view after its own save.
+- Decision: (a). The backfill (`MyPlacesStore.backfill(into:)`) stamps the old places, saves the file, then queues them all as one batch behind `SyncState.myPlacesBackfilled`. `MyPlaces.place(for:)` breaks ties as the server does: smallest radius, then earlier `createdAt`, then lower id.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MyPlaces.swift, SyncRecord.swift, HealthSync.swift; Packages/StezuCore/Tests/StezuCoreTests/MyPlacesTests.swift (commit 405f1bd).
+- Reverse if: the editor ever allows values outside the server's limits on purpose (then (b) with a visible notice), or the server starts accepting a missing `created_at`.

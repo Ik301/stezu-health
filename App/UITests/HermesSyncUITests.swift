@@ -247,6 +247,96 @@ final class HermesSyncUITests: XCTestCase {
     saveScreenshot("s033-background-sync", of: app)
   }
 
+  /// S-056: the data-food-week scenario's two made-up Monday visits give the full map something to
+  /// draw on (the sync scenario has no visits, and adding them would change the counts above). A
+  /// place drawn and saved there reaches the fake POST /sync as one my_place record, so the row's
+  /// live records go from 10 (the 2 visits and the 8 Stezu weigh-ins imported from the fake Health)
+  /// to 11; deleting it sends the same id with deleted: true, back to 10.
+  @MainActor
+  func testMyPlaceIsSyncedAndDeleted() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "data-food-week")
+
+    // Before: the fake server holds the scenario's 2 visits and 8 weigh-ins, and no place.
+    let gear = app.element("home.settings")
+    XCTAssertTrue(gear.waitForExistence(timeout: 30), "no gear on Home")
+    gear.tap()
+    let row = app.element("settings.sync.status")
+    XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
+    app.element("settings.sync.now").tap()
+    wait(for: "label CONTAINS ', 10 records'", on: row)
+    closeSettings(app)
+
+    // Draw a place on the full map, name it and Save; nothing is tapped for the sync.
+    let card = app.element("home.card.data")
+    XCTAssertTrue(card.waitForExistence(timeout: 10), "no Data card on Home")
+    card.tap()
+    let map = openFullMap(app)
+    map.press(forDuration: 1.5)
+    let radius = app.sliders["places.new.radius"]
+    XCTAssertTrue(radius.waitForExistence(timeout: 10), "a long press started no place")
+    radius.adjust(toNormalizedSliderPosition: 0.5)
+    let name = app.element("places.new.name")
+    name.tap()
+    name.typeText("Gym")
+    app.element("places.new.save").tap()
+    wait(for: "exists == false", on: radius)
+    leavePlaces(app)
+
+    // After: the place is one more live record on the fake server.
+    gear.tap()
+    XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
+    wait(for: "label CONTAINS ', 11 records'", on: row)
+    XCTAssertFalse(row.label.contains("waiting"), "the place still waits: \(row.label)")
+    saveScreenshot("s056-place-synced", of: app)
+    closeSettings(app)
+
+    // Delete it from its spot card's Edit place: the tombstone takes the count back.
+    card.tap()
+    let full = openFullMap(app)
+    full.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).withOffset(
+      CGVector(dx: 30, dy: 0)
+    ).tap()
+    wait(for: "label == 'Gym'", on: app.element("places.spot.name"))
+    app.element("places.spot.place").tap()
+    let delete = app.element("places.new.delete")
+    XCTAssertTrue(delete.waitForExistence(timeout: 10), "Edit place opened no editor")
+    delete.tap()
+    wait(for: "exists == false", on: radius)
+    leavePlaces(app)
+    gear.tap()
+    XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
+    wait(for: "label CONTAINS ', 10 records'", on: row)
+    XCTAssertFalse(row.label.contains("waiting"), "the deletion still waits: \(row.label)")
+  }
+
+  /// From Data: Places, then its map full screen (as PlacesUITests does).
+  @MainActor
+  private func openFullMap(_ app: XCUIApplication) -> XCUIElement {
+    let open = app.element("data.places.open")
+    XCTAssertTrue(open.waitForExistence(timeout: 10), "the Places row is not a button")
+    for _ in 0..<3 where !open.isHittable { app.swipeUp() }
+    open.tap()
+    let preview = app.element("places.map")
+    XCTAssertTrue(preview.waitForExistence(timeout: 10), "no map preview")
+    XCTAssertTrue(app.element("places.visit.1.name").waitForExistence(timeout: 10), "no visits")
+    preview.tap()
+    let map = app.element("places.map.full")
+    XCTAssertTrue(map.waitForExistence(timeout: 10), "the map did not open full screen")
+    return map
+  }
+
+  /// The full map, Places and Data closed, back on Home.
+  @MainActor
+  private func leavePlaces(_ app: XCUIApplication) {
+    for id in ["places.map.done", "places.done", "nav.home"] {
+      let element = app.element(id)
+      XCTAssertTrue(element.waitForExistence(timeout: 10), "no \(id)")
+      element.tap()
+    }
+    XCTAssertTrue(app.element("home.settings").waitForExistence(timeout: 10), "not back on Home")
+  }
+
   /// Drags the Settings sheet down from its grabber; a swipe on the title leaves it open.
   @MainActor
   private func closeSettings(_ app: XCUIApplication) {

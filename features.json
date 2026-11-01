@@ -1894,7 +1894,7 @@
         "s056-place-synced"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     }
   ]
 }

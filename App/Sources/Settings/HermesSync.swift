@@ -47,10 +47,11 @@ extension AppEnvironment {
   }
 
   /// Open, foreground and Finish, off the main actor. `-uitest` syncs only on Sync now.
-  /// S-030: also queues the workouts stored before this build, once (`-uitest` too).
+  /// S-030, S-056: also queues the workouts and places stored before them, once (`-uitest` too).
   func syncHermesInBackground() {
     Task.detached(priority: .utility) {
       await self.backfillWorkouts()
+      await self.myPlaces.backfill(into: self.healthSync)
       if !self.isUITest { await self.syncHermes() }
     }
   }

@@ -14,6 +14,8 @@ public struct SyncRecord: Codable, Sendable, Equatable {
   /// A `weigh_in` record's payload (S-031).
   public var weighInPayload: WeighInRecord? = nil
   public var placePayload: PlaceRecord? = nil
+  /// A `my_place` record's payload (S-056).
+  public var myPlacePayload: MyPlaceRecord? = nil
 
   enum CodingKeys: String, CodingKey {
     case kind, id, deleted, payload
@@ -38,6 +40,23 @@ public struct SyncRecord: Codable, Sendable, Equatable {
       payload: nil)
   }
 
+  /// S-056 (D-140): his place stamped `at`, or its tombstone when `place` is nil; nil when the
+  /// server would reject it (D-141's limits), so a bad place is never queued.
+  public static func myPlace(
+    _ place: MyPlace?, id: String, at date: Date, calendar: Calendar = .current
+  ) -> SyncRecord? {
+    var record = SyncRecord(
+      kind: "my_place", id: id, updatedAt: stamp(date, calendar), deleted: place == nil,
+      payload: nil)
+    guard let place else { return record }
+    let payload = MyPlaceRecord(
+      id: id, name: place.name, note: place.note, latitude: place.latitude,
+      longitude: place.longitude, radiusM: place.radiusM,
+      createdAt: stamp(place.createdAt ?? date, calendar))
+    record.myPlacePayload = payload
+    return payload.isValid ? record : nil
+  }
+
   static func stamp(_ date: Date, _ calendar: Calendar) -> String {
     ISO8601DateFormatter.string(
       from: date, timeZone: calendar.timeZone,
@@ -60,6 +79,8 @@ extension SyncRecord {
     case "weigh_in": weighInPayload = try box.decodeIfPresent(WeighInRecord.self, forKey: .payload)
     case "visit", "location":
       placePayload = try box.decodeIfPresent(PlaceRecord.self, forKey: .payload)
+    case "my_place":
+      myPlacePayload = try box.decodeIfPresent(MyPlaceRecord.self, forKey: .payload)
     default: payload = try box.decodeIfPresent(MealRecord.self, forKey: .payload)
     }
   }
@@ -75,6 +96,7 @@ extension SyncRecord {
     try box.encodeIfPresent(weighInPayload, forKey: .payload)
     try box.encodeIfPresent(payload, forKey: .payload)
     try box.encodeIfPresent(placePayload, forKey: .payload)
+    try box.encodeIfPresent(myPlacePayload, forKey: .payload)
   }
 }
 
