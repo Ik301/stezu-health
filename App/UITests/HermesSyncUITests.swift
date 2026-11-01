@@ -250,20 +250,21 @@ final class HermesSyncUITests: XCTestCase {
   /// S-056: the data-food-week scenario's two made-up Monday visits give the full map something to
   /// draw on (the sync scenario has no visits, and adding them would change the counts above). A
   /// place drawn and saved there reaches the fake POST /sync as one my_place record, so the row's
-  /// live records go up by one; deleting it sends the same id with deleted: true, back down.
+  /// live records go from 10 (the 2 visits and the 8 Stezu weigh-ins imported from the fake Health)
+  /// to 11; deleting it sends the same id with deleted: true, back to 10.
   @MainActor
   func testMyPlaceIsSyncedAndDeleted() {
     continueAfterFailure = false
     let app = UITestApp.launch(scenario: "data-food-week")
 
-    // Before: the fake server holds the scenario's two visits and no place.
+    // Before: the fake server holds the scenario's 2 visits and 8 weigh-ins, and no place.
     let gear = app.element("home.settings")
     XCTAssertTrue(gear.waitForExistence(timeout: 30), "no gear on Home")
     gear.tap()
     let row = app.element("settings.sync.status")
     XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
     app.element("settings.sync.now").tap()
-    wait(for: "label CONTAINS ', 2 records'", on: row)
+    wait(for: "label CONTAINS ', 10 records'", on: row)
     closeSettings(app)
 
     // Draw a place on the full map, name it and Save; nothing is tapped for the sync.
@@ -282,10 +283,10 @@ final class HermesSyncUITests: XCTestCase {
     wait(for: "exists == false", on: radius)
     leavePlaces(app)
 
-    // After: the place is a third live record on the fake server.
+    // After: the place is one more live record on the fake server.
     gear.tap()
     XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
-    wait(for: "label CONTAINS ', 3 records'", on: row)
+    wait(for: "label CONTAINS ', 11 records'", on: row)
     XCTAssertFalse(row.label.contains("waiting"), "the place still waits: \(row.label)")
     saveScreenshot("s056-place-synced", of: app)
     closeSettings(app)
@@ -305,7 +306,7 @@ final class HermesSyncUITests: XCTestCase {
     leavePlaces(app)
     gear.tap()
     XCTAssertTrue(row.waitForExistence(timeout: 10), "no Hermes sync row")
-    wait(for: "label CONTAINS ', 2 records'", on: row)
+    wait(for: "label CONTAINS ', 10 records'", on: row)
     XCTAssertFalse(row.label.contains("waiting"), "the deletion still waits: \(row.label)")
   }
 
