@@ -110,7 +110,11 @@ struct PlacesView: View {
               inside: inside(draft)
             ) { delete in
               self.draft = nil
-              Task { mine = await environment.myPlaces.set(draft, delete: delete) }
+              Task {  // S-056: saved, queued as a my_place record, then one sync pass
+                mine = await environment.myPlaces.set(
+                  draft, delete: delete, into: environment.healthSync)
+                await environment.syncHermes()
+              }
             }
           } else if let spot {
             card(spot)
