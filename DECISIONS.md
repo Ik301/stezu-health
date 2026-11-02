@@ -2103,3 +2103,37 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a).
 - Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift, Restore.swift (`SyncRecord.program`), HealthSync.swift (`backfillProgram`); App/Sources/Workout/WorkoutView.swift; App/Sources/Settings/HermesSync.swift (commit 245ab5f).
 - Reverse if: the program becomes editable on the phone (then stamp each edit) or several devices import programs.
+
+## D-147 Restored visits, fixes, weigh-ins and his places join their stores only where the id is absent
+
+- Status: proposed by night agent, 2026-11-02 (S-058). Extends D-145 to the place kinds.
+- Problem: after a reinstall the location log, the weigh-in file and his places must take back the VM's `visit`, `location`, `weigh_in` and `my_place` records without losing or doubling what the phone still holds, without writing weigh-ins to Health again and without echoing them to the server.
+- Given: each store is an actor that saves its file on every change and owns its records by id (`visit.<arrival ms>`, `location.<ms>`, the weigh-in UUID that is also its Health sample id, the place UUID). None of PlaceRecord, StoredWeighIn or MyPlace carries an edit time. Looked-up place names are never records (D-119).
+- Constraints:
+  - Overwriting by id would replace a local departure or a moved place with an older server copy (breaks "the newer local copy wins").
+  - Going through `record`, `add` or `set(into:)` queues each item and `add` writes Health (breaks "not written to Health, nothing queued").
+  - Merging outside the actor races with a visit arriving meanwhile (breaks "nothing local is deleted").
+- Options:
+  - (a) `Restore.places` turns the fetched records into the phone's types; each store's `restore(_:)` appends only ids it lacks, inside the actor, saves once when anything was added, and returns what it took for the Settings line.
+  - (b) Compare record `updated_at` with a new per-item edit time.
+  - (c) Replay the records as new events.
+- Decision: (a). With no edit times on the phone, the local copy wins whenever it exists; a weigh-in keeps the `in_health` it was sent with, and Health's own migration matches it by the same id.
+- Evidence: Packages/StezuCore/Sources/StezuCore/Restore.swift, LocationRecord.swift, WeighInStore.swift, MyPlaces.swift; App/Sources/Settings/HermesSync.swift; Packages/StezuCore/Tests/StezuCoreTests/RestoreTests.swift (commit 55034d8).
+- Reverse if: the phone's place or weigh-in records gain edit times (then compare them with `updated_at`), or a second device writes the same kinds.
+
+## D-148 A fresh install is offered a restore once, right after Save, through the transport the new settings make
+
+- Status: proposed by night agent, 2026-11-02 (S-058).
+- Problem: a reinstalled phone should offer to restore by itself, but never nag a phone that already has data or a user who said Not now, and the first save on a fresh install happens while the app's transport is still unconfigured.
+- Given: Save hands the settings to the app, which rebuilds `vmTransport` asynchronously; GET /records/summary lists every phone kind with a count (D-144); SyncState is saved in sync-state.json and already holds once-only flags.
+- Constraints:
+  - Reading the summary through the environment's transport right after the first Save can still hit `UnconfiguredVMTransport` (breaks "the offer appears after saving settings").
+  - A flag in UserDefaults survives `-uitest` launches on the simulator (breaks test isolation).
+  - Offering whenever the stores are empty re-offers after Not now (breaks "one-time").
+- Options:
+  - (a) Save starts `restoreOffer(via: settings.transport())`: `Restore.isFresh` (no finished workout, no meal, an empty location log, the library still the bundled seed and unedited), then the summary `hasRecords`, then `HealthSync.offerRestore()`, which sets `SyncState.restoreOffered` and returns true only the first time. The sheet's Restore runs the Settings restore; Not now just closes it.
+  - (b) Offer at launch instead of after Save.
+  - (c) Keep the flag in UserDefaults.
+- Decision: (a). The flag is set only when the sheet is actually shown, so a VM that was empty or unreachable at Save does not use up the offer.
+- Evidence: Packages/StezuCore/Sources/StezuCore/Restore.swift (`isFresh`, `hasRecords`), HealthSync.swift (`offerRestore`); App/Sources/Settings/SettingsView.swift, HermesSync.swift (`restoreOffer`) (commit 55034d8).
+- Reverse if: the server address can be set before the app first opens (then check at launch), or weigh-ins alone should count as "not fresh".
