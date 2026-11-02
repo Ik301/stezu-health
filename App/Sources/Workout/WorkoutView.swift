@@ -116,6 +116,7 @@ struct WorkoutView: View {
     var updated = library ?? store.load()
     importMessage = store.replaceProgram(with: templates, in: &updated)
     library = updated
+    Task { [updated] in await environment.syncRecords([.program(updated, at: Date())]) }  // S-057
   }
 
   /// Ends the rest, closes the logger at once and opens the summary, then writes the session to

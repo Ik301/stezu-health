@@ -76,11 +76,13 @@ public struct TemplateLibrary: Sendable, Equatable, Codable {
   public private(set) var programImported = false
   /// Names of templates an import removed, by key, so their past sessions keep their names.
   public private(set) var removedNames: [String: String] = [:]
+  /// When the program was imported or restored (S-057); nil for the seed and older imports.
+  public private(set) var programAt: Date?
 
   public init() {}
 
   private enum CodingKeys: String, CodingKey {
-    case seedVersion, templates, editedKeys, programImported, removedNames
+    case seedVersion, templates, editedKeys, programImported, removedNames, programAt
   }
 
   /// Library files saved before S-034 have no import flag or removed names.
@@ -93,6 +95,7 @@ public struct TemplateLibrary: Sendable, Equatable, Codable {
       try container.decodeIfPresent(Bool.self, forKey: .programImported) ?? false
     removedNames =
       try container.decodeIfPresent([String: String].self, forKey: .removedNames) ?? [:]
+    programAt = try container.decodeIfPresent(Date.self, forKey: .programAt)
   }
 
   /// Template names by key for history: the current templates, then removed ones.
@@ -124,12 +127,12 @@ public struct TemplateLibrary: Sendable, Equatable, Codable {
 
   /// Makes the templates exactly these, in this order (D-083). Removed templates keep their
   /// names for history; sessions are stored elsewhere and are never touched.
-  public mutating func replaceProgram(with program: [WorkoutTemplate]) {
+  public mutating func replaceProgram(with program: [WorkoutTemplate], at date: Date = Date()) {
     let kept = Set(program.map(\.key))
     for old in templates where !kept.contains(old.key) { removedNames[old.key] = old.name }
     templates = program
     editedKeys.formUnion(kept)
-    programImported = true
+    (programImported, programAt) = (true, date)
   }
 
   private mutating func put(_ template: WorkoutTemplate) {

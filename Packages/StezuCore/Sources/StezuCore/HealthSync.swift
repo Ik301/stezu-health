@@ -67,6 +67,8 @@ public struct SyncState: Codable, Sendable, Equatable {
   public var workoutsBackfilled: Bool?
   /// True once the places drawn before S-056 were queued as my_place records (never twice).
   public var myPlacesBackfilled: Bool?
+  /// True once the library was checked for an imported program to queue (S-057, never twice).
+  public var programBackfilled: Bool?
   /// S-033: the last background pass the server answered; nil before one, kept apart from
   /// `lastSyncAt`, which only foreground passes set.
   public var lastBackgroundSyncAt: Date?
@@ -111,6 +113,14 @@ public actor HealthSync {
     guard state.myPlacesBackfilled != true else { return }
     state.myPlacesBackfilled = true
     enqueue(records)
+    save(state)
+  }
+
+  /// Queues an imported program once per install (S-057); nil queues nothing but still counts.
+  public func backfillProgram(_ record: SyncRecord?) {
+    guard state.programBackfilled != true else { return }
+    state.programBackfilled = true
+    enqueue(record.map { [$0] } ?? [])
     save(state)
   }
 

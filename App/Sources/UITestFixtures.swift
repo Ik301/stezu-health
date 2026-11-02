@@ -356,3 +356,53 @@ enum UITestFixtures {
        "kcal": {"low": 420, "high": 980}, "protein_g": {"low": 12, "high": 28}}]}]}
     """#
 }
+
+extension UITestFixtures {
+  /// The fake VM's routes; S-057 "restore" adds a generic add-on program, one Push session
+  /// yesterday whose session record lists only the first of its three sets, and a meal (D-034).
+  static func routes(scenario: String?) -> [String: VMResponse] {
+    guard scenario == "restore" else { return vmRoutes }
+    let start = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded() - 26 * 3600)
+    let t = { (at: Double) in "\"\(SyncSample.timestamp(start + at))\"" }
+    let ms = { (at: Double) in Int64((start + at).timeIntervalSince1970 * 1000) }
+    let (session, mealID) = ("stezu.workout.\(ms(0))", "5A1C7E3D-0000-4000-8000-000000000057")
+    let record = { (kind: String, id: String, payload: String) in
+      #"{"kind": "\#(kind)", "id": "\#(id)", "updated_at": \#(t(1000)), "payload": \#(payload)}"#
+    }
+    let sets = [("Bench press", 60, 300.0), ("Bench press", 65, 480), ("Overhead press", 40, 840)]
+      .map { name, pounds, at in
+        let payload = #"""
+          {"id": "\#(session).set.\#(ms(at))", "session_id": "\#(session)", "template_key": "push",
+           "exercise_key": null, "exercise_name": "\#(name)", "pounds": \#(pounds), "reps": 8,
+           "logged_at": \#(t(at)), "kind": "working"}
+          """#
+        return (payload, record("set", "\(session).set.\(ms(at))", payload))
+      }
+    let summary = #"""
+      {"id": "\#(session)", "template_key": "push", "template_name": "Push", "started_at": \#(t(0)),
+       "ended_at": \#(t(360)), "exercises": [{"exercise_key": null, "exercise_name": "Bench press",
+       "sets": [\#(sets[0].0)]}]}
+      """#
+    let meal = #"""
+      {"id": "\#(mealID)", "eaten_at": \#(t(26 * 3600 - 60)), "day": "", "status": "confirmed",
+       "edited": false, "in_health": true, "items": [{"item_id": "oats", "name": "Oat Porridge",
+       "source": "North Hall", "halls": ["North Hall"], "rough": false,
+       "kcal": {"low": 200, "high": 260}, "protein_g": {"low": 6, "high": 9}}]}
+      """#
+    let page = { (records: [String], next: String) in
+      VMResponse(
+        status: 200,
+        body: Data(#"{"records": [\#(records.joined(separator: ","))], "next": \#(next)}"#.utf8))
+    }
+    let counts =
+      #"{"counts": {"program": 1, "set": 3, "workout_session": 1, "meal": 1}, "sessions_from_sets": 1}"#
+    let program = record("program", "library", String(decoding: addOnProgramFile, as: UTF8.self))
+    return vmRoutes.merging([
+      "GET /records/summary": VMResponse(status: 200, body: Data(counts.utf8)),
+      "GET /records": page([program] + sets[..<2].map(\.1), "\"p2\""),
+      "GET /records?after=p2": page(
+        [sets[2].1, record("workout_session", session, summary), record("meal", mealID, meal)],
+        "null"),
+    ]) { $1 }
+  }
+}

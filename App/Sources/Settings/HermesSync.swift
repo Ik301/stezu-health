@@ -52,6 +52,9 @@ extension AppEnvironment {
     Task.detached(priority: .utility) {
       await self.backfillWorkouts()
       await self.myPlaces.backfill(into: self.healthSync)
+      let library = WorkoutTemplateStore(storage: self.storage).load()  // S-057
+      await self.healthSync.backfillProgram(
+        library.programImported ? .program(library, at: Date()) : nil)
       if !self.isUITest { await self.syncHermes() }
     }
   }
@@ -98,5 +101,27 @@ extension AppEnvironment {
         finished: FinishedWorkoutStore(storage: storage).load(),
         active: WorkoutSessionStore(storage: storage).load()?.session, templates: templates,
         keys: keys, at: Date()))
+  }
+
+  /// S-057 (D-143): what GET /records/summary says the VM holds; nil when it cannot be read.
+  func restoreSummary() async -> RestoreSummary? {
+    let reply = try? await vmTransport.send(VMRequest(path: "/records/summary"))
+    return try? JSONDecoder().decode(RestoreSummary.self, from: reply?.body ?? Data())
+  }
+
+  /// Reads every page first, then writes the program, the finished workouts and the new meals.
+  /// Nothing is deleted or written to Health; only corrected session summaries are queued.
+  func restoreFromHermes() async throws -> String {
+    let records = try await Restore.fetch(vmTransport, kinds: "program,set,workout_session,meal")
+    let templates = WorkoutTemplateStore(storage: storage)
+    let workouts = FinishedWorkoutStore(storage: storage)
+    let outcome = Restore.merge(
+      records, library: templates.load(), finished: workouts.load(),
+      meals: await mealCaptures.logged(), at: Date())
+    if let library = outcome.library { templates.save(library) }
+    workouts.save(outcome.finished)
+    for meal in outcome.meals { try await mealCaptures.log(meal) }
+    if !outcome.corrections.isEmpty { await syncRecords(outcome.corrections) }
+    return outcome.text
   }
 }
