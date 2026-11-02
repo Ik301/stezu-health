@@ -1929,7 +1929,7 @@
         "s057-restored-history"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     },
     {
       "id": "S-058",

@@ -16,6 +16,9 @@ struct SettingsView: View {
   @State private var status = ServerConnection.untested.text
   @State private var syncText = "--"
   @State private var backgroundText = "--"
+  /// S-057: what the VM holds, then the restore's progress and result.
+  @State private var restoreText = "--"
+  @State private var confirmingRestore = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: Theme.spaceMd) {
@@ -51,7 +54,20 @@ struct SettingsView: View {
       pill("Sync now", id: "settings.sync.now") {
         Task { syncText = HermesSyncFile.text(await environment.syncHermes()) }
       }
+      HStack {
+        label("Restore from Hermes")
+        Spacer()
+        pill("Restore", id: "settings.restore") { confirmingRestore = true }
+      }
+      Text(restoreText).textStyle(.subtitle).accessibilityIdentifier("settings.restore.status")
       Spacer(minLength: 0)
+    }
+    .alert("Restore from Hermes?", isPresented: $confirmingRestore) {
+      Button("Restore") { Task { await restore() } }
+        .accessibilityIdentifier("settings.restore.confirm")
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("\(restoreText). Nothing on this phone is deleted.")
     }
     .foregroundStyle(Theme.ink)
     .padding(Theme.spaceLg)
@@ -60,6 +76,7 @@ struct SettingsView: View {
     .onAppear {
       stored = environment.serverSettings.load()
       address = stored.address
+      Task { restoreText = await environment.restoreSummary()?.text ?? "--" }
     }
     .task {  // live while open, so a meal synced in the background shows (S-029)
       while !Task.isCancelled {
@@ -84,6 +101,12 @@ struct SettingsView: View {
     } catch {
       status = "Could not save the token"
     }
+  }
+
+  private func restore() async {  // S-057: every page is read before anything is written
+    restoreText = "Restoring, reading records from Hermes..."
+    let restored = try? await environment.restoreFromHermes()
+    restoreText = restored ?? "Restore failed. Try again when Hermes is reachable."
   }
 
   private func test() async {

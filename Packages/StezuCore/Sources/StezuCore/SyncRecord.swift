@@ -16,6 +16,7 @@ public struct SyncRecord: Codable, Sendable, Equatable {
   public var placePayload: PlaceRecord? = nil
   /// A `my_place` record's payload (S-056).
   public var myPlacePayload: MyPlaceRecord? = nil
+  public var programPayload: ProgramRecord? = nil
 
   enum CodingKeys: String, CodingKey {
     case kind, id, deleted, payload
@@ -71,7 +72,7 @@ extension SyncRecord {
     kind = try box.decode(String.self, forKey: .kind)
     id = try box.decode(String.self, forKey: .id)
     updatedAt = try box.decode(String.self, forKey: .updatedAt)
-    deleted = try box.decode(Bool.self, forKey: .deleted)
+    deleted = try box.decodeIfPresent(Bool.self, forKey: .deleted) ?? false
     switch kind {
     case "set": setPayload = try box.decodeIfPresent(SetRecord.self, forKey: .payload)
     case "workout_session":
@@ -81,6 +82,7 @@ extension SyncRecord {
       placePayload = try box.decodeIfPresent(PlaceRecord.self, forKey: .payload)
     case "my_place":
       myPlacePayload = try box.decodeIfPresent(MyPlaceRecord.self, forKey: .payload)
+    case "program": programPayload = try box.decodeIfPresent(ProgramRecord.self, forKey: .payload)
     default: payload = try box.decodeIfPresent(MealRecord.self, forKey: .payload)
     }
   }
@@ -97,6 +99,7 @@ extension SyncRecord {
     try box.encodeIfPresent(payload, forKey: .payload)
     try box.encodeIfPresent(placePayload, forKey: .payload)
     try box.encodeIfPresent(myPlacePayload, forKey: .payload)
+    try box.encodeIfPresent(programPayload, forKey: .payload)
   }
 }
 

@@ -145,6 +145,7 @@ struct FoodHistory: View {
     HStack(alignment: .top, spacing: Theme.spaceSm) {
       Theme.surfaceRaised.frame(width: 48, height: 48)
         .overlay { photos[photoID].map { Image(uiImage: $0).resizable().scaledToFill() } }
+        .overlay { Text(photos[photoID] == nil ? "No photo" : "").textStyle(.axis) }  // S-057
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusInner))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(photos[photoID] == nil ? "No photo" : "Photo")

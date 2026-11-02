@@ -2068,3 +2068,38 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Read-only, phone kinds only (`app_usage` is the Mac's and answers 400). The payload is stored and served verbatim, and `stezu_program` gives Hermes the current templates.
 - Evidence: server/Tests/test_records_api.py (every page size covers every live record once, tombstones and older replays, 400s, 401, program accepted in both spellings and rejected per rule); server/README.md (GET /records, GET /records/summary, `program`).
 - Reverse if: the app needs changes since a time (then add an `(updated_at, kind, id)` index and a since cursor beside this one), or the library outgrows 50 templates.
+
+## D-145 A restore reads every page before it writes, merges by id with the local copy winning, and re-sends only lagging session summaries
+
+- Status: proposed by night agent, 2026-11-02 (S-057). Implements D-143's phone side for the program, workouts and meals.
+- Problem: after a reinstall the phone must take back the VM's records without losing anything it still holds, without duplicating Apple Health entries, without echoing every record back to the server, and safely when run twice; and some session summaries on the VM lag their sets (the last Finish never arrived) while others have no set records at all.
+- Given: GET /records pages by (kind, id) until `next` is null (D-144). Finished workouts live in finished-workouts.json keyed by the Health external id `stezu.workout.<start ms>`, which every set id also derives from. Meals are `<id>.log` files. FinishedWorkout, LoggedMeal and the library carry no edit time.
+- Constraints:
+  - Writing page by page leaves a half-restored phone when a later page fails (breaks "a failed restore changes nothing").
+  - Overwriting by id loses a local edit made since the last sync (breaks "the newer local copy wins").
+  - Queueing restored records sends thousands back unchanged (breaks "restored records are not queued").
+  - Building a session only from its summary keeps the lagging set counts (breaks "the sets are the truth"); building only from set records drops sessions that have none.
+- Options:
+  - (a) `Restore.fetch` reads all pages, then `Restore.merge` returns the new library, workouts, new meals and corrections, and the app writes each store once. Sessions: the set records grouped by session_id, else the summary's own sets; start and template from the summary (the id's milliseconds otherwise), end the later of summary end and last set; a local session with the same id stays unless it ended earlier; marked in Health. Meals: added only when the id is absent. A rebuilt session whose summary has fewer sets or an earlier end (or none) is queued as a corrected `workout_session`, only when the merge actually added or replaced it, so a second restore queues nothing.
+  - (b) Write each page as it arrives.
+  - (c) Replace local copies with the server's by id.
+- Decision: (a). A page that does not decode or a non-200 aborts before any write; one record that does not decode is skipped. Nothing is written to Health and nothing local is deleted.
+- Evidence: Packages/StezuCore/Sources/StezuCore/Restore.swift; App/Sources/Settings/HermesSync.swift (`restoreFromHermes`); Packages/StezuCore/Tests/StezuCoreTests/RestoreTests.swift (commit 245ab5f).
+- Reverse if: the stores gain edit times (then compare those instead of end time and presence), or a restore grows too large to hold in memory (then write per kind).
+
+## D-146 The program is one `program` record sent on every import, and the library keeps the time it was imported
+
+- Status: proposed by night agent, 2026-11-02 (S-057).
+- Problem: the imported program lived only on the phone, and a restore must tell whether the phone's library is older than the VM's copy.
+- Given: `TemplateLibrary.replaceProgram` is the only import path (D-083); `programImported` says the seed is no longer used. The server keeps the newest `updated_at` of `program`/`library` (D-144).
+- Constraints:
+  - Comparing template contents cannot say which copy is newer (breaks "the newer local copy wins").
+  - Libraries saved before this build have no time (breaks decoding if the field were required).
+  - Queueing the library on every launch re-sends it forever (breaks "queued once").
+- Options:
+  - (a) `TemplateLibrary.programAt`, optional, stamped by `replaceProgram(with:at:)` (now by default, the record's `updated_at` on a restore). Import queues `SyncRecord.program` right after the save; the first launch with this build queues an already imported library once behind `SyncState.programBackfilled`, set even when there is nothing to queue, so a later restore is never echoed. A restore applies the record when the library is still the seed or `programAt` is older (nil counts as older).
+  - (b) Keep the time in SyncState.
+  - (c) Always apply the server's program.
+- Decision: (a).
+- Evidence: Packages/StezuCore/Sources/StezuCore/WorkoutTemplate.swift, Restore.swift (`SyncRecord.program`), HealthSync.swift (`backfillProgram`); App/Sources/Workout/WorkoutView.swift; App/Sources/Settings/HermesSync.swift (commit 245ab5f).
+- Reverse if: the program becomes editable on the phone (then stamp each edit) or several devices import programs.
