@@ -9,7 +9,11 @@ from test_scan import JPEG, FakeModel, code_for
 
 from stezu_server import foodpro, latemeal, scan
 
-MONDAY, TUESDAY, FRIDAY, SATURDAY, SUNDAY = "2026-10-26", "2026-10-27", "2026-10-30", "2026-10-31", "2026-11-01"
+MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY = \
+    "2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30"
+SATURDAY, SUNDAY = "2026-10-31", "2026-11-01"
+SPECIALS = {MONDAY: "Trenton Burger", TUESDAY: "Grilled Reuben", WEDNESDAY: "Southwest Burger",
+            THURSDAY: "Rodeo Burger", FRIDAY: "Hot Honey Chicken Tenders"}
 
 
 def lm_hall(body):
@@ -21,7 +25,7 @@ def test_json_is_valid_and_every_item_is_an_estimate_with_a_basis():
     assert data["retrieved"] == data["confirmed"] == "2026-11-02" and data["ondemand"]["tenant"] == 2047
     assert "TO BE CONFIRMED" not in data["note"] and "DataDome" in data["source"]
     names = [i["name"] for i in data["items"]]
-    assert len(names) == len(set(names)) == 13 and data["fries"] in names and "Side Salad" not in names
+    assert len(names) == len(set(names)) == 17 and data["fries"] in names and "Side Salad" not in names
     assert all(set(i["days"]) <= set(latemeal.DAYS[:5]) for i in data["items"] if "days" in i)
     for item in data["items"]:
         assert item["estimated"] is True and item["basis"].strip() and item["description"].strip()
@@ -34,7 +38,7 @@ def test_json_is_valid_and_every_item_is_an_estimate_with_a_basis():
             assert item["plate"]["name"] == f"{item['name']} with fries"
             assert item["plate"]["serving"] == "1 plate, with fries"
             assert "fries are a separate item" in item["serving"]
-    assert sum("plate" in i for i in data["items"]) == 10
+    assert sum("plate" in i for i in data["items"]) == 14
 
 
 def test_late_meal_runs_on_weekdays_with_the_friday_dinner_off(make_client):
@@ -76,6 +80,11 @@ def test_a_daily_special_is_served_only_on_its_day(make_client):
     assert {"Trenton Burger", "Trenton Burger with fries"} <= monday
     assert "Trenton Burger" not in tuesday and "Trenton Burger with fries" not in tuesday
     assert monday - tuesday == {"Trenton Burger", "Trenton Burger with fries"}
+    every_special = set(SPECIALS.values())
+    for date, special in SPECIALS.items():
+        served = names(date)
+        assert {special, f"{special} with fries"} <= served, date
+        assert served & every_special == {special}, date
 
 
 def test_late_meal_survives_a_foodpro_failure_and_the_menu_cache(make_client):
