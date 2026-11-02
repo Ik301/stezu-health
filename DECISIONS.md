@@ -2048,3 +2048,22 @@ The research notes cited here are kept private, because they contain personal he
 - Rule: a workout is rebuilt from its set records, which are the truth, not from its session summary. A session summary that lags behind its sets is corrected once.
 - Not restored: meal photos (never synced) and looked-up place names (they are looked up again).
 - Advice to Isaac: reinstall over the app with Cmd+R; don't delete it first.
+
+## D-144 The restore reads records by keyset pages on (kind, id), and the program is one record in the app's own Codable keys
+
+- Status: proposed by the server card, 2026-11-02. Implements D-143's server side (the app side is S-057 and S-058).
+- Problem: after a reinstall the app must read back every live record of its own kinds (thousands of `location` rows) over a phone connection, safely while syncs may still land, and the program library must round-trip into `WorkoutTemplate` without loss.
+- Given: `records` keeps one row per `(kind, id)`, the newest `updated_at` (older replays never win), with `(kind, id)` as the primary key. Batches stamp many records with the same millisecond. `WorkoutTemplate` and `TemplateExercise` encode camelCase keys (`addOn`, `repsLow`, `repsHigh`, `restSeconds`, optional `weightStep`, `startPounds`); `ProgramImport.parse` defines what a valid library is.
+- Constraints:
+  - Offset pages skip or repeat a row when a record lands between pages (breaks "every record exactly once").
+  - An `updated_at` cursor has ties within a batch and no index (breaks "exactly once" and "fast").
+  - One response with every record runs to megabytes of location fixes (breaks "a phone can hold the page").
+  - snake_case template keys would need a mirror type or custom CodingKeys on the phone (breaks "the app decodes what it sent").
+- Options:
+  - (a) Keyset pages ordered by kind then id on the primary key, an opaque base64url cursor of the last `[kind, id]`, limit 500 by default and 2,000 at most; GET /records/summary for counts and `sessions_from_sets`. Program payload: `seed_version` plus templates exactly as `JSONEncoder` writes them, snake_case aliases accepted, validated like `ProgramImport.parse` (1 to 50 templates, at most 40 exercises each).
+  - (b) Offset and limit.
+  - (c) A since-`updated_at` cursor.
+  - (d) A snake_case program contract only.
+- Decision: (a). Read-only, phone kinds only (`app_usage` is the Mac's and answers 400). The payload is stored and served verbatim, and `stezu_program` gives Hermes the current templates.
+- Evidence: server/Tests/test_records_api.py (every page size covers every live record once, tombstones and older replays, 400s, 401, program accepted in both spellings and rejected per rule); server/README.md (GET /records, GET /records/summary, `program`).
+- Reverse if: the app needs changes since a time (then add an `(updated_at, kind, id)` index and a since cursor beside this one), or the library outgrows 50 templates.
