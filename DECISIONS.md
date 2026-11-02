@@ -2040,3 +2040,11 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The backfill (`MyPlacesStore.backfill(into:)`) stamps the old places, saves the file, then queues them all as one batch behind `SyncState.myPlacesBackfilled`. `MyPlaces.place(for:)` breaks ties as the server does: smallest radius, then earlier `createdAt`, then lower id.
 - Evidence: Packages/StezuCore/Sources/StezuCore/MyPlaces.swift, SyncRecord.swift, HealthSync.swift; Packages/StezuCore/Tests/StezuCoreTests/MyPlacesTests.swift (commit 405f1bd).
 - Reverse if: the editor ever allows values outside the server's limits on purpose (then (b) with a visible notice), or the server starts accepting a missing `created_at`.
+
+## D-143 The VM is the phone's backup: a restore reads records back after a reinstall
+
+- Status: decided by Isaac, 2026-11-02, after deleting the app lost the program and the phone's history (S-057, S-058).
+- What: the server serves the latest live version of each record (GET /records, GET /records/summary). The app restores them into its local stores, merged by id, without writing to Health again or re-queueing. The program library becomes a `program` record, so it can come back too.
+- Rule: a workout is rebuilt from its set records, which are the truth, not from its session summary. A session summary that lags behind its sets is corrected once.
+- Not restored: meal photos (never synced) and looked-up place names (they are looked up again).
+- Advice to Isaac: reinstall over the app with Cmd+R; don't delete it first.

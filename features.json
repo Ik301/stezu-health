@@ -1895,6 +1895,71 @@
       ],
       "needs_server": true,
       "passes": true
+    },
+    {
+      "id": "S-057",
+      "kind": "story",
+      "area": "shell",
+      "title": "Restore from Hermes: the program, workout history and meals come back after a reinstall",
+      "steps": [
+        "Why (D-143): Isaac deleted the app, and with it the imported program, workout history (Next, last numbers, Continue) and food history, which live only on the phone. The VM has copies of the synced records, but the app can only send. This story adds the read-back path, using the server's GET /records and GET /records/summary (server/README.md; the server PR lands first).",
+        "Program sync: importing or replacing the program (D-083) queues one `program` record (id \"library\"; payload {seed_version, templates: [the library's templates as imported, including add_on flags]}). On the first launch with this build, the current library is queued once if it holds an imported program. The program can then be restored.",
+        "Settings gains a \"Restore from Hermes\" row under the sync rows. It reads /records/summary and shows what the VM holds (\"Program, 2 workouts (11 sets), 3 meals, 28 visits, 0 places\"). Tapping it opens a confirm sheet; Restore pages through /records and writes each kind into its local store. A progress line shows during the restore, and \"Restored\" with the counts after. Nothing is deleted locally.",
+        "Mapping, merged by id so a restore can run again safely, and the newer local copy wins:\n    - Program: replaces the library as an import does (D-083), but only when the local library is still the bundled seed or older than the record.\n    - Workouts: rebuild each finished session from its `set` records, grouped by session_id; the sets are the truth. The `workout_session` record supplies the template key and name and started_at; ended_at is the later of its ended_at and the last set's logged_at. A session with sets but no session record is still restored, with its template from the sets.\n    - Meals: LoggedMeal from the `meal` record's items and ranges, with no photo. History shows \"No photo\" in the thumbnail.\n  Restored items are NOT written to Apple Health again; they are already there.",
+        "Restored records are not queued for sync again. One exception: a session rebuilt from sets that has more sets or a later end than its server `workout_session` record queues that corrected record once. This fixes sessions whose final Finish never reached the VM.",
+        "UI test with -uitest-scenario restore: FakeVMTransport serves a summary and pages of records (a generic program, one session with sets across two exercises whose session record lists only one set, and one meal). Restore from Settings. Workout shows the program's templates, History has the session with every set, Next follows it, Food Today lists the meal with \"No photo\", and one corrected workout_session is queued.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "Settings, Restore, Confirm",
+      "depends_on": [
+        "S-056",
+        "S-055"
+      ],
+      "core_tests": [
+        "StezuCoreTests.RestoreTests/testSessionsRebuiltFromSetRecords",
+        "StezuCoreTests.RestoreTests/testRestoreIsIdempotentAndLocalNewerWins",
+        "StezuCoreTests.RestoreTests/testStaleSessionQueuesCorrectionOnce",
+        "StezuCoreTests.RestoreTests/testProgramRecordRoundTrips"
+      ],
+      "ui_tests": [
+        "AppUITests.RestoreUITests/testRestoreProgramWorkoutsAndMeals"
+      ],
+      "screenshots": [
+        "s057-restore-settings",
+        "s057-restored-history"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-058",
+      "kind": "story",
+      "area": "shell",
+      "title": "Restore brings back places, weigh-ins and his own places, and a fresh install offers it by itself",
+      "steps": [
+        "Extends S-057's restore (D-143) to the remaining kinds, using the server's GET /records and GET /records/summary (server/README.md; the server PR lands first):\n    - `visit` and `location` records into the location log (the heat map and Day timeline draw from it);\n    - `weigh_in` into WeighInStore, not written to Health again;\n    - `my_place` into MyPlaces.\n  Merged by id, newer local wins, and nothing is queued again.",
+        "Fresh-install offer: after server settings are saved, if the local stores are empty (no finished workouts, no logged meals, an empty location log, and the library is the bundled seed) and /records/summary shows records, a one-time sheet offers \"Restore from Hermes? Program, 2 workouts, 3 meals, 28 visits\" with Restore and Not now. Not now leaves the Settings row as the way back.",
+        "Looked-up place names are not restored. They are looked up again (S-054). Names for his own places come back with the my_place records.",
+        "UI test with -uitest-scenario restore-fresh: an empty install and a fake server holding visits, a weigh-in and one my_place. The offer appears after saving settings; Restore fills the Places map, the weight row and the place's name on a visit.",
+        "Build the steps in the order listed. If the 300-line budget runs out, stop at a step boundary, leave the remaining steps working as they are now, and list them in PROGRESS.md under 'Left undone'."
+      ],
+      "tap_budget": "1 tap (Restore) on a fresh install",
+      "depends_on": [
+        "S-057"
+      ],
+      "core_tests": [
+        "StezuCoreTests.RestoreTests/testVisitsWeighInsAndPlacesRestored",
+        "StezuCoreTests.RestoreTests/testFreshInstallDetection"
+      ],
+      "ui_tests": [
+        "AppUITests.RestoreUITests/testFreshInstallOffersRestore"
+      ],
+      "screenshots": [
+        "s058-restore-offer",
+        "s058-restored-places"
+      ],
+      "needs_server": true,
+      "passes": false
     }
   ]
 }
