@@ -220,7 +220,7 @@ tombstone, so the sample stays deleted if it arrives (or is replayed) later.
 
 | Field | Type | Rules |
 |---|---|---|
-| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`, `visit`, `location`, `app_usage`, `my_place`; others are stored too. Only a live `my_place` is validated (below); other payloads are stored as sent. |
+| `kind` | string | Lower-case `[a-z][a-z0-9_]*`, ≤ 40. Known kinds: `workout_session`, `set`, `meal`, `weigh_in`, `visit`, `location`, `app_usage`, `my_place`, `program`; others are stored too. Only a live `my_place` and a live `program` are validated (below); other payloads are stored as sent. |
 | `id` | string, 1–128 | The app's stable id for the record. |
 | `updated_at` | string | ISO 8601 with an offset. The newest version wins; an equal or older `updated_at` is a duplicate and changes nothing, so bump it on every edit. |
 | `deleted` | bool | Default `false`. `true` is a tombstone. |
@@ -233,6 +233,35 @@ most 1,000 characters; `latitude` a number from -90 to 90; `longitude` from -180
 `created_at` an ISO 8601 string with an offset. A rejected record is counted in `rejected` with
 a message such as `records[3]: my_place radius_m must be a number from 10 to 2000`; the rest of
 the batch is stored. A tombstone (`deleted: true`) is not checked and may carry `payload: null`.
+
+A `program` (D-143) is the phone's whole template library, one record with `id` `"library"`;
+a newer `updated_at` replaces it. The payload is `seed_version` plus the templates exactly as
+StezuCore's `WorkoutTemplate` and `TemplateExercise` encode them with a plain `JSONEncoder`
+(camelCase keys; `weightStep` and `startPounds` are left out when nil). It is stored and served
+back verbatim, so the app decodes what it sent:
+
+```json
+{"kind": "program", "id": "library", "updated_at": "2026-11-02T09:00:00.000-05:00", "deleted": false,
+ "payload": {"seed_version": 3, "templates": [
+  {"key": "day-1", "name": "Day 1", "addOn": false, "exercises": [
+    {"key": "bench-press", "name": "Bench Press", "sets": 3, "repsLow": 8, "repsHigh": 12, "restSeconds": 120},
+    {"key": "row", "name": "Row", "sets": 3, "repsLow": 10, "repsHigh": 10, "restSeconds": 120,
+     "weightStep": 5, "startPounds": 45}]},
+  {"key": "abs", "name": "Abs", "addOn": true, "exercises": []}]}}
+```
+
+A live `program` is rejected unless: the record's `id` is `"library"`; `seed_version` is an
+integer, `null` or absent; `templates` is an array of 1 to 50 objects with unique `key`s; each
+template has `key` and `name` (non-blank strings of at most 200 characters), `addOn` `true`,
+`false` or absent, and `exercises`, an array of 0 to 40 objects; each exercise has `key` and
+`name` (as above), `sets` an integer >= 1, `repsLow` an integer >= 1, `repsHigh` an integer >=
+`repsLow`, `restSeconds` an integer >= 0, and `weightStep` and `startPounds` `null`, absent or a
+number >= 0. Integers are JSON integers (not `3.0`, strings or booleans). These are
+`ProgramImport.parse`'s rules, so a restored library always imports. Also accepted: `seedVersion`
+for `seed_version`, and the snake_case spellings `add_on`, `reps_low`, `reps_high`,
+`rest_seconds`, `weight_step` and `start_pounds` (when both spellings are sent, the snake_case one
+is checked). Other keys are stored as sent. Errors read like `records[0]: program templates[0].exercises[1].repsHigh must
+be an integer >= 8`.
 
 Answer (200):
 
@@ -279,6 +308,55 @@ and `records_total` sum the `count`s. `last_batch_at` is when the server last re
 from that device (a replay counts). Times the server writes are UTC, fixed width,
 `YYYY-MM-DDTHH:MM:SS.mmmZ`.
 
+### `GET /records/summary`
+
+What a restore would bring back (D-143): live records (tombstones excluded) of the phone's kinds
+`location`, `meal`, `my_place`, `program`, `set`, `visit`, `weigh_in`, `workout_session`.
+`app_usage` comes from the Mac and is left out. Every kind is always listed, with 0 and `null`
+when there are none. `updated_at` is the newest live `updated_at` of the kind.
+`sessions_from_sets` is the number of distinct `session_id` strings among the live `set` records
+(a workout is rebuilt from its sets, so this is the number of workouts to restore).
+
+```json
+{"counts": {"location": 412, "meal": 3, "my_place": 0, "program": 1, "set": 11, "visit": 28,
+            "weigh_in": 2, "workout_session": 2},
+ "updated_at": {"location": "2026-11-01T22:10:04.000Z", "meal": "2026-11-01T17:02:11.512Z",
+                "my_place": null, "program": "2026-11-02T14:00:00.000Z", "set": "2026-11-01T21:40:09.104Z",
+                "visit": "2026-11-01T23:59:00.000Z", "weigh_in": "2026-10-30T12:00:00.000Z",
+                "workout_session": "2026-11-01T21:41:00.000Z"},
+ "sessions_from_sets": 2, "server_time": "2026-11-02T14:05:00.123Z"}
+```
+
+### `GET /records?kinds=set,meal&after=<cursor>&limit=500`
+
+One page of live records, read-only (nothing is written, not even a batch row). Each is the
+stored version of its `(kind, id)`, which is always the one with the newest `updated_at` (an
+older replay never replaces it), with `payload` as the JSON object the app sent:
+
+```json
+{"records": [
+  {"kind": "meal", "id": "8E2D4C6A-0000-4000-8000-000000000008", "updated_at": "2026-10-21T23:00:00.000Z",
+   "payload": {"id": "8E2D4C6A-0000-4000-8000-000000000008", "eaten_at": "2026-10-21T19:00:00.000-04:00",
+               "items": []}},
+  {"kind": "set", "id": "8E2D4C6A-0000-4000-8000-000000000007", "updated_at": "2026-10-21T21:20:00.000Z",
+   "payload": {"session_id": "…", "exercise_key": "bench-press", "pounds": 95, "reps": 8}}],
+ "next": "WyJzZXQiLCAiOEUyRDRDNkEtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA3Il0"}
+```
+
+- `kinds`: comma-separated phone kinds (spaces and repeats ignored); empty or absent means all
+  eight. Any other kind, `app_usage` included, answers 400.
+- Order: by `kind`, then `id` (byte order), whatever order `kinds` lists them in.
+- `limit`: default 500; above 2,000 is served as 2,000; below 1 or not a whole number answers 400.
+- `next`: an opaque cursor (unpadded base64url); pass it back as `after` with the same `kinds` for
+  the next page. `null` means this was the last page. The cursor is a position, not a snapshot:
+  a record stored while paging shows up if its `(kind, id)` sorts after the cursor, and no record
+  is ever served twice in one pass. A cursor the server did not make answers 400.
+- `updated_at` is the server's UTC form of the `updated_at` the app sent.
+
+Errors: 400 with `{"detail": "unknown kind bogus; known kinds: location, meal, ..."}`, `"after is
+not a cursor from this server; start again without it"` or `"limit must be a whole number from 1
+to 2000"`; 401 without the token.
+
 ## Health database (for Hermes)
 
 The file named by `STEZU_HEALTH_DB` (default `~/.local/share/stezu/health.db`), mode 0600, WAL
@@ -312,6 +390,7 @@ NULL, never 0.
 | `heart_rate_daily`, `resting_hr`, `hrv`, `spo2`, `respiratory_rate`, `temperature` | Per `day`, `type`, `unit`: `n`, `min_value`, `mean_value`, `max_value`, `sources`. Types: HeartRate, RestingHeartRate, HeartRateVariabilitySDNN (ms), OxygenSaturation (a fraction), RespiratoryRate, and BodyTemperature, AppleSleepingWristTemperature, BasalBodyTemperature. |
 | `workouts` | HealthKit workouts: `uuid`, `day`, `start_local`, `end_local`, `activity_type`, `activity_name`, `duration_min`, `energy_kcal`, `distance_m`, `source_name`, `source_bundle`. |
 | `stezu_records` | `records` without tombstones. |
+| `stezu_program` | The live `program` record (D-143), at most one row: `id` (`library`), `seed_version`, `n_templates`, `templates` (the JSON array as the app sent it, camelCase keys), `updated_at`. |
 | `stezu_sets` | One row per live `set` record: `id`, `session_id`, `template_key`, `exercise_key`, `exercise_name`, `pounds` (NULL for bodyweight), `reps`, `logged_at`, `day`, `kind` (e.g. `working`), `updated_at`. |
 | `stezu_sessions` | One row per live `workout_session` record: `id`, `started_at`, `ended_at`, `day`, `template_key`, `template_name`, `duration_min`, `n_exercises`, `n_sets`, `total_reps`, `in_health` (1/0), `updated_at`. |
 | `stezu_weighins` | One row per live `weigh_in` record: `id`, `measured_at`, `day`, `pounds`, `kg`, `in_health` (1/0), `updated_at`. |
@@ -359,6 +438,7 @@ these names; the names in brackets are also accepted:
 | `location` (S-032) | `id`, `at` (ISO 8601 with offset), `latitude`, `longitude`, `horizontal_accuracy_m`, `speed_mps` (`null` when CoreLocation reports none, never a negative or 0 for missing), `day`. A significant location change. |
 | `app_usage` (Mac uploader, D-081) | `id` (sha256 hex of device id, bundle id and UTC start), `device_name`, `device_model` (e.g. `iPhone15,2`), `bundle_id`, `app_name` (`null`: Biome has only the bundle id), `start`, `end` (ISO 8601 with the Mac's offset, milliseconds), `duration_s` (> 0; at most the cap), `capped` (true when the interval was cut at the uploader's cap, 4 h by default), `day` (local date of `start`). Sent by `mac/screentime/stezu_screentime.py` with batch `device_id` `mac-screentime`; every daily run re-sends the trailing 7 days with a newer `updated_at` (milliseconds), which replaces the row. An interval still open at run time is not sent until it ends. |
 | `my_place` (S-056, D-140) | `id` (the record's id), `name`, `note` (`null` when empty), `latitude`, `longitude` (degrees, WGS 84, the circle's centre), `radius_m` (metres, 10 to 2,000), `created_at` (ISO 8601 with offset, milliseconds); the record's `updated_at` in milliseconds. A move, resize, rename or note change resends the same id with a newer `updated_at`; a delete sends the same id with `deleted: true`. Checked as above. Looked-up place names (S-054) never sync (D-119). |
+| `program` (S-057, D-143) | `seed_version`, `templates`: `[{key, name, addOn, exercises: [{key, name, sets, repsLow, repsHigh, restSeconds, weightStep?, startPounds?}]}]`; the record id is `library`. Checked as above. |
 | `meal` (S-029) | `id`, `eaten_at`, `day`, `status`, `edited`, `in_health`, `items`: `[{item_id, name, source, halls, serving, servings, confidence, rough, kcal: {low, high}, protein_g: {low, high}}]`. |
 
 A night is keyed by its wake date: a sleep segment belongs to the local date of its end plus

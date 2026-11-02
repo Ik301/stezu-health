@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from . import __version__, barcode, foodpro, latemeal, scan, search
 from .config import Settings, load_settings
-from .health import HealthDB, TooLarge, gunzip
+from .health import PAGE_DEFAULT, PAGE_MAX, HealthDB, TooLarge, decode_cursor, gunzip, parse_kinds
 from .model import AnthropicClient, ModelError
 from .net import Http
 from .store import Store
@@ -139,6 +139,25 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
     @api.get("/sync/status")
     def sync_status() -> dict[str, Any]:
         return health_db.status()
+
+    @api.get("/records/summary")
+    def records_summary() -> dict[str, Any]:
+        return health_db.summary()
+
+    @api.get("/records")
+    def records(kinds: str | None = None, after: str | None = None, limit: str | None = None) -> dict[str, Any]:
+        """Read-only restore path (D-143): one page of the newest live records, by kind then id."""
+        try:
+            wanted, start = parse_kinds(kinds), decode_cursor(after) if after else None
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+        try:
+            n = PAGE_DEFAULT if not limit else int(limit)
+        except ValueError:
+            n = 0
+        if n < 1:
+            raise HTTPException(400, f"limit must be a whole number from 1 to {PAGE_MAX}")
+        return health_db.page(wanted, start, min(n, PAGE_MAX))
 
     app.include_router(api)
     return app

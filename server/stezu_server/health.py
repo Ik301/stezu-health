@@ -8,6 +8,7 @@ cannot bring it back. Hermes reads the views read-only. Nothing here calls a mod
 
 from __future__ import annotations
 
+import base64
 import json
 import math
 import os
@@ -16,6 +17,7 @@ import sqlite3
 import threading
 import zlib
 from datetime import UTC, datetime
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -100,6 +102,13 @@ PLACE = (f"{jbetween('$.latitude', -90, 90)} AS latitude", f"{jbetween('$.longit
 RADIUS_M = (10, 2000)
 NAME_MAX, NOTE_MAX = 200, 1000
 
+# The phone's own kinds, served back by GET /records for a restore (D-143). app_usage comes from
+# the Mac, so it is not the phone's to restore. Sorted, the order GET /records pages in.
+PHONE_KINDS = ("location", "meal", "my_place", "program", "set", "visit", "weigh_in", "workout_session")
+PAGE_DEFAULT, PAGE_MAX = 500, 2000
+# The template library as one record (D-143), checked like ProgramImport.parse on the phone.
+PROGRAM_ID, MAX_TEMPLATES, MAX_EXERCISES = "library", 50, 40
+
 
 def meters(lat1: str, lon1: str, lat2: str, lon2: str) -> str:
     """Great-circle metres between two points, the haversine of StezuCore's PlaceRecord.meters
@@ -169,6 +178,13 @@ VIEWS = {
                 " json_extract(metadata_json, '$.total_distance_m') AS distance_m, source_name, source_bundle"
                 f" FROM live_samples WHERE type = '{WORKOUT}'",
     "stezu_records": "SELECT kind, id, updated_at, payload_json, received_at FROM records WHERE deleted = 0",
+    # The phone's template library (D-143): templates is the JSON array as the app sent it.
+    "stezu_program": f"SELECT id, coalesce({jnum('$.seed_version')}, {jnum('$.seedVersion')}) AS seed_version,"
+                     " CASE WHEN json_type(payload_json, '$.templates') = 'array' THEN"
+                     " json_array_length(payload_json, '$.templates') END AS n_templates,"
+                     " CASE WHEN json_type(payload_json, '$.templates') = 'array' THEN"
+                     " json_extract(payload_json, '$.templates') END AS templates, updated_at"
+                     " FROM records WHERE kind = 'program' AND deleted = 0",
     "stezu_sets": f"SELECT id, session_id, template_key, exercise_key, exercise_name, pounds, reps, logged_at,"
                   f" {day_of('logged_at')} AS day, set_kind AS kind, updated_at FROM "
                   + live("set", f"{jtext('$.session_id')} AS session_id", f"{jtext('$.template_key')} AS template_key",
@@ -320,6 +336,96 @@ def my_place(rid: str | None, p: dict[str, Any]) -> None:
         raise ValueError(f"my_place created_at: {exc}") from None
 
 
+def field(obj: dict[str, Any], snake: str, camel: str) -> tuple[str, Any]:
+    """A program field by its snake_case name, else the app's camelCase Codable key (name, value)."""
+    name = snake if snake in obj or camel not in obj else camel
+    return name, obj.get(name)
+
+
+def whole(value: Any, where: str, lo: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < lo:
+        raise ValueError(f"program {where} must be an integer >= {lo}")
+    return value
+
+
+def label(obj: dict[str, Any], key: str, where: str) -> str:
+    value = obj.get(key)
+    if not isinstance(value, str) or not value.strip() or len(value) > NAME_MAX:
+        raise ValueError(f"program {where}.{key} must be a non-blank string of at most {NAME_MAX} characters")
+    return value
+
+
+def program(rid: str | None, p: dict[str, Any]) -> None:
+    """D-143: the phone's template library, so a restore can bring the program back. Checked like
+    ProgramImport.parse, so a restored library always imports: a bad one is rejected, not stored."""
+    if rid != PROGRAM_ID:
+        raise ValueError(f'program id must be "{PROGRAM_ID}"')
+    name, seed = field(p, "seed_version", "seedVersion")
+    if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int)):
+        raise ValueError(f"program {name} must be an integer or null")
+    templates = p.get("templates")
+    if not isinstance(templates, list) or not 1 <= len(templates) <= MAX_TEMPLATES:
+        raise ValueError(f"program templates must be an array of 1 to {MAX_TEMPLATES} templates")
+    keys: set[str] = set()
+    for i, t in enumerate(templates):
+        at = f"templates[{i}]"
+        if not isinstance(t, dict):
+            raise ValueError(f"program {at} must be an object")
+        key = label(t, "key", at)
+        if key in keys:
+            raise ValueError(f"program {at}.key {key!r} appears twice")
+        keys.add(key)
+        label(t, "name", at)
+        name, add_on = field(t, "add_on", "addOn")
+        if add_on is not None and not isinstance(add_on, bool):
+            raise ValueError(f"program {at}.{name} must be true, false or absent")
+        exercises = t.get("exercises")
+        if not isinstance(exercises, list) or len(exercises) > MAX_EXERCISES:
+            raise ValueError(f"program {at}.exercises must be an array of at most {MAX_EXERCISES} exercises")
+        for j, e in enumerate(exercises):
+            ex = f"{at}.exercises[{j}]"
+            if not isinstance(e, dict):
+                raise ValueError(f"program {ex} must be an object")
+            label(e, "key", ex)
+            label(e, "name", ex)
+            whole(e.get("sets"), f"{ex}.sets", 1)
+            low_name, low = field(e, "reps_low", "repsLow")
+            high_name, high = field(e, "reps_high", "repsHigh")
+            low = whole(low, f"{ex}.{low_name}", 1)
+            whole(high, f"{ex}.{high_name}", low)
+            name, rest = field(e, "rest_seconds", "restSeconds")
+            whole(rest, f"{ex}.{name}", 0)
+            for snake, camel in (("weight_step", "weightStep"), ("start_pounds", "startPounds")):
+                name, value = field(e, snake, camel)
+                if value is not None and (isinstance(value, bool) or not isinstance(value, int | float)
+                                          or not math.isfinite(value) or value < 0):
+                    raise ValueError(f"program {ex}.{name} must be null or a number >= 0")
+
+
+def parse_kinds(raw: str | None) -> tuple[str, ...]:
+    """GET /records' kinds parameter: comma-separated phone kinds; empty means all of them."""
+    wanted = [k.strip() for k in (raw or "").split(",") if k.strip()]
+    unknown = [k for k in wanted if k not in PHONE_KINDS]
+    if unknown:
+        raise ValueError(f"unknown kind {', '.join(unknown)}; known kinds: {', '.join(PHONE_KINDS)}")
+    return tuple(sorted(set(wanted))) or PHONE_KINDS
+
+
+def encode_cursor(kind: str, rid: str) -> str:
+    """Opaque to the app: base64url (unpadded) of the JSON [kind, id] of the last record served."""
+    return base64.urlsafe_b64encode(json.dumps([kind, rid]).encode()).decode().rstrip("=")
+
+
+def decode_cursor(cursor: str) -> tuple[str, str]:
+    try:
+        value = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
+    except ValueError:
+        value = None
+    if not (isinstance(value, list) and len(value) == 2 and all(isinstance(v, str) for v in value)):
+        raise ValueError("after is not a cursor from this server; start again without it")
+    return value[0], value[1]
+
+
 def gunzip(data: bytes, limit: int) -> bytes:
     inflater = zlib.decompressobj(wbits=31)
     try:
@@ -390,6 +496,8 @@ class HealthDB:
             raise ValueError("payload must be an object (or null when deleted)")
         if kind == "my_place" and isinstance(payload, dict) and not deleted:
             my_place(rid, payload)
+        if kind == "program" and isinstance(payload, dict) and not deleted:
+            program(rid, payload)
         return (kind, rid, utc(parse_ts(r.get("updated_at"))), int(deleted),
                 None if payload is None else json.dumps(payload), now)
 
@@ -435,6 +543,34 @@ class HealthDB:
                        " device_id = excluded.device_id, received_at = excluded.received_at,"
                        " counts_json = excluded.counts_json", (batch, device, now, json.dumps(counts)))
         return counts | {"errors": errors[:20], "server_time": now}
+
+    def summary(self) -> dict[str, Any]:
+        """GET /records/summary: live records per phone kind, their newest updated_at, and the
+        distinct session_ids among live sets (a workout is rebuilt from its sets, D-143)."""
+        marks = ", ".join("?" * len(PHONE_KINDS))
+        with self._lock:
+            rows = self._db.execute(f"SELECT kind, count(*), max(updated_at) FROM records WHERE deleted = 0"
+                                    f" AND kind IN ({marks}) GROUP BY kind", PHONE_KINDS).fetchall()
+            sessions = self._db.execute(f"SELECT count(DISTINCT {jtext('$.session_id')}) FROM records"
+                                        " WHERE kind = 'set' AND deleted = 0").fetchone()[0]
+        found = {k: (n, u) for k, n, u in rows}
+        return {"counts": {k: found.get(k, (0, None))[0] for k in PHONE_KINDS},
+                "updated_at": {k: found.get(k, (0, None))[1] for k in PHONE_KINDS},
+                "sessions_from_sets": sessions, "server_time": utc(datetime.now(UTC))}
+
+    def page(self, kinds: Sequence[str], after: tuple[str, str] | None, limit: int) -> dict[str, Any]:
+        """GET /records: the stored (newest) version of each live record of these kinds, ordered by
+        kind then id, starting after the cursor. Read-only."""
+        sql = (f"SELECT kind, id, updated_at, payload_json FROM records WHERE deleted = 0"
+               f" AND kind IN ({', '.join('?' * len(kinds))})")
+        args: list[Any] = list(kinds)
+        if after is not None:
+            sql, args = sql + " AND (kind, id) > (?, ?)", [*args, *after]
+        with self._lock:
+            rows = self._db.execute(sql + " ORDER BY kind, id LIMIT ?", [*args, limit + 1]).fetchall()
+        more, rows = len(rows) > limit, rows[:limit]
+        return {"records": [{"kind": k, "id": i, "updated_at": u, "payload": json.loads(p)} for k, i, u, p in rows],
+                "next": encode_cursor(rows[-1][0], rows[-1][1]) if more else None}
 
     def status(self) -> dict[str, Any]:
         with self._lock:
