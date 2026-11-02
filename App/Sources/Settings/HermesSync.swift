@@ -104,15 +104,29 @@ extension AppEnvironment {
   }
 
   /// S-057 (D-143): what GET /records/summary says the VM holds; nil when it cannot be read.
-  func restoreSummary() async -> RestoreSummary? {
-    let reply = try? await vmTransport.send(VMRequest(path: "/records/summary"))
+  func restoreSummary(via transport: (any VMTransport)? = nil) async -> RestoreSummary? {
+    let reply = try? await (transport ?? vmTransport).send(VMRequest(path: "/records/summary"))
     return try? JSONDecoder().decode(RestoreSummary.self, from: reply?.body ?? Data())
   }
 
-  /// Reads every page first, then writes the program, the finished workouts and the new meals.
-  /// Nothing is deleted or written to Health; only corrected session summaries are queued.
-  func restoreFromHermes() async throws -> String {
-    let records = try await Restore.fetch(vmTransport, kinds: "program,set,workout_session,meal")
+  /// S-058: the summary to offer a fresh install once, right after Save; nil otherwise.
+  func restoreOffer(via transport: any VMTransport) async -> RestoreSummary? {
+    let fresh = Restore.isFresh(
+      finished: FinishedWorkoutStore(storage: storage).load(), meals: await mealCaptures.logged(),
+      log: await places.log, library: WorkoutTemplateStore(storage: storage).load())
+    guard fresh, let summary = await restoreSummary(via: transport), summary.hasRecords,
+      await healthSync.offerRestore()
+    else { return nil }
+    return summary
+  }
+
+  /// Reads every page first, then writes the program, the finished workouts and the new meals,
+  /// then (S-058) visits, fixes, weigh-ins and his places the phone lacks. Nothing is deleted or
+  /// written to Health; only corrected session summaries are queued.
+  func restoreFromHermes(via transport: (any VMTransport)? = nil) async throws -> String {
+    let records = try await Restore.fetch(
+      transport ?? vmTransport,
+      kinds: "program,set,workout_session,meal,visit,location,weigh_in,my_place")
     let templates = WorkoutTemplateStore(storage: storage)
     let workouts = FinishedWorkoutStore(storage: storage)
     let outcome = Restore.merge(
@@ -122,6 +136,11 @@ extension AppEnvironment {
     workouts.save(outcome.finished)
     for meal in outcome.meals { try await mealCaptures.log(meal) }
     if !outcome.corrections.isEmpty { await syncRecords(outcome.corrections) }
-    return outcome.text
+    let found = Restore.places(records)
+    var added = Restore.Places()
+    added.log = await places.restore(found.log)
+    added.weighIns = await weighIns.restore(found.weighIns)
+    added.mine = await myPlaces.restore(found.mine)
+    return outcome.text + added.text
   }
 }

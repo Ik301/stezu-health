@@ -19,6 +19,8 @@ struct SettingsView: View {
   /// S-057: what the VM holds, then the restore's progress and result.
   @State private var restoreText = "--"
   @State private var confirmingRestore = false
+  /// S-058: what the VM holds, offered once to a fresh install after Save.
+  @State private var offer: RestoreSummary?
 
   var body: some View {
     VStack(alignment: .leading, spacing: Theme.spaceMd) {
@@ -69,6 +71,23 @@ struct SettingsView: View {
     } message: {
       Text("\(restoreText). Nothing on this phone is deleted.")
     }
+    .sheet(isPresented: Binding(get: { offer != nil }, set: { if !$0 { offer = nil } })) {
+      [offer] in
+      VStack(alignment: .leading, spacing: Theme.spaceMd) {
+        Text("Restore from Hermes?").textStyle(.headline)
+        Text(offer?.text ?? "--").textStyle(.subtitle)
+          .accessibilityIdentifier("settings.offer.text")
+        Text("Nothing on this phone is deleted.").textStyle(.label).foregroundStyle(Theme.muted)
+        HStack(spacing: Theme.spaceMd) {
+          pill("Restore", id: "settings.offer.restore") {
+            self.offer = nil
+            Task { await restore() }
+          }
+          pill("Not now", id: "settings.offer.later") { self.offer = nil }
+        }
+      }
+      .foregroundStyle(Theme.ink).padding(Theme.spaceLg).presentationDetents([.medium])
+    }
     .foregroundStyle(Theme.ink)
     .padding(Theme.spaceLg)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -98,6 +117,8 @@ struct SettingsView: View {
       token = ""
       status = ServerConnection.untested.text
       saved(settings)
+      let transport = environment.isUITest ? environment.vmTransport : settings.transport()
+      Task { offer = await environment.restoreOffer(via: transport) }
     } catch {
       status = "Could not save the token"
     }
@@ -105,7 +126,8 @@ struct SettingsView: View {
 
   private func restore() async {  // S-057: every page is read before anything is written
     restoreText = "Restoring, reading records from Hermes..."
-    let restored = try? await environment.restoreFromHermes()
+    let transport = environment.isUITest ? environment.vmTransport : stored.transport()
+    let restored = try? await environment.restoreFromHermes(via: transport)
     restoreText = restored ?? "Restore failed. Try again when Hermes is reachable."
   }
 

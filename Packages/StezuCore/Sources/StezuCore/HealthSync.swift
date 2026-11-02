@@ -69,6 +69,8 @@ public struct SyncState: Codable, Sendable, Equatable {
   public var myPlacesBackfilled: Bool?
   /// True once the library was checked for an imported program to queue (S-057, never twice).
   public var programBackfilled: Bool?
+  /// S-058: true once a fresh install was offered a restore (never twice).
+  public var restoreOffered: Bool?
   /// S-033: the last background pass the server answered; nil before one, kept apart from
   /// `lastSyncAt`, which only foreground passes set.
   public var lastBackgroundSyncAt: Date?
@@ -117,6 +119,14 @@ public actor HealthSync {
   }
 
   /// Queues an imported program once per install (S-057); nil queues nothing but still counts.
+  /// S-058: true the first time only, saved, so the offer never comes back.
+  public func offerRestore() -> Bool {
+    guard state.restoreOffered != true else { return false }
+    state.restoreOffered = true
+    save(state)
+    return true
+  }
+
   public func backfillProgram(_ record: SyncRecord?) {
     guard state.programBackfilled != true else { return }
     state.programBackfilled = true

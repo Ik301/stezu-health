@@ -361,6 +361,7 @@ extension UITestFixtures {
   /// The fake VM's routes; S-057 "restore" adds a generic add-on program, one Push session
   /// yesterday whose session record lists only the first of its three sets, and a meal (D-034).
   static func routes(scenario: String?) -> [String: VMResponse] {
+    if scenario == "restore-fresh" { return vmRoutes.merging(restoreFresh()) { $1 } }
     guard scenario == "restore" else { return vmRoutes }
     let start = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded() - 26 * 3600)
     let t = { (at: Double) in "\"\(SyncSample.timestamp(start + at))\"" }
@@ -404,5 +405,47 @@ extension UITestFixtures {
         [sets[2].1, record("workout_session", session, summary), record("meal", mealID, meal)],
         "null"),
     ]) { $1 }
+  }
+
+  /// S-058 "restore-fresh": an empty install, and a VM holding two visits this week (the newer
+  /// inside his place "Gym"), a fix, a weigh-in and that place. Every value is made up (D-034).
+  static func restoreFresh(now: Date = Date()) -> [String: VMResponse] {
+    let base = max(WeeklyStats.week(containing: now).start, now - 3 * 3600)
+    let format = ISO8601DateFormatter()
+    format.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let t = { (at: Double) in "\"\(format.string(from: base + at))\"" }
+    let ms = { (at: Double) in Int64((base + at).timeIntervalSince1970 * 1000) }
+    let day = String(t(0).dropFirst().prefix(10))
+    let record = { (kind: String, id: String, payload: String) in
+      #"{"kind": "\#(kind)", "id": "\#(id)", "updated_at": \#(t(0)), "payload": {"id": "\#(id)", \#(payload)}}"#
+    }
+    let visit = { (at: Double, latitude: Double) in
+      record(
+        "visit", "visit.\(ms(at))",
+        #""day": "\#(day)", "arrived_at": \#(t(at)), "departed_at": \#(t(at + 1800)), "latitude": \#(latitude), "longitude": 20.5, "horizontal_accuracy_m": 20"#
+      )
+    }
+    let records = [
+      visit(0, 10.6), visit(3600, 10.5),
+      record(
+        "location", "location.\(ms(600))",
+        #""day": "\#(day)", "at": \#(t(600)), "latitude": 10.55, "longitude": 20.5, "horizontal_accuracy_m": 50"#
+      ),
+      record(
+        "weigh_in", "5A1C7E3D-0000-4000-8000-000000000058",
+        #""measured_at": \#(t(0)), "pounds": 172.4, "in_health": true"#),
+      record(
+        "my_place", "6B2D8F4E-0000-4000-8000-000000000058",
+        #""name": "Gym", "note": null, "latitude": 10.5, "longitude": 20.5, "radius_m": 100, "created_at": \#(t(0))"#
+      ),
+    ]
+    let counts =
+      #"{"counts": {"visit": 2, "location": 1, "weigh_in": 1, "my_place": 1}, "sessions_from_sets": 0}"#
+    return [
+      "GET /records/summary": VMResponse(status: 200, body: Data(counts.utf8)),
+      "GET /records": VMResponse(
+        status: 200,
+        body: Data(#"{"records": [\#(records.joined(separator: ","))], "next": null}"#.utf8)),
+    ]
   }
 }
