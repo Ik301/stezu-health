@@ -19,6 +19,8 @@ struct DayView: View {
   @State private var removed: [DayRecord.Owner] = []
   @State private var confirming: Int?
   @State private var editing: LoggedMeal?
+  @State private var finished: [FinishedWorkout] = []  // S-055: their sets can be changed
+  @State private var editingSet: PastSet?
   private let shape = RoundedRectangle(cornerRadius: Theme.radiusCard)
 
   var body: some View {
@@ -58,6 +60,16 @@ struct DayView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.spaceLg).background(Theme.surface, in: shape)
+        .sheet(item: $editingSet) { past in
+          SetEditor(past: past) { edit in
+            editingSet = nil
+            guard let edit else { return }
+            Task {
+              finished = await environment.editSet(edit, past, in: finished)
+              await load()
+            }
+          }
+        }
       }
     }
     .task(id: day) { await load() }
@@ -166,13 +178,26 @@ struct DayView: View {
       VStack(alignment: .leading, spacing: Theme.space2xs) {
         Text(record.kind.rawValue).textStyle(.headline)
           .accessibilityIdentifier(id)
-        Text(record.detail).textStyle(.subtitle)
-          .accessibilityIdentifier("\(id).detail")
+        if case .session(let start) = record.owner,
+          let done = finished.first(where: { $0.session.startedAt == start }),
+          !done.session.exercises.isEmpty
+        {
+          ForEach(Array(done.session.exercises.enumerated()), id: \.offset) { e, log in
+            Text(log.exercise).textStyle(.subtitle)
+            SetChips(sets: log.sets, id: "\(id).set.\(e)") { set in
+              editingSet = PastSet(
+                sessionStart: start, exercise: log.exercise, number: set + 1, set: log.sets[set])
+            }
+          }
+        } else {
+          Text(record.detail).textStyle(.subtitle)
+            .accessibilityIdentifier("\(id).detail")
+        }
         Text(record.isStezu ? "From Stezu" : "From \(record.source), read-only")
           .textStyle(.label).foregroundStyle(Theme.muted)
           .accessibilityIdentifier("\(id).source")
       }
-      Spacer()
+      .frame(maxWidth: .infinity, alignment: .leading)
       if case .meal(let mealID) = record.owner, let meal = meals.first(where: { $0.id == mealID }) {
         action("Edit", id: "\(id).edit") { editing = meal }
       }
@@ -196,8 +221,8 @@ struct DayView: View {
     let stored = await environment.mealCaptures.logged()
     let seeded = environment.mealHistory.filter { meal in !stored.contains { $0.id == meal.id } }
     meals = (stored + seeded).filter { !removed.contains(.meal($0.id)) }
-    let finished = FinishedWorkoutStore(storage: environment.storage).load().map(\.session)
-    sessions = (environment.workoutHistory + finished)
+    finished = FinishedWorkoutStore(storage: environment.storage).load()
+    sessions = (environment.workoutHistory + finished.map(\.session))
       .filter { !removed.contains(.session($0.startedAt)) }
     records = await DayRecords.load(
       day, from: environment.weightHealth, meals: meals, sessions: sessions)

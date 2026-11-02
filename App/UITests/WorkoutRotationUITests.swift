@@ -79,9 +79,12 @@ final class WorkoutRotationUITests: XCTestCase {
       XCTAssertFalse(other.exists && other.label.hasPrefix("Day 3"), "Day 3 is in History twice")
     }
     newest.tap()
-    let sets = app.element("history.exercise.0.sets")
+    // S-055: a finished session's sets are chips, one per set.
+    let sets = app.element("history.set.0.0")
     XCTAssertTrue(sets.waitForExistence(timeout: 10), "the session did not open")
-    XCTAssertEqual(sets.label, "45 x 5, 45 x 5")
+    XCTAssertEqual(sets.label, "45 x 5")
+    XCTAssertEqual(app.element("history.set.0.1").label, "45 x 5")
+    XCTAssertFalse(app.element("history.set.0.2").exists, "a third set")
     XCTAssertTrue(app.element("history.session.continue").exists, "no Continue in History")
   }
 

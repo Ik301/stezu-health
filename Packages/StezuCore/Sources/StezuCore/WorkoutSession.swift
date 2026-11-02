@@ -65,6 +65,26 @@ public struct WorkoutSession: Sendable, Equatable, Codable {
     return set
   }
 
+  /// S-055: changes or removes the set logged at `loggedAt`, which keeps its time (so its id).
+  /// Returns its exercise, or nil and changes nothing when there is no such set or the new
+  /// numbers are not a real set (as `logSet`). An exercise left with no sets is dropped.
+  @discardableResult
+  public mutating func apply(_ edit: SetEdit, toSetAt loggedAt: Date) -> String? {
+    guard let e = exercises.firstIndex(where: { $0.sets.contains { $0.loggedAt == loggedAt } }),
+      let s = exercises[e].sets.firstIndex(where: { $0.loggedAt == loggedAt })
+    else { return nil }
+    let name = exercises[e].exercise
+    switch edit {
+    case .change(let pounds, let reps):
+      guard reps >= 1, pounds.map({ $0.isFinite && $0 > 0 }) ?? true else { return nil }
+      exercises[e].sets[s] = WorkoutSet(pounds: pounds, reps: reps, loggedAt: loggedAt)
+    case .delete:
+      exercises[e].sets.remove(at: s)
+      if exercises[e].sets.isEmpty { exercises.remove(at: e) }
+    }
+    return name
+  }
+
   /// The sets for an exercise in this session, or nil if it was not done.
   public func sets(for exercise: String) -> [WorkoutSet]? {
     exercises.first(where: { $0.exercise == exercise })?.sets
