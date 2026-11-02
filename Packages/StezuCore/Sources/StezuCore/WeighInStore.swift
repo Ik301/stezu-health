@@ -96,6 +96,14 @@ public actor WeighInStore {
     await sync(ids.map { .deletedWeighIn($0, at: Date()) })
   }
 
+  /// S-058: restored weigh-ins the file lacks join it, saved; not written to Health, not queued.
+  public func restore(_ weighIns: [StoredWeighIn]) -> [StoredWeighIn] {
+    let added = Restore.missing(weighIns, from: log.weighIns, id: \.id)
+    log.weighIns = (log.weighIns + added).sorted { $0.measuredAt < $1.measuredAt }
+    if !added.isEmpty { save(log) }
+    return added
+  }
+
   /// Once per install: Stezu's body-mass samples in Health join the file, matched by id so
   /// nothing is doubled, and are queued. A read that throws tries again on the next read.
   public func migrate(from health: any HealthStore, sync: Sync) async {

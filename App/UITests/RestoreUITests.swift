@@ -75,4 +75,60 @@ final class RestoreUITests: XCTestCase {
     XCTAssertEqual(meal.label, "Oat Porridge")
     XCTAssertEqual(app.element("food.history.day.0.meal.0.photo").label, "No photo")
   }
+
+  /// S-058: a fresh install ("restore-fresh": nothing on the phone; a fake VM holding two made-up
+  /// visits this week, a fix, a weigh-in and the place "Gym") is offered a restore once Settings
+  /// saves a server. One tap on Restore fills the Places map, the weight row and Gym's name on
+  /// the newer visit, and nothing is queued back.
+  @MainActor
+  func testFreshInstallOffersRestore() {
+    continueAfterFailure = false
+    let app = UITestApp.launch(scenario: "restore-fresh")
+
+    let gear = app.element("home.settings")
+    XCTAssertTrue(gear.waitForExistence(timeout: 30), "no gear on Home")
+    gear.tap()
+    let address = app.textFields["settings.address"]
+    XCTAssertTrue(address.waitForExistence(timeout: 10), "no Server address field")
+    address.tap()
+    address.typeText("https://vm.example")
+    let token = app.secureTextFields["settings.token"]
+    token.tap()
+    token.typeText("synthetic-token\n")
+    app.element("settings.save").tap()
+
+    // The offer: what the VM holds, with Restore and Not now.
+    let offer = app.element("settings.offer.text")
+    XCTAssertTrue(offer.waitForExistence(timeout: 15), "no restore offer after Save")
+    XCTAssertEqual(offer.label, "No program, 0 workouts (0 sets), 0 meals, 2 visits, 1 place")
+    XCTAssertTrue(app.element("settings.offer.later").exists, "no Not now")
+    saveScreenshot("s058-restore-offer", of: app)
+    app.element("settings.offer.restore").tap()
+    let status = app.element("settings.restore.status")
+    wait(for: "label == 'Restored 0 workouts, 0 meals, 2 visits, 1 weigh-in, 1 place'", on: status)
+    XCTAssertFalse(app.element("settings.offer.text").exists, "the offer is still open")
+    XCTAssertFalse(
+      app.element("settings.sync.status").label.contains("waiting"), "a restored record was queued")
+    app.element("settings.done").tap()
+
+    // Data: the weight row counts the restored weigh-in.
+    let data = app.element("home.card.data")
+    XCTAssertTrue(data.waitForExistence(timeout: 10), "Settings did not close")
+    data.tap()
+    let weight = app.element("data.weight.coverage")
+    XCTAssertTrue(weight.waitForExistence(timeout: 10), "no Weight row")
+    wait(for: "label == 'Weigh-ins 1 of 7'", on: weight)
+
+    // Places: the map draws the restored log, and the newer visit takes his place's name.
+    let row = app.element("data.places.open")
+    XCTAssertTrue(row.waitForExistence(timeout: 10), "no Places row")
+    for _ in 0..<3 where !row.isHittable { app.swipeUp() }
+    row.tap()
+    XCTAssertTrue(app.element("places.map").waitForExistence(timeout: 10), "no map")
+    let newest = app.element("places.visit.0.name")
+    XCTAssertTrue(newest.waitForExistence(timeout: 10), "no restored visit")
+    wait(for: "label == 'Gym'", on: newest)
+    XCTAssertTrue(app.element("places.visit.1").exists, "the second visit is missing")
+    saveScreenshot("s058-restored-places", of: app)
+  }
 }

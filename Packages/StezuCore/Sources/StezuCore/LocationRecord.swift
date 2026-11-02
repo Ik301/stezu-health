@@ -135,6 +135,14 @@ public actor LocationRecorder {
     save(log)
     await sync.enqueue([record])
   }
+
+  /// S-058: restored visits and fixes the log lacks join it, saved, never queued.
+  public func restore(_ places: [PlaceRecord]) -> [PlaceRecord] {
+    let added = Restore.missing(places, from: log.places, id: \.id)
+    log.places += added
+    if !added.isEmpty { save(log) }
+    return added
+  }
 }
 
 /// This week's visits (by arrival) and the days with any location data. `perDay` counts the

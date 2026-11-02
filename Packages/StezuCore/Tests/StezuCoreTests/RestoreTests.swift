@@ -250,4 +250,117 @@ final class RestoreTests: XCTestCase {
       try JSONDecoder().decode(RestoreSummary.self, from: body).text,
       "Program, 2 workouts (11 sets), 3 meals, 28 visits, 0 places")
   }
+
+  /// S-058: a visit, a fix, a weigh-in and his place come back into their stores by id. The
+  /// phone's own copy of a visit stays, nothing is queued, and a second restore adds nothing.
+  /// His place names the restored visit; looked-up names are not records.
+  func testVisitsWeighInsAndPlacesRestored() async throws {
+    let visit = { (id: String, latitude: Double) -> [String: Any] in
+      [
+        "id": id, "day": "2027-01-15", "arrived_at": self.stamp(0),
+        "departed_at": self.stamp(1_800),
+        "latitude": latitude, "longitude": 20.5, "horizontal_accuracy_m": 20,
+      ]
+    }
+    let records = try decode([
+      record("visit", visit("visit.1", 10.5)), record("visit", visit("visit.2", 10.5)),
+      record(
+        "location",
+        [
+          "id": "location.1", "day": "2027-01-15", "at": stamp(600), "latitude": 10.5,
+          "longitude": 20.5, "horizontal_accuracy_m": 50, "speed_mps": NSNull(),
+        ]),
+      record(
+        "weigh_in",
+        ["id": "W-1", "measured_at": stamp(60), "pounds": 172.4, "in_health": true]),
+      record(
+        "my_place",
+        [
+          "id": "P-1", "name": "Gym", "note": NSNull(), "latitude": 10.5, "longitude": 20.5,
+          "radius_m": 100, "created_at": stamp(0),
+        ]),
+      meal(),
+    ])
+    let found = Restore.places(records)
+    XCTAssertEqual(found.log.map(\.id), ["visit.1", "visit.2", "location.1"])
+    XCTAssertEqual(found.weighIns.first?.measuredAt, start + 60)
+    XCTAssertEqual(found.mine.first?.createdAt, start)
+
+    let saves = Counter()
+    var local = LocationLog()
+    local.places = [
+      PlaceRecord(
+        id: "visit.1", day: "2027-01-15", arrivedAt: stamp(0), latitude: 40, longitude: 20.5,
+        horizontalAccuracyM: 5)
+    ]
+    let recorder = LocationRecorder(log: local) { _ in saves.add() }
+    let weighIns = WeighInStore { _ in saves.add() }
+    let mine = MyPlacesStore { _ in saves.add() }
+    var added = Restore.Places()
+    added.log = await recorder.restore(found.log)
+    added.weighIns = await weighIns.restore(found.weighIns)
+    added.mine = await mine.restore(found.mine)
+    XCTAssertEqual(added.log.map(\.id), ["visit.2", "location.1"], "the local visit.1 stays")
+    XCTAssertEqual(added.text, ", 1 visit, 1 weigh-in, 1 place")
+    let log = await recorder.log
+    XCTAssertEqual(log.places.first { $0.id == "visit.1" }?.latitude, 40)
+    XCTAssertEqual(log.places.count, 3)
+    let weights = await weighIns.log.weighIns
+    XCTAssertEqual(weights.map(\.pounds), [172.4])
+    XCTAssertEqual(weights.first?.inHealth, true, "kept as Health took it, not written again")
+    let places = await mine.places
+    let named = try XCTUnwrap(log.places.first { $0.id == "visit.2" })
+    XCTAssertEqual(places.name(named, looked: [:]), "Gym")
+    XCTAssertEqual(saves.value, 3)
+
+    let again = (
+      await recorder.restore(found.log), await weighIns.restore(found.weighIns),
+      await mine.restore(found.mine)
+    )
+    XCTAssertTrue(again.0.isEmpty && again.1.isEmpty && again.2.isEmpty, "\(again)")
+    XCTAssertEqual(saves.value, 3, "a second restore wrote nothing")
+    XCTAssertEqual(Restore.Places().text, "")
+  }
+
+  /// S-058: only an install with no finished workout, meal, visit or fix, and the bundled seed
+  /// unchanged, is fresh; the offer needs records on the VM and comes once.
+  func testFreshInstallDetection() async throws {
+    var seed = TemplateLibrary()
+    seed.upsert(WorkoutSeed(seedVersion: 3, templates: []))
+    XCTAssertTrue(Restore.isFresh(finished: [], meals: [], log: LocationLog(), library: seed))
+    XCTAssertFalse(Restore.isFresh(finished: [], meals: [], log: LocationLog(), library: library()))
+    let workout = FinishedWorkout(
+      session: WorkoutSession(startedAt: start), endedAt: start + 60, externalID: push,
+      inHealth: true)
+    XCTAssertFalse(
+      Restore.isFresh(finished: [workout], meals: [], log: LocationLog(), library: seed))
+    let meal = LoggedMeal(id: mealID, loggedAt: start, items: [])
+    XCTAssertFalse(Restore.isFresh(finished: [], meals: [meal], log: LocationLog(), library: seed))
+    var log = LocationLog()
+    _ = log.apply(
+      .fix(at: start, latitude: 10, longitude: 20, accuracy: 5, speed: nil), at: start)
+    XCTAssertFalse(Restore.isFresh(finished: [], meals: [], log: log, library: seed))
+
+    let summary = { (counts: String) in
+      try JSONDecoder().decode(
+        RestoreSummary.self, from: Data(#"{"counts": {\#(counts)}, "sessions_from_sets": 0}"#.utf8))
+    }
+    XCTAssertFalse(try summary(#""visit": 0, "meal": 0"#).hasRecords)
+    XCTAssertTrue(try summary(#""visit": 2, "meal": 0"#).hasRecords)
+
+    let saved = Counter()
+    let sync = HealthSync(state: SyncState()) { _ in saved.add() }
+    let first = await sync.offerRestore()
+    let second = await sync.offerRestore()
+    XCTAssertEqual([first, second], [true, false])
+    XCTAssertEqual(saved.value, 1)
+  }
+}
+
+/// Counts saves from a store's `@Sendable` callback.
+private final class Counter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var count = 0
+  var value: Int { lock.withLock { count } }
+  func add() { lock.withLock { count += 1 } }
 }

@@ -29,6 +29,9 @@ public struct RestoreSummary: Decodable, Sendable, Equatable {
     case sessionsFromSets = "sessions_from_sets"
   }
 
+  /// S-058: whether the VM holds anything a restore would bring back.
+  public var hasRecords: Bool { counts.values.contains { $0 > 0 } }
+
   /// "Program, 2 workouts (11 sets), 3 meals, 28 visits, 0 places"; sessions without sets count.
   public var text: String {
     let n = { (kind: String) in counts[kind] ?? 0 }
@@ -153,6 +156,52 @@ public enum Restore {
     let format = ISO8601DateFormatter()
     format.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return format.date(from: text) ?? ISO8601DateFormatter().date(from: text)
+  }
+
+  /// S-058: the place kinds as the phone stores them. Looked-up names are not records (D-119).
+  public struct Places: Sendable, Equatable {
+    public var log: [PlaceRecord] = []
+    public var weighIns: [StoredWeighIn] = []
+    public var mine: [MyPlace] = []
+    public init() {}
+
+    /// ", 2 visits, 1 weigh-in, 1 place": what the stores took; a kind with none is left out.
+    public var text: String {
+      [(log.filter(\.isVisit).count, "visit"), (weighIns.count, "weigh-in"), (mine.count, "place")]
+        .filter { $0.0 > 0 }.map { ", " + count($0.0, $0.1) }.joined()
+    }
+  }
+
+  public static func places(_ records: [SyncRecord]) -> Places {
+    var found = Places()
+    for r in records where !r.deleted {
+      if let p = r.placePayload, ["visit", "location"].contains(r.kind) { found.log.append(p) }
+      if let w = r.weighInPayload, let at = time(w.measuredAt) {
+        found.weighIns.append(
+          StoredWeighIn(id: w.id, measuredAt: at, pounds: w.pounds, inHealth: w.inHealth))
+      }
+      if let m = r.myPlacePayload {
+        found.mine.append(
+          MyPlace(
+            id: m.id, name: m.name, note: m.note, latitude: m.latitude, longitude: m.longitude,
+            radiusM: m.radiusM, createdAt: time(m.createdAt)))
+      }
+    }
+    return found
+  }
+
+  /// S-058: nothing finished, logged or recorded yet, and the library still the bundled seed.
+  public static func isFresh(
+    finished: [FinishedWorkout], meals: [LoggedMeal], log: LocationLog, library: TemplateLibrary
+  ) -> Bool {
+    finished.isEmpty && meals.isEmpty && log.places.isEmpty && !library.programImported
+      && library.editedKeys.isEmpty
+  }
+
+  /// The restored items whose ids the phone lacks; the phone's own copy always stays.
+  static func missing<T>(_ new: [T], from local: [T], id: (T) -> String) -> [T] {
+    var seen = Set(local.map(id))
+    return new.filter { seen.insert(id($0)).inserted }
   }
 
   static func count(_ n: Int, _ noun: String) -> String { "\(n) \(noun)\(n == 1 ? "" : "s")" }

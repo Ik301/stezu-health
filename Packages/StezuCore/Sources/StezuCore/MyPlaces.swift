@@ -77,6 +77,14 @@ public actor MyPlacesStore {
     return saved
   }
 
+  /// S-058: restored places the phone lacks join it with their names, saved, never queued.
+  public func restore(_ mine: [MyPlace]) -> [MyPlace] {
+    let added = Restore.missing(mine, from: places.places, id: \.id)
+    places.places += added
+    if !added.isEmpty { save(places) }
+    return added
+  }
+
   /// The first launch with S-056 stamps the places drawn before it, saves, and queues them all.
   public func backfill(into sync: HealthSync, at now: Date = Date()) async {
     guard await sync.state.myPlacesBackfilled != true else { return }

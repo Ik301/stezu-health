@@ -112,7 +112,8 @@ struct AppEnvironment: Sendable {
       programFilePicker: .fixture(UITestFixtures.programFile(scenario: scenario)),
       healthConnection: HealthConnection(
         defaults: nil,
-        asked: UITestFixtures.isDataWeek(scenario) || scenario == "location"),
+        asked: UITestFixtures.isDataWeek(scenario) || scenario == "location"
+          || scenario == "restore-fresh"),
       now: UITestFixtures.clock(scenario: scenario),
       mealHistory: UITestFixtures.loggedMeals(scenario: scenario),
       barcodeSource: .fixture(UITestFixtures.barcode(scenario: scenario)),
