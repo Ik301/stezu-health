@@ -9,7 +9,7 @@ from test_scan import JPEG, FakeModel, code_for
 
 from stezu_server import foodpro, latemeal, scan
 
-MONDAY, FRIDAY, SATURDAY, SUNDAY = "2026-10-26", "2026-10-30", "2026-10-31", "2026-11-01"
+MONDAY, TUESDAY, FRIDAY, SATURDAY, SUNDAY = "2026-10-26", "2026-10-27", "2026-10-30", "2026-10-31", "2026-11-01"
 
 
 def lm_hall(body):
@@ -18,10 +18,11 @@ def lm_hall(body):
 
 def test_json_is_valid_and_every_item_is_an_estimate_with_a_basis():
     data = json.loads(latemeal.PATH.read_text(encoding="utf-8"))
-    assert data["retrieved"] == "2026-10-30" and data["ondemand"]["tenant"] == 2047
-    assert "TO BE CONFIRMED" in data["note"] and "DataDome" in data["source"]
+    assert data["retrieved"] == data["confirmed"] == "2026-11-02" and data["ondemand"]["tenant"] == 2047
+    assert "TO BE CONFIRMED" not in data["note"] and "DataDome" in data["source"]
     names = [i["name"] for i in data["items"]]
-    assert len(names) == len(set(names)) == 13 and data["fries"] in names
+    assert len(names) == len(set(names)) == 13 and data["fries"] in names and "Side Salad" not in names
+    assert all(set(i["days"]) <= set(latemeal.DAYS[:5]) for i in data["items"] if "days" in i)
     for item in data["items"]:
         assert item["estimated"] is True and item["basis"].strip() and item["description"].strip()
         assert item["serving"].strip()
@@ -33,7 +34,7 @@ def test_json_is_valid_and_every_item_is_an_estimate_with_a_basis():
             assert item["plate"]["name"] == f"{item['name']} with fries"
             assert item["plate"]["serving"] == "1 plate, with fries"
             assert "fries are a separate item" in item["serving"]
-    assert sum("plate" in i for i in data["items"]) == 9
+    assert sum("plate" in i for i in data["items"]) == 10
 
 
 def test_late_meal_runs_on_weekdays_with_the_friday_dinner_off(make_client):
@@ -53,7 +54,7 @@ def test_late_meal_runs_on_weekdays_with_the_friday_dinner_off(make_client):
 def test_items_follow_the_id_pattern_and_plates_sum_their_parts(make_client):
     lunch = lm_hall(make_client(foodpro_http()).get(f"/menu?date={MONDAY}").json())["meals"][0]
     items = {i["id"]: i for i in lunch["items"]}
-    assert len(items) == 13 + 9
+    assert len(items) == 13 + 10
     tenders, fries = items["LM-LL-chicken-tenders"], items["LM-LL-french-fries"]
     plate = items["LM-LL-chicken-tenders-with-fries"]
     assert plate["name"] == "Chicken Tenders with fries" and plate["serving"] == "1 plate, with fries"
@@ -63,6 +64,18 @@ def test_items_follow_the_id_pattern_and_plates_sum_their_parts(make_client):
     assert tenders["hall"] == "Frist Late Meal" and tenders["meal"] == "Late Lunch"
     assert tenders["estimated"] is True and tenders["basis"] and "plate" not in tenders
     assert all(i["hall_id"] == "LM" and i["kcal"] > 0 for i in items.values())
+
+
+def test_a_daily_special_is_served_only_on_its_day(make_client):
+    client = make_client(foodpro_http())
+
+    def names(date):
+        return {i["name"] for m in lm_hall(client.get(f"/menu?date={date}").json())["meals"] for i in m["items"]}
+
+    monday, tuesday = names(MONDAY), names(TUESDAY)
+    assert {"Trenton Burger", "Trenton Burger with fries"} <= monday
+    assert "Trenton Burger" not in tuesday and "Trenton Burger with fries" not in tuesday
+    assert monday - tuesday == {"Trenton Burger", "Trenton Burger with fries"}
 
 
 def test_late_meal_survives_a_foodpro_failure_and_the_menu_cache(make_client):

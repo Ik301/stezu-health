@@ -89,10 +89,14 @@ entree alone ("Chicken Tenders", "4 tenders (entree only; the fries are a separa
 "French Fries" (one order, the same portion as the side). Search and the menu offer the plate; a
 photo scan never sees plates, only entrees and fries, so a plate cannot be counted twice.
 
-To refresh: read the grill menu (tenant 2047, display profile 4880, concept 9461, menu 14323;
-Late Meal is profile 4912, concept 10110) in a browser, edit the JSON (an item with fries gets a
-`plate`), keep every number > 0 with a `basis`, set `retrieved`, run `server/run_tests.sh` and
-restart the server (the file is read once per process).
+The list is the Late Meal concept's own menu (confirmed open on 2026-11-02): 11 combos, each
+listed by its entree name (the combo's fountain soda is not counted), plus a daily special. A
+daily special carries `"days"` (e.g. `["mon"]`) and is served only on those days.
+
+To refresh: read the Late Meal menu (tenant 2047, display profile 4912, concept 10110; Start
+order, "As soon as possible", Mon-Fri 2-4 PM) in a browser, edit the JSON (an item with fries gets
+a `plate`), keep every number > 0 with a `basis`, set `retrieved` and `confirmed`, run
+`server/run_tests.sh` and restart the server (the file is read once per process).
 
 ### `POST /scan`
 
