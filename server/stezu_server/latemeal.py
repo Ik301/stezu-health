@@ -31,8 +31,11 @@ def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-def card_items(data: dict[str, Any], card: dict[str, Any]) -> list[dict[str, Any]]:
-    """A card's items: each plate first, then its entree; the fries once, where the file lists them."""
+def card_items(data: dict[str, Any], card: dict[str, Any], day: str | None = None) -> list[dict[str, Any]]:
+    """A card's items: each plate first, then its entree; the fries once, where the file lists them.
+
+    An item with "days" (a daily special) is served only on those days; without a day it is kept.
+    """
 
     def item(name: str, src: dict[str, Any], serving: str, values: dict[str, float], basis: str) -> dict[str, Any]:
         return {
@@ -45,6 +48,8 @@ def card_items(data: dict[str, Any], card: dict[str, Any]) -> list[dict[str, Any
     fries = next(i for i in data["items"] if i["name"] == data["fries"])
     out = []
     for src in data["items"]:
+        if day and "days" in src and day not in src["days"]:
+            continue
         part = item(src["name"], src, src["serving"], {k: src[k] for k in NUTRIENTS}, src["basis"])
         if src.get("plate"):
             plate = src["plate"]
@@ -61,7 +66,7 @@ def hall(date: str) -> dict[str, Any] | None:
     """The pseudo-hall for a date, or None on a day Late Meal does not run (weekends)."""
     data = load()
     day = DAYS[Date.fromisoformat(date).weekday()]
-    meals = [{"meal": c["meal"], "hours": c["hours"], "items": card_items(data, c)}
+    meals = [{"meal": c["meal"], "hours": c["hours"], "items": card_items(data, c, day)}
              for c in data["cards"] if day in c["days"]]
     if not meals:
         return None

@@ -1899,6 +1899,7 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a).
 - Evidence: server/stezu_server/data/frist_late_meal.json, server/stezu_server/latemeal.py, scan.py (`candidates`, `spread`), search.py (`dining`); server/Tests/test_late_meal.py.
 - Reverse if: Frist publishes nutrition for the grill (FoodPro or a label), or the Late Meal list on Mon 2026-11-02 differs from the grill menu.
+- Update 2026-11-02: the Late Meal concept, read open, serves the same 11 entrees as combos (with a fountain soda, not counted) plus a weekday Daily Special with fries; the grill's Side Salad is not on it. The file now holds the Late Meal list: Side Salad dropped, quesadillas count their salsa and sour cream, Monday's Trenton Burger added with `"days": ["mon"]` (latemeal.py serves a special only on its day). The other specials (Tue Grilled Reuben, Wed Southwest Burger, Thu Rodeo Burger, Fri Hot Honey Chicken Tenders) showed no item and wait to be read on their day. The approach (a) stands.
 
 ## D-132 Each sleep number carries its name: last night, this week's average, usual
 
