@@ -41,7 +41,7 @@ jobs:
   ios:
     name: ios
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen
