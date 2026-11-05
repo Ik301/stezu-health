@@ -368,7 +368,7 @@ to 2000"`; 401 without the token.
 
 ### `GET /surface/today`
 
-Today's word, goal and due tasks for the phone's widgets (D-152), read from the Obsidian vault
+Today's word, goal and due tasks for the phone's widgets (D-153), read from the Obsidian vault
 on every call. Read-only; the server keeps no copy. Nothing is made up: a missing or unreadable
 note gives `null`.
 

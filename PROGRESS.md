@@ -691,7 +691,7 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Deviations: the Recipes button sits in the bottom bar's right slot, across the shutter from History, so the shutter stays centred. The recipe editor's Barcode button sits under + Add item. "Done" closes the editor without saving. No new fixture: the test uses the default search and barcode routes.
 - Left undone: none of the story's steps. The name field stops taking characters past 60.
 
-## 2026-11-05 Server: GET /surface/today for the widgets (server card, D-152)
+## 2026-11-05 Server: GET /surface/today for the widgets (server card, D-153)
 
 - `surface.py` reads the vocabulary, goal and task notes from `STEZU_VAULT_DIR` on every call and returns `{date, word, definition, goal, tasks}`; nothing is stored. Parsing rules and the config keys are in server/README.md. Unset vault or missing note: `null`.
 - Auth: the route has its own router and check (`require_surface_reader`, device tokens for now), so a widget-only read token can be added for this route alone once the auth spike decides.

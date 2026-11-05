@@ -47,7 +47,7 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
 
     def require_surface_reader(request: Request) -> None:
         """Who may read /surface/*: the device tokens. A widget-only read token joins here, and only
-        here, by adding its set to this check (D-152)."""
+        here, by adding its set to this check (D-153)."""
         check_bearer(request, settings.tokens)
 
     def today() -> str:
@@ -170,7 +170,7 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
 
     @surface_api.get("/surface/today")
     def surface_today(response: Response) -> dict[str, Any]:
-        """Read-only: the vault is read on every call and nothing is kept (D-152)."""
+        """Read-only: the vault is read on every call and nothing is kept (D-153)."""
         now = datetime.now(ZoneInfo(settings.timezone))
         to_midnight = 86400 - (now.hour * 3600 + now.minute * 60 + now.second)
         response.headers["Cache-Control"] = f"private, max-age={min(300, to_midnight)}"  # never past midnight

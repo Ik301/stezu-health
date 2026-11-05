@@ -1,4 +1,4 @@
-"""GET /surface/today: today's word, goal and due tasks, read from the Obsidian vault (D-152).
+"""GET /surface/today: today's word, goal and due tasks, read from the Obsidian vault (D-153).
 
 Every read happens at request time and nothing is kept. A note that is missing or unreadable
 gives null; nothing is ever filled in. Rules are documented in server/README.md.
