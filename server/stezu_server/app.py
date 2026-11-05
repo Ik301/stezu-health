@@ -10,10 +10,10 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 
-from . import __version__, barcode, foodpro, latemeal, scan, search
+from . import __version__, barcode, foodpro, latemeal, scan, search, surface
 from .config import Settings, load_settings
 from .health import PAGE_DEFAULT, PAGE_MAX, HealthDB, TooLarge, decode_cursor, gunzip, parse_kinds
 from .model import AnthropicClient, ModelError
@@ -34,13 +34,21 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
     if not settings.tokens:
         log.warning("no device tokens configured: every authenticated request will get 401")
 
-    def require_token(request: Request) -> None:
+    def check_bearer(request: Request, tokens: frozenset[str]) -> None:
         scheme, _, token = request.headers.get("authorization", "").partition(" ")
         ok = scheme.lower() == "bearer" and any(
-            hmac.compare_digest(token.strip().encode(), t.encode()) for t in settings.tokens
+            hmac.compare_digest(token.strip().encode(), t.encode()) for t in tokens
         )
         if not ok:
             raise HTTPException(401, "missing or invalid bearer token", headers={"WWW-Authenticate": "Bearer"})
+
+    def require_token(request: Request) -> None:
+        check_bearer(request, settings.tokens)
+
+    def require_surface_reader(request: Request) -> None:
+        """Who may read /surface/*: the device tokens. A widget-only read token joins here, and only
+        here, by adding its set to this check (D-152)."""
+        check_bearer(request, settings.tokens)
 
     def today() -> str:
         return datetime.now(ZoneInfo(settings.timezone)).date().isoformat()
@@ -55,6 +63,7 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
         return latemeal.add_to(foodpro.get_menu(store, http, d, today(), refresh), d)
 
     api = APIRouter(dependencies=[Depends(require_token)])
+    surface_api = APIRouter(dependencies=[Depends(require_surface_reader)])
 
     @app.get("/health")
     def health() -> dict[str, Any]:
@@ -159,5 +168,15 @@ def create_app(settings: Settings | None = None, http: Any = None, model: Any = 
             raise HTTPException(400, f"limit must be a whole number from 1 to {PAGE_MAX}")
         return health_db.page(wanted, start, min(n, PAGE_MAX))
 
+    @surface_api.get("/surface/today")
+    def surface_today(response: Response) -> dict[str, Any]:
+        """Read-only: the vault is read on every call and nothing is kept (D-152)."""
+        now = datetime.now(ZoneInfo(settings.timezone))
+        to_midnight = 86400 - (now.hour * 3600 + now.minute * 60 + now.second)
+        response.headers["Cache-Control"] = f"private, max-age={min(300, to_midnight)}"  # never past midnight
+        return surface.today_payload(settings.vault_dir, settings.vocab_note, settings.goal_note,
+                                     settings.task_notes, now.date())
+
     app.include_router(api)
+    app.include_router(surface_api)
     return app

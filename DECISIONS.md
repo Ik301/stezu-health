@@ -2183,3 +2183,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The meal flows keep their ids and behaviour; only recipe mode shows the name, Barcode and `food.recipe.*` ids.
 - Evidence: App/Sources/Food/MealEditor.swift, App/Sources/Food/Recipes.swift (`RecipeBarcode`) (commit 1724c85).
 - Reverse if: MealEditor grows a third mode (then split the list into its own view).
+
+## D-152 /surface/today reads the vault on every call, with its own auth check and documented parsing rules
+
+- Status: proposed by the server card, 2026-11-05 (widgets: word of the day, goal, tasks). The goal note is unconfirmed: Isaac must say whether it is `03-Self/Goals/Goals.md` or `2026 Goals.md`.
+- Problem: the phone's home-screen widgets need today's word, goal and due tasks from the Obsidian vault on the VM, but this repo is public and must never hold vault content, and the widget's credential is not decided yet (a parallel spike).
+- Given: the vault is plain Markdown on the VM; the server already authenticates every route with the device tokens through one dependency; the planner note writes due dates as Dataview fields (`[due:: YYYY-MM-DD]`) inside callouts, not as `📅`.
+- Constraints:
+  - Copying vault data into the server's SQLite would keep a second copy that goes stale (breaks "the server keeps no copy").
+  - A default vault path would serve vault data from any server that runs this code unconfigured (breaks "paths come from server config").
+  - Parsing only `📅` dates would return no tasks from the planner (breaks "School Planner is the source of truth").
+  - Checking the widget token inside the shared `require_token` would let it reach /sync and /records (breaks "scoped to this route only").
+- Options:
+  - (a) Parse the configured notes at request time in `surface.py`; the route sits on its own router with `require_surface_reader`, which today accepts the device tokens; no vault dir configured means every field is `null`.
+  - (b) A Hermes cron that exports a JSON file the server serves.
+  - (c) Add the surface route to the existing router and split auth later.
+- Decision: (a). A missing note is `null`, never a placeholder; `tasks` is `[]` only when a note was read and nothing is due. Tasks accept both `📅` and `[due:: ]`. The word is `(date - 2026-01-01).days mod count` in `STEZU_TIMEZONE`.
+- Evidence: server/stezu_server/surface.py, app.py (`require_surface_reader`, `surface_today`), config.py; server/Tests/test_surface.py; rules in server/README.md.
+- Reverse if: the widget gets its own token (add its set in `require_surface_reader` only), reading the notes per call gets slow, or the vault moves off the VM.
