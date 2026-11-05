@@ -2165,7 +2165,7 @@ The research notes cited here are kept private, because they contain personal he
   - (b) Store a recipe id on the meal and resolve its items at read time.
   - (c) Store recipes in the meals folder as another file type.
 - Decision: (a). Value copies make the meal independent of the recipe, and one Log path keeps Health, sync and the undo toast the same. An edit keeps the recipe's id, its place in the list and its created time.
-- Evidence: Packages/StezuCore/Sources/StezuCore/Recipe.swift; App/Sources/Food/Recipes.swift (`RecipesSheet`, `recipesFile`), FoodView.swift (the Recipes button), AppEnvironment.swift (`recipes`) (commit see PR).
+- Evidence: Packages/StezuCore/Sources/StezuCore/Recipe.swift; App/Sources/Food/Recipes.swift (`RecipesSheet`, `recipesFile`), FoodView.swift (the Recipes button), AppEnvironment.swift (`recipes`) (commit 1724c85).
 - Reverse if: recipes need to survive a reinstall (then a `recipe` record kind, server first, as D-149 says).
 
 ## D-151 The recipe editor reuses MealEditor and hands the camera to its own scanner while it is open
@@ -2181,5 +2181,5 @@ The research notes cited here are kept private, because they contain personal he
   - (b) A separate RecipeEditor view.
   - (c) Close the sheets and send the user to the camera's Barcode mode.
 - Decision: (a). The meal flows keep their ids and behaviour; only recipe mode shows the name, Barcode and `food.recipe.*` ids.
-- Evidence: App/Sources/Food/MealEditor.swift, App/Sources/Food/Recipes.swift (`RecipeBarcode`) (commit see PR).
+- Evidence: App/Sources/Food/MealEditor.swift, App/Sources/Food/Recipes.swift (`RecipeBarcode`) (commit 1724c85).
 - Reverse if: MealEditor grows a third mode (then split the list into its own view).
