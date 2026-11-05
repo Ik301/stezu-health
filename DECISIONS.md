@@ -2138,3 +2138,15 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The flag is set only when the sheet is actually shown, so a VM that was empty or unreachable at Save does not use up the offer.
 - Evidence: Packages/StezuCore/Sources/StezuCore/Restore.swift (`isFresh`, `hasRecords`), HealthSync.swift (`offerRestore`); App/Sources/Settings/SettingsView.swift, HermesSync.swift (`restoreOffer`) (commit 55034d8).
 - Reverse if: the server address can be set before the app first opens (then check at launch), or weigh-ins alone should count as "not fresh".
+
+## D-149 Recipes: a saved ingredient list on the phone, logged as an ordinary meal
+
+- Status: decided by Isaac, 2026-11-04 (a Recipes button, ingredients by search or barcode inside the recipe menu). Mechanism proposed by Hermes.
+- Problem: meals he eats the same way every time (his protein shake) cost a photo and fixes each time, and a photo gives a range where the packages give exact numbers.
+- Options:
+  - (a) A recipe is a named list of the same items meals use, stored on the phone; logging copies its items into a normal meal.
+  - (b) A recipe as its own record kind on the server, synced and restorable.
+  - (c) Favourite past meals instead of recipes.
+- Decision: (a). Meals logged from a recipe reach Health and Hermes like any meal, so nothing downstream changes. (b) waits until recipes are in use; (c) can't build a recipe from packages he hasn't logged yet.
+- Cost: a deleted app loses its recipes (its meals come back through restore, S-057).
+- Reverse if: he loses recipes to a reinstall, or wants them on Hermes; then add a `recipe` kind (server first, as D-143).
