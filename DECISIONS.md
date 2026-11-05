@@ -2150,3 +2150,36 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). Meals logged from a recipe reach Health and Hermes like any meal, so nothing downstream changes. (b) waits until recipes are in use; (c) can't build a recipe from packages he hasn't logged yet.
 - Cost: a deleted app loses its recipes (its meals come back through restore, S-057).
 - Reverse if: he loses recipes to a reinstall, or wants them on Hermes; then add a `recipe` kind (server first, as D-143).
+
+## D-150 A recipe is saved whole in recipes.json, and a Log copies its items into a new meal
+
+- Status: proposed by night agent, 2026-11-04 (S-059).
+- Problem: a recipe must be editable and deletable without ever changing a meal already logged from it, and a meal logged from it must reach the meal store, Health and Hermes exactly as a photo meal does.
+- Given: meals are `LoggedMeal` values with `[MatchedItem]`, saved by `MealCaptureStore.log`, then written to Health by `MealHealth.log` and queued by `syncMeal` (FoodView `logMeal`); MyPlacesStore already keeps a small JSON file through an actor and a save closure.
+- Constraints:
+  - A meal that points to its recipe by id would change when the recipe changes (breaks "editing a recipe never changes meals logged from it").
+  - A second Log path beside `logMeal` could drift from it (breaks "exactly as a photo or search meal").
+  - Syncing recipes needs a server kind first (breaks D-149's "phone only").
+- Options:
+  - (a) `RecipeStore` (an actor) holds `[Recipe]` (id, name, items, created and updated times) and rewrites recipes.json in Application Support on every change; tapping a recipe opens `MealEditor` on `Recipe.meal(id:)`, a copy of its items, and Log calls FoodView's `logMeal` with a fresh meal id.
+  - (b) Store a recipe id on the meal and resolve its items at read time.
+  - (c) Store recipes in the meals folder as another file type.
+- Decision: (a). Value copies make the meal independent of the recipe, and one Log path keeps Health, sync and the undo toast the same. An edit keeps the recipe's id, its place in the list and its created time.
+- Evidence: Packages/StezuCore/Sources/StezuCore/Recipe.swift; App/Sources/Food/Recipes.swift (`RecipesSheet`, `recipesFile`), FoodView.swift (the Recipes button), AppEnvironment.swift (`recipes`) (commit see PR).
+- Reverse if: recipes need to survive a reinstall (then a `recipe` record kind, server first, as D-149 says).
+
+## D-151 The recipe editor reuses MealEditor and hands the camera to its own scanner while it is open
+
+- Status: proposed by night agent, 2026-11-04 (S-059).
+- Problem: the recipe editor needs the meal list's steppers, swipe-to-remove and search, plus a name and a scanner, while the camera's Barcode mode lives in FoodView and the live preview keeps the camera.
+- Given: `MealEditor` already switches between its list and a search target; `BarcodeScannerView` and `BarcodeStatusView` are standalone views; FoodView stops `LiveCameraPhotoSource` for Barcode mode and starts it again for Photo.
+- Constraints:
+  - A second item list would duplicate S-015's editing rules (breaks "built like the meal item list").
+  - VisionKit's scanner and the photo preview both want the back camera (breaks scanning while the preview runs).
+- Options:
+  - (a) `MealEditor(recipe:save:)`: the same list with a name field, a Barcode button and Save; a `.barcode` search target shows `RecipeBarcode`, which stops the live preview on appear, looks the code up with `BarcodeClient` and starts the preview again when it closes. In `-uitest` the fixture code arrives a second after it opens.
+  - (b) A separate RecipeEditor view.
+  - (c) Close the sheets and send the user to the camera's Barcode mode.
+- Decision: (a). The meal flows keep their ids and behaviour; only recipe mode shows the name, Barcode and `food.recipe.*` ids.
+- Evidence: App/Sources/Food/MealEditor.swift, App/Sources/Food/Recipes.swift (`RecipeBarcode`) (commit see PR).
+- Reverse if: MealEditor grows a third mode (then split the list into its own view).

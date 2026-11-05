@@ -3,11 +3,14 @@ import SwiftUI
 
 /// The item list after a photo or a pick (S-015): tap a name to replace it, - and + in half
 /// servings beside it, swipe left to remove, + Add item, and the single Log button. Totals
-/// follow every edit (D-049).
+/// follow every edit (D-049). S-059: the same list edits a recipe, with a name and Barcode.
 struct MealEditor: View {
   let log: ([MatchedItem]) -> Void
   /// The button's title: "Log" after a photo or pick, "Save" for a meal from history (S-019).
   let action: String
+  /// Set for a recipe: Save hands over the name and the ingredients.
+  private var saveRecipe: ((String, [MatchedItem]) -> Void)?
+  @State private var name = ""
   @State private var edit: MealEdit
   @State private var searching: SearchTarget?
   @State private var query = ""
@@ -19,6 +22,7 @@ struct MealEditor: View {
   enum SearchTarget: Equatable {
     case replace(Int)
     case add
+    case barcode
   }
 
   init(match: PhotoMatch, action: String = "Log", log: @escaping ([MatchedItem]) -> Void) {
@@ -27,9 +31,20 @@ struct MealEditor: View {
     _edit = State(initialValue: MealEdit(match))
   }
 
+  init(recipe: Recipe?, save: @escaping (String, [MatchedItem]) -> Void) {
+    self.init(match: PhotoMatch(mealId: "", items: recipe?.items ?? []), action: "Save") { _ in }
+    (saveRecipe, _name) = (save, State(initialValue: recipe?.name ?? ""))
+  }
+
   var body: some View {
     Group {
-      if let searching { search(searching) } else { list }
+      if searching == .barcode {
+        RecipeBarcode(target: $searching) { edit.add($0) }
+      } else if let searching {
+        search(searching)
+      } else {
+        list
+      }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(Theme.surface)
@@ -42,8 +57,15 @@ struct MealEditor: View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.spaceSm) {
         TopBar(
-          title: "Meal", titleID: "food.match.title",
+          title: saveRecipe == nil ? "Meal" : "Recipe",
+          titleID: saveRecipe == nil ? "food.match.title" : "food.recipe.editor",
           action: .init(title: "Done", id: "food.edit.done") { dismiss() })
+        if saveRecipe != nil {
+          TextField("Name", text: $name).textStyle(.headline).padding(Theme.spaceMd)
+            .background(RoundedRectangle(cornerRadius: Theme.radiusInner).fill(Theme.surfaceRaised))
+            .onChange(of: name) { _, typed in name = String(typed.prefix(Recipe.maxName)) }
+            .accessibilityIdentifier("food.recipe.name")
+        }
         HStack(alignment: .top, spacing: Theme.spaceXl) {
           PhotoMatchSheet.total(
             "Energy", edit.totalKcal, unit: "kcal", spoken: "kcal", color: Theme.dataEnergy,
@@ -70,15 +92,21 @@ struct MealEditor: View {
             })
         }
         wide("+ Add item", id: "food.edit.add", inverted: false) { searching = .add }
+        if saveRecipe != nil {
+          wide("Barcode", id: "food.recipe.barcode", inverted: false) { searching = .barcode }
+        }
       }
       .padding(Theme.spaceLg)
     }
     .scrollIndicators(.hidden)
     // Log, full width and pinned under the list, so it stays on screen at the medium detent.
     .safeAreaInset(edge: .bottom, spacing: 0) {
-      wide(action, id: "food.edit.\(action.lowercased())", inverted: true) { log(edit.items) }
-        .disabled(edit.items.isEmpty)
-        .padding(Theme.spaceLg).background(Theme.surface)
+      let id = saveRecipe == nil ? "food.edit.\(action.lowercased())" : "food.recipe.save"
+      wide(action, id: id, inverted: true) {
+        if let saveRecipe { saveRecipe(name, edit.items) } else { log(edit.items) }
+      }
+      .disabled(edit.items.isEmpty || (saveRecipe != nil && Recipe.name(name) == nil))
+      .padding(Theme.spaceLg).background(Theme.surface)
     }
   }
 
@@ -134,7 +162,7 @@ struct MealEditor: View {
         FoodSearchPanel(query: text) { item in
           switch target {
           case .replace(let index): edit.replace(index, with: item)
-          case .add: edit.add(item)
+          case .add, .barcode: edit.add(item)
           }
           focused = false
           (searching, query) = (nil, "")
