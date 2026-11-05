@@ -25,6 +25,7 @@ struct FoodView: View {
   /// Today's logged food for the top strip (S-019); nil until loaded.
   @State private var day: FoodDay?
   @State private var showingHistory = false
+  @State private var showingRecipes = false
   @FocusState private var searching: Bool
 
   var body: some View {
@@ -155,7 +156,17 @@ struct FoodView: View {
         .disabled(cameraAllowed != true)
       }
       Spacer()
-      Color.clear.frame(width: 64, height: Theme.sizeTarget)
+      // S-059: a recipe's Log goes through the same path as a photo or search meal.
+      Button("Recipes") { showingRecipes = true }
+        .textStyle(.label, weight: .medium).foregroundStyle(Theme.ink)
+        .frame(width: 64, height: Theme.sizeTarget).background(Capsule().fill(Theme.surface))
+        .accessibilityIdentifier("food.recipes")
+        .sheet(isPresented: $showingRecipes) {
+          RecipesSheet { items in
+            showingRecipes = false
+            logMeal(items, id: UUID())
+          }
+        }
     }
   }
 

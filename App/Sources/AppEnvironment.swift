@@ -73,6 +73,8 @@ struct AppEnvironment: Sendable {
   /// `-uitest-dark`: the app draws in Dark whatever the simulator's setting. Otherwise Light and
   /// Dark follow the phone.
   var forcesDark = false
+  /// S-059: recipes, on the phone only (D-149): recipes.json, or memory in `-uitest`.
+  var recipes = RecipeStore()
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -88,7 +90,8 @@ struct AppEnvironment: Sendable {
       weighIns: WeighInFile.store(storage: .disk),
       locationSource: CoreLocationSource(), places: AppEnvironment.placesFile(storage: .disk),
       placeNames: AppEnvironment.placeNamesFile(storage: .disk),
-      myPlaces: AppEnvironment.myPlacesFile(storage: .disk))
+      myPlaces: AppEnvironment.myPlacesFile(storage: .disk),
+      recipes: AppEnvironment.recipesFile(storage: .disk))
   }
 
   /// Fakes only, for `-uitest` launches and SwiftUI previews.

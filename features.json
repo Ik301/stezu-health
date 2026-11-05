@@ -1994,7 +1994,7 @@
         "s059-recipe-list"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     }
   ]
 }
