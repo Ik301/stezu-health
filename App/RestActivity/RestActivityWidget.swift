@@ -2,10 +2,12 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
+/// The extension's widgets: the rest Live Activity and the home-screen widgets (D-152).
 @main
 struct RestActivityBundle: WidgetBundle {
   var body: some Widget {
     RestActivityWidget()
+    IngestWidget()
   }
 }
 

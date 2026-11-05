@@ -1,6 +1,7 @@
 import Foundation
 import StezuCore
 import SwiftUI
+import WidgetKit
 
 /// Where the app's records live.
 enum StorageMode: Sendable, Equatable {
@@ -80,6 +81,7 @@ struct AppEnvironment: Sendable {
   /// server address and token, then sends to that server with the token.
   static func live() -> AppEnvironment {
     let settings = DeviceServerSettingsStore()
+    settings.copyAddressToKeychainIfMissing()  // D-152: for the home-screen widget
     return AppEnvironment(
       isUITest: false, storage: .disk, scenario: nil, healthStore: HealthKitStore(),
       vmTransport: settings.load().transport(), photoSource: LiveCameraPhotoSource(),
@@ -123,10 +125,12 @@ struct AppEnvironment: Sendable {
       locationSource: FixtureLocationSource(events: UITestFixtures.locations(scenario: scenario)))
   }
 
-  /// After Settings saves a server, the live app sends to it. `-uitest` keeps the fake.
+  /// After Settings saves a server, the live app sends to it and the widgets reload with it
+  /// (D-152). `-uitest` keeps the fake.
   mutating func useServer(_ settings: ServerSettings) {
     guard !isUITest else { return }
     vmTransport = settings.transport()
+    WidgetCenter.shared.reloadAllTimelines()
   }
 
   /// Live services unless the launch arguments contain `-uitest`.
