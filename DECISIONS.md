@@ -2183,3 +2183,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The meal flows keep their ids and behaviour; only recipe mode shows the name, Barcode and `food.recipe.*` ids.
 - Evidence: App/Sources/Food/MealEditor.swift, App/Sources/Food/Recipes.swift (`RecipeBarcode`) (commit 1724c85).
 - Reverse if: MealEditor grows a third mode (then split the list into its own view).
+
+## D-152 The widgets read the app's Keychain token by joining its access group, inside the existing RestActivity extension
+
+- Status: proposed (spike, 2026-11-05). Not yet checked on the device; the check is the first step of the widget infra branch. Full write-up: docs/decisions/widget-auth.md.
+- Problem: home-screen widgets run in an extension process that can read neither the app's Keychain items nor its UserDefaults, yet they must call the server with the address and token saved in Settings (D-043). The app is signed with a free Personal Team.
+- Given: RestActivity, a WidgetKit extension, signs and runs on the free team (D-047). Apple lists App Groups and Keychain sharing as available to free accounts. The token item has no access group, so it sits in the app's default group, its app ID. A Keychain query without an access group searches every group the caller belongs to. The D-104 autoinstall already handles both bundle IDs and checks for RestActivity.appex.
+- Constraints:
+  - A new extension target costs an App ID (free accounts: 10 per 7 days) and a change to the D-104 autoinstall.
+  - Declaring a keychain group on the app with a different first value changes its default group and strands the saved token.
+  - A token in shared UserDefaults or a file is plaintext and goes into backups (rejected in D-043).
+  - CI builds unsigned, so only a device build can show that signing accepts the entitlement.
+- Options:
+  - (a) Keychain sharing: RestActivity declares `$(AppIdentifierPrefix)com.ik301.stezuhealth`; the app also writes its address to the Keychain; the widgets join RestActivityBundle.
+  - (b) An App Group with the token in shared defaults or the group's keychain.
+  - (c) A widget-only token scoped to the surface route, injected at build time from the gitignored Config/Local.xcconfig.
+- Decision: (a), with (c) as the fallback. One new entitlements file and one project.yml line, no new target or App ID, and the existing token works without re-entry.
+- Evidence: docs/decisions/widget-auth.md (config diff, linted and parsed against main at 9548f90; Apple sources; device check steps).
+- Reverse if: signing rejects the entitlement or the widget's request arrives without a valid token (then (c)), or the app must hand the widget data it already has (then add an App Group).
