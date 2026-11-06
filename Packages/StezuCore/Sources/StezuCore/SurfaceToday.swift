@@ -1,8 +1,8 @@
 import Foundation
 
-/// GET /surface/today (server/README.md): the vault's word of the day and its definition, each
-/// null when the vault has none. The home-screen widgets draw a missing field as "--" and never
-/// make one up (S-060).
+/// GET /surface/today (server/README.md): the vault's word of the day, its definition and the
+/// current goals, each null when the vault has none. The home-screen widgets draw a missing field
+/// as "--" and never make one up (S-060, S-061).
 public struct SurfaceToday: Codable, Sendable, Equatable {
   public static let path = "/surface/today"
 
@@ -10,15 +10,25 @@ public struct SurfaceToday: Codable, Sendable, Equatable {
   public var date: String?
   public var word: String?
   public var definition: String?
+  /// Up to three goal lines.
+  public var goal: [String]?
 
-  public init(date: String? = nil, word: String? = nil, definition: String? = nil) {
+  public init(
+    date: String? = nil, word: String? = nil, definition: String? = nil, goal: [String]? = nil
+  ) {
     self.date = date
     self.word = word
     self.definition = definition
+    self.goal = goal
   }
 
   public var wordText: String { Self.shown(word) }
   public var definitionText: String { Self.shown(definition) }
+  /// The non-blank goals, at most three, or one "--".
+  public var goalLines: [String] {
+    let lines = (goal ?? []).map(Self.shown).filter { $0 != "--" }
+    return lines.isEmpty ? ["--"] : Array(lines.prefix(3))
+  }
 
   /// "Saved 2026-03-11" when this copy came from the cache and is from an earlier day than `now`,
   /// so yesterday's word never passes as today's. nil for a live reply or today's copy.

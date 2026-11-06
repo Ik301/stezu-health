@@ -2057,7 +2057,7 @@
         "s061-goal-missing"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     }
   ]
 }

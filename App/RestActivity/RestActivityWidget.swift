@@ -8,6 +8,7 @@ struct RestActivityBundle: WidgetBundle {
   var body: some Widget {
     RestActivityWidget()
     IngestWidget()
+    GoalWidget()
   }
 }
 
