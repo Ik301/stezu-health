@@ -2219,3 +2219,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A missing note is `null`, never a placeholder; `tasks` is `[]` only when a note was read and nothing is due. Tasks accept both `📅` and `[due:: ]`. The word is `(date - 2026-01-01).days mod count` in `STEZU_TIMEZONE`.
 - Evidence: server/stezu_server/surface.py, app.py (`require_surface_reader`, `surface_today`), config.py; server/Tests/test_surface.py; rules in server/README.md.
 - Reverse if: the widget gets its own token (add its set in `require_surface_reader` only), reading the notes per call gets slow, or the vault moves off the VM.
+
+## D-154 The surface widgets reload after local midnight, retry every 30 minutes, and mark an old cached copy with its day
+
+- Status: proposed by builder (daytime card t_11f233a3, build approved by Isaac), 2026-11-06.
+- Problem: the Word widget must show a new word each day and still show something offline, but WidgetKit decides when a widget reloads within a daily budget, and a cached copy from yesterday looks exactly like today's.
+- Given: the server picks the word by its local date and sends that `date` (D-153); `CachedPayloadFetcher` returns the last good copy and says it is cached (D-152); XCUITest can't drive a widget on the home screen.
+- Constraints:
+  - Reloading every 15 minutes spends WidgetKit's budget (roughly 40 to 70 reloads a day), after which reloads come late, the midnight one included (breaks "a new word after midnight").
+  - Reloading once a day leaves a failed midnight fetch on yesterday's word all day (breaks "retry if the fetch fails").
+  - Showing a cached copy without its day passes yesterday's word off as today's (breaks "never fake values").
+  - A UI test that only drives the app never sees the widget's view (breaks "UI test evidence").
+- Options:
+  - (a) One entry per reload. Next reload 5 minutes after the coming local midnight after a good fetch; 30 minutes after a failed one, but never later than that midnight reload. "Saved <date>" under the content when the copy is cached and its date isn't today.
+  - (b) Hourly reloads all day and no marker.
+  - (c) A timeline of future entries (impossible: the word comes from the server each day).
+- Decision: (a). The views live in App/Shared, so a `-uitest-widgets` gallery in the app draws the widget's own view at small and medium size, through the same fetch and cache code, from the fake server.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SurfaceToday.swift (`nextReload`, `savedNote`), App/Shared/SurfaceWidgets.swift, App/RestActivity/IngestWidget.swift, App/Sources/WidgetGallery.swift; SurfaceTodayTests, WordWidgetUITests; commit 392d2bc.
+- Reverse if: the new word shows up late on the phone (reload earlier, or add a second reload), WidgetKit throttles the retries, or the phone spends long in a time zone other than STEZU_TIMEZONE (then reload at the server's midnight).

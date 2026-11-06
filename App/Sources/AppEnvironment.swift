@@ -32,6 +32,8 @@ struct AppEnvironment: Sendable {
     static let reset = "-uitest-reset"
     /// Force the dark appearance, for dark screenshots.
     static let dark = "-uitest-dark"
+    /// Show the home-screen widgets' gallery instead of the app (S-060).
+    static let widgets = "-uitest-widgets"
   }
 
   var isUITest: Bool
@@ -76,6 +78,8 @@ struct AppEnvironment: Sendable {
   var forcesDark = false
   /// S-059: recipes, on the phone only (D-149): recipes.json, or memory in `-uitest`.
   var recipes = RecipeStore()
+  /// `-uitest-widgets`: the app shows WidgetGallery (S-060).
+  var showsWidgets = false
 
   /// The services the phone uses. The VM transport stays unconfigured until Settings has a
   /// server address and token, then sends to that server with the token.
@@ -144,6 +148,10 @@ struct AppEnvironment: Sendable {
     }
     var environment = fakes(scenario: scenario, offline: arguments.contains(Argument.offline))
     environment.forcesDark = arguments.contains(Argument.dark)
+    environment.showsWidgets = arguments.contains(Argument.widgets)
+    if environment.showsWidgets, arguments.contains(Argument.reset) {
+      try? FileManager.default.removeItem(at: WidgetGallery.cacheFolder)
+    }
     if arguments.contains(Argument.persist) {
       let folder = FileManager.default.temporaryDirectory
         .appendingPathComponent("stezu-uitest-store", isDirectory: true)

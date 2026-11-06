@@ -3,45 +3,46 @@ import StezuCore
 import SwiftUI
 import WidgetKit
 
-/// The home-screen widget shell (D-152). For now it shows "--"; the word, goal and tasks cards
-/// replace the probe below with GET /surface/today and draw its fields.
+/// The Word widget (S-060). It keeps the kind of the placeholder "Ingest" widget (D-152), so the
+/// one already on the home screen turns into it.
 struct IngestWidget: Widget {
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: "IngestWidget", provider: IngestTimelineProvider()) { entry in
-      IngestWidgetView(entry: entry)
+    StaticConfiguration(kind: "IngestWidget", provider: SurfaceTimelineProvider()) { entry in
+      FamilyReader { WordWidgetView(entry: entry, family: $0) }
     }
-    .configurationDisplayName("Ingest")
-    .description("A placeholder until the word, goal and tasks widgets arrive.")
+    .configurationDisplayName("Word")
+    .description("Today's word from your vault and its definition.")
     .supportedFamilies([.systemSmall, .systemMedium])
   }
 }
 
-struct IngestEntry: TimelineEntry, Sendable {
-  let date: Date
-  let text: String
+/// Passes the widget's size to a view, which can't read it outside a widget (the app's gallery).
+struct FamilyReader<Content: View>: View {
+  @Environment(\.widgetFamily) private var family
+  private let content: (WidgetFamily) -> Content
 
-  static let empty = IngestEntry(date: .now, text: "--")
-}
-
-/// Every reload makes one authenticated request with the app's address and token from the
-/// Keychain, so the device check in docs/decisions/widget-auth.md can see it in the server log.
-/// The entry stays "--" whatever the answer.
-struct IngestTimelineProvider: TimelineProvider {
-  /// Any JSON object; the probe only proves the token reached the server.
-  struct Probe: Decodable, Sendable {}
-
-  func placeholder(in context: Context) -> IngestEntry { .empty }
-
-  func getSnapshot(in context: Context, completion: @escaping (IngestEntry) -> Void) {
-    completion(.empty)
+  init(@ViewBuilder content: @escaping (WidgetFamily) -> Content) {
+    self.content = content
   }
 
-  func getTimeline(in context: Context, completion: @escaping (Timeline<IngestEntry>) -> Void) {
+  var body: some View { content(family) }
+}
+
+/// Every reload makes one GET /surface/today with the app's address and token from the Keychain,
+/// falls back to the last good copy, and reloads after local midnight or retries (D-154).
+struct SurfaceTimelineProvider: TimelineProvider {
+  func placeholder(in context: Context) -> SurfaceEntry { SurfaceEntry(date: .now) }
+
+  func getSnapshot(in context: Context, completion: @escaping (SurfaceEntry) -> Void) {
+    nonisolated(unsafe) let reply = completion
+    Task { reply(await SurfaceEntry.load(with: WidgetServer.fetcher()).entry) }
+  }
+
+  func getTimeline(in context: Context, completion: @escaping (Timeline<SurfaceEntry>) -> Void) {
     nonisolated(unsafe) let reply = completion
     Task {
-      _ = await WidgetServer.fetcher().fetch(Probe.self, path: "/sync/status")
-      let next = Date.now.addingTimeInterval(60 * 60)
-      reply(Timeline(entries: [IngestEntry(date: .now, text: "--")], policy: .after(next)))
+      let (entry, next) = await SurfaceEntry.load(with: WidgetServer.fetcher())
+      reply(Timeline(entries: [entry], policy: .after(next)))
     }
   }
 }
@@ -55,17 +56,5 @@ enum WidgetServer {
     return CachedPayloadFetcher(
       transport: ServerSettings.fromKeychain().transport(),
       cache: PayloadCache(directory: directory))
-  }
-}
-
-struct IngestWidgetView: View {
-  let entry: IngestEntry
-
-  var body: some View {
-    Text(entry.text)
-      .textStyle(.big)
-      .foregroundStyle(Theme.ink)
-      .accessibilityIdentifier("widget.ingest.value")
-      .containerBackground(Theme.surface, for: .widget)
   }
 }
