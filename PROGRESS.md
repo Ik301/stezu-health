@@ -699,3 +699,12 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Tasks accept `[due:: YYYY-MM-DD]` as well as `📅`, because the planner note uses the Dataview form inside callouts.
 - Tests: server/Tests/test_surface.py (12 cases, synthetic notes only).
 - Left undone: the goal note is unconfirmed (default `03-Self/Goals/Goals.md`); the deployed server needs `STEZU_VAULT_DIR` in its env file and a restart; AGENTS.md's endpoint list does not name the new route yet (protected file).
+
+## 2026-11-05 infra/widget-extension: home-screen widget shell (builder, daytime, D-152)
+
+- Config (the D-152 diff, nothing else signed changes): new `App/RestActivity.entitlements` with `keychain-access-groups = [$(AppIdentifierPrefix)com.ik301.stezuhealth]`; `project.yml` RestActivity gains `CODE_SIGN_ENTITLEMENTS: App/RestActivity.entitlements` and a `StezuCore` package dependency. No new target, bundle ID or App ID; the app's entitlements, Info.plist, Signing.xcconfig and mac/autoinstall are unchanged.
+- Widget: `IngestWidget` ("Ingest", small and medium) joins `RestActivityBundle` next to the Live Activity. It shows "--". Its timeline provider is a stub that makes one authenticated GET /sync/status per reload (hourly) for the device check, then still shows "--".
+- Shared code: `App/Shared/ServerAccess.swift` now holds `ServerSettings` and `URLSessionVMTransport` (moved from App/Sources/Settings/ServerSettings.swift, code unchanged) plus `ServerKeychain`, the one Keychain query (service `com.ik301.stezuhealth.server`, accounts `token` and `address`, no access group). `DeviceServerSettingsStore` uses it, also saves the address to the Keychain, and copies an existing address there once at launch. Saving a server reloads the widget timelines (`AppEnvironment.useServer`, not under `-uitest`).
+- Core: `CachedPayload.swift`: `PayloadCache` (one JSON file per path) and `CachedPayloadFetcher`, which returns a 200 reply that decodes and caches it, or the last good copy, or nil ("--"). The widget's cache sits in the extension's own Application Support folder.
+- Tests: StezuCoreTests CachedPayloadTests (5 tests). No existing test changed. No app test for `ServerKeychain`: CI builds unsigned, so the simulator's Keychain answers -34018 (missing entitlement) to every write; the device check covers it.
+- Not verified here: a signed build on his phone (CI builds unsigned). That is the device check in docs/decisions/widget-auth.md, in the PR's run steps.

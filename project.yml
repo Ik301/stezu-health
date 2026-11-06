@@ -71,12 +71,16 @@ targets:
         excludes:
           - Info.plist
       - App/Shared
+    dependencies:
+      - package: StezuCore
+        product: StezuCore
     configFiles:
       Debug: Config/Signing.xcconfig
       Release: Config/Signing.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ik301.stezuhealth.RestActivity
+        CODE_SIGN_ENTITLEMENTS: App/RestActivity.entitlements
         INFOPLIST_FILE: App/RestActivity/Info.plist
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Ingest Rest
