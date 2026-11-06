@@ -15,7 +15,16 @@ enum UITestFixtures {
     "GET /barcode/0000000000031": VMResponse(status: 200, body: Data(barcodeReply.utf8)),
     "GET /barcode/0000000000024": VMResponse(
       status: 200, body: Data(#"{"status": "not_found", "gtin": "0000000000024"}"#.utf8)),
+    "GET /surface/today": VMResponse(status: 200, body: Data(surfaceReply.utf8)),
   ]
+
+  /// S-060: a made-up word whose definition is too long for either widget size.
+  static let surfaceReply = #"""
+    {"date": "2026-03-11", "word": "Florble", "definition": "the small sound a kettle makes just \#
+    before it boils, heard best in a quiet kitchen late at night when nobody else is awake",
+     "goal": ["Learn to juggle three balls", "Paint the garden gate blue",
+     "Walk the long loop every Sunday"], "tasks": []}
+    """#
 
   /// Barcode mode's synthetic code (S-016): a made-up product, or in "barcode-unknown" a code
   /// Open Food Facts does not know.
@@ -362,6 +371,12 @@ extension UITestFixtures {
   /// yesterday whose session record lists only the first of its three sets, and a meal (D-034).
   static func routes(scenario: String?) -> [String: VMResponse] {
     if scenario == "restore-fresh" { return vmRoutes.merging(restoreFresh()) { $1 } }
+    if scenario == "surface-missing" {  // S-060: the vault has none of the fields
+      let nulls = #"{"date": "2026-03-11", "word": null, "definition": null, "goal": null}"#
+      return vmRoutes.merging([
+        "GET /surface/today": VMResponse(status: 200, body: Data(nulls.utf8))
+      ]) { $1 }
+    }
     guard scenario == "restore" else { return vmRoutes }
     let start = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded() - 26 * 3600)
     let t = { (at: Double) in "\"\(SyncSample.timestamp(start + at))\"" }

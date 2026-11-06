@@ -6,7 +6,7 @@ enum UITestApp {
   @MainActor
   static func launch(
     scenario: String? = nil, offline: Bool = false, persist: Bool = false, reset: Bool = false,
-    dark: Bool = false
+    dark: Bool = false, widgets: Bool = false
   ) -> XCUIApplication {
     var arguments = ["-uitest"]
     if let scenario { arguments += ["-uitest-scenario", scenario] }
@@ -14,6 +14,7 @@ enum UITestApp {
     if persist { arguments.append("-uitest-persist") }
     if reset { arguments.append("-uitest-reset") }
     if dark { arguments.append("-uitest-dark") }
+    if widgets { arguments.append("-uitest-widgets") }
     let app = XCUIApplication()
     app.launchArguments = arguments
     app.launch()

@@ -18,7 +18,9 @@ struct AppShell: View {
   @Environment(\.appEnvironment) private var environment
 
   var body: some View {
-    if let area {
+    if environment.showsWidgets {  // S-060: UI tests only
+      WidgetGallery()
+    } else if let area {
       areaView(area)
         .safeAreaInset(edge: .bottom, spacing: 0) {
           if !logging { BottomNav(active: area, open: { self.area = $0 }) }
