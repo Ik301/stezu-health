@@ -32,6 +32,10 @@ class Settings:
     timezone: str = "America/New_York"
     health_db: Path | None = None  # None: health.db next to db_path
     health_tz: str = "America/New_York"
+    vault_dir: Path | None = None  # None: /surface/today answers nulls
+    vocab_note: str = "04-Knowledge/Concepts/Vocabulary.md"
+    goal_note: str = "03-Self/Goals/Goals.md"
+    task_notes: tuple[str, ...] = ("01-Daily/School Planner.md",)
 
     def api_key(self) -> str | None:
         """Read at call time, so a rotated key file needs no restart."""
@@ -47,6 +51,8 @@ def load_settings(env_file: str | None = None) -> Settings:
     env = read_env_file(path) | {k: v for k, v in os.environ.items() if k.startswith("STEZU_")}
     temperature = env.get("STEZU_MODEL_TEMPERATURE", "0").strip().lower()
     key_file = env.get("STEZU_ANTHROPIC_KEY_FILE")
+    vault = env.get("STEZU_VAULT_DIR")
+    task_notes = env.get("STEZU_SURFACE_TASK_NOTES")
     return Settings(
         tokens=frozenset(t.strip() for t in env.get("STEZU_TOKENS", "").split(",") if t.strip()),
         db_path=Path(env.get("STEZU_DB", "~/.local/share/stezu/server.sqlite3")).expanduser(),
@@ -58,4 +64,10 @@ def load_settings(env_file: str | None = None) -> Settings:
         usda_key=env.get("STEZU_USDA_KEY") or None,
         health_db=Path(env.get("STEZU_HEALTH_DB", "~/.local/share/stezu/health.db")).expanduser(),
         health_tz=env.get("STEZU_HEALTH_TZ", Settings.health_tz),
+        timezone=env.get("STEZU_TIMEZONE", Settings.timezone),
+        vault_dir=Path(vault).expanduser() if vault else None,
+        vocab_note=env.get("STEZU_SURFACE_VOCAB_NOTE", Settings.vocab_note),
+        goal_note=env.get("STEZU_SURFACE_GOAL_NOTE", Settings.goal_note),
+        task_notes=Settings.task_notes if task_notes is None else
+        tuple(p.strip() for p in task_notes.split(",") if p.strip()),
     )

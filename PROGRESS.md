@@ -690,3 +690,12 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Tests: StezuCoreTests RecipeTests (testTotalsFollowIngredients, testStoreRoundTripsAndDeletes, testLoggingCopiesItemsWithoutChangingRecipe); AppUITests RecipesUITests/testMakeRecipeThenLogIt (screenshots s059-recipe-editor, s059-recipe-list). No existing test changed. `FEATURE_ID=S-059 scripts/gate-linux.sh` passed G1 to G8 (293 non-test lines in 6 files after the flip).
 - Deviations: the Recipes button sits in the bottom bar's right slot, across the shutter from History, so the shutter stays centred. The recipe editor's Barcode button sits under + Add item. "Done" closes the editor without saving. No new fixture: the test uses the default search and barcode routes.
 - Left undone: none of the story's steps. The name field stops taking characters past 60.
+
+## 2026-11-05 Server: GET /surface/today for the widgets (server card, D-153)
+
+- `surface.py` reads the vocabulary, goal and task notes from `STEZU_VAULT_DIR` on every call and returns `{date, word, definition, goal, tasks}`; nothing is stored. Parsing rules and the config keys are in server/README.md. Unset vault or missing note: `null`.
+- Auth: the route has its own router and check (`require_surface_reader`, device tokens for now), so a widget-only read token can be added for this route alone once the auth spike decides.
+- `STEZU_TIMEZONE` is now read from the env file (it existed in Settings but had no key); it also sets `/menu`'s default date, unchanged at `America/New_York`.
+- Tasks accept `[due:: YYYY-MM-DD]` as well as `📅`, because the planner note uses the Dataview form inside callouts.
+- Tests: server/Tests/test_surface.py (12 cases, synthetic notes only).
+- Left undone: the goal note is unconfirmed (default `03-Self/Goals/Goals.md`); the deployed server needs `STEZU_VAULT_DIR` in its env file and a restart; AGENTS.md's endpoint list does not name the new route yet (protected file).

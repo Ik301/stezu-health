@@ -38,6 +38,11 @@ Keep that file outside the repo with mode 0600. Environment variables with the s
 | `STEZU_USDA_KEY` | FoodData Central key (`DEMO_KEY` works for low volume) | none: USDA skipped |
 | `STEZU_HEALTH_DB` | Health database for `/sync` (created on start, mode 0600, WAL) | `~/.local/share/stezu/health.db` |
 | `STEZU_HEALTH_TZ` | Time zone for the day keys in the health views | `America/New_York` |
+| `STEZU_TIMEZONE` | The owner's local day: `/menu`'s default date and `/surface/today` | `America/New_York` |
+| `STEZU_VAULT_DIR` | Obsidian vault root that `/surface/today` reads | none: every field is `null` |
+| `STEZU_SURFACE_VOCAB_NOTE` | Vocabulary note, relative to the vault | `04-Knowledge/Concepts/Vocabulary.md` |
+| `STEZU_SURFACE_GOAL_NOTE` | Goal note, relative to the vault | `03-Self/Goals/Goals.md` |
+| `STEZU_SURFACE_TASK_NOTES` | Comma-separated notes scanned for tasks, relative to the vault | `01-Daily/School Planner.md` |
 
 Generate a device token with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`.
 
@@ -360,6 +365,43 @@ older replay never replaces it), with `payload` as the JSON object the app sent:
 Errors: 400 with `{"detail": "unknown kind bogus; known kinds: location, meal, ..."}`, `"after is
 not a cursor from this server; start again without it"` or `"limit must be a whole number from 1
 to 2000"`; 401 without the token.
+
+### `GET /surface/today`
+
+Today's word, goal and due tasks for the phone's widgets (D-153), read from the Obsidian vault
+on every call. Read-only; the server keeps no copy. Nothing is made up: a missing or unreadable
+note gives `null`.
+
+```json
+{"date": "2026-03-11", "word": "Florble", "definition": "a small sound a kettle makes",
+ "goal": ["Learn to juggle", "Paint the gate blue"],
+ "tasks": [{"text": "Turn in the ferret essay", "due": "2026-03-10", "source": "Daily/Planner.md"},
+           {"text": "FLB 101 · Problem set 4", "due": "2026-03-11", "source": "Daily/Planner.md"}]}
+```
+
+- `date`: today in `STEZU_TIMEZONE`. Every rule below uses this date.
+- `word`, `definition`: from lines `**Word:** definition` in the vocabulary note (a leading `- ` is
+  allowed). Lines with an empty definition are skipped. The pick is
+  `(date - 2026-01-01).days mod count`, so the word is the same all day and moves to the next one at
+  local midnight. Adding or removing a word shifts the rotation from that day on. Both are `null`
+  when the note is missing or has no usable line.
+- `goal`: a list of up to 3 strings, or `null`. Rule: after any YAML front matter, find the first
+  heading whose text contains "current" (any case); the section runs to the next heading of the
+  same or a higher level. With no such heading the section is the whole note. Take the first run
+  of top-level list items (`-`, `*`, `+` or `1.`, unindented) in the section; blank lines and
+  indented sub-items do not end the run, any other unindented line does. Checked `[x]` items are
+  left out; a `[ ]` box is dropped from the text.
+- `tasks`: open `- [ ]` items (any indent, also inside `>` callouts, not inside fenced code) whose
+  due date is today or earlier, oldest first, then in note order. A due date is Obsidian Tasks'
+  `📅 YYYY-MM-DD` or its Dataview form `[due:: YYYY-MM-DD]`. `text` is the description before the
+  first Tasks emoji, with `[key:: value]` fields removed. `source` is the note's path as configured.
+  `[]` when the notes were read and nothing is due; `null` when none of them could be read.
+- In every string, `[[Note|label]]` becomes `label`, `[[Note]]` becomes `Note`, and `**`, `__` and
+  backticks are dropped.
+- A note path that resolves outside the vault is treated as missing.
+- `Cache-Control: private, max-age=300`, shortened so a cached copy never outlives local midnight.
+- Auth: the device token. The check is `require_surface_reader` in app.py, which only `/surface/*`
+  uses, so a widget-only read token can be added there without touching the other routes.
 
 ## Health database (for Hermes)
 
