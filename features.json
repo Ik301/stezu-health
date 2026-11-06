@@ -1995,6 +1995,69 @@
       ],
       "needs_server": true,
       "passes": true
+    },
+    {
+      "id": "S-060",
+      "kind": "story",
+      "area": "shell",
+      "title": "Word widget: today's word and its definition on the home screen, and a new word after midnight",
+      "steps": [
+        "He long-presses the home screen, taps +, picks Ingest and adds the Word widget, small or medium. It shows today's word from his vault (GET /surface/today, server/README.md) on one line and its definition under it. A definition too long for the size ends in an ellipsis instead of running off the widget.",
+        "The word stays the same all day. A few minutes after local midnight the widget reloads and shows the next word, which the server picks by date. If that reload can't reach the server, it tries again within 30 minutes.",
+        "Offline (no signal, or the server down), the widget keeps the last word it fetched. If that copy is from an earlier day, a small line under it says \"Saved <date>\", so yesterday's word never passes as today's.",
+        "If the vault has no word, or nothing was ever fetched, the word and the definition each show \"--\". Nothing is made up.",
+        "The placeholder \"Ingest\" widget the infra card added (D-152) becomes this widget, so the one already on his home screen starts showing the word.",
+        "UI test with -uitest-widgets: the app shows the widget's view at small and medium size, fed by the same fetch and cache code as the extension through the fake server and a synthetic word. Live: the word and the cut definition. Relaunched with -uitest-offline: the cached word with its Saved line. With -uitest-scenario surface-missing: \"--\" in both fields."
+      ],
+      "tap_budget": "0 taps once the widget is on the home screen",
+      "depends_on": [
+        "S-002"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SurfaceTodayTests/testMissingFieldsShowDashes",
+        "StezuCoreTests.SurfaceTodayTests/testReloadAfterMidnightOrRetrySoon",
+        "StezuCoreTests.SurfaceTodayTests/testSavedNoteOnlyForAnEarlierDay"
+      ],
+      "ui_tests": [
+        "AppUITests.WordWidgetUITests/testWordWidgetLiveOfflineAndMissing"
+      ],
+      "screenshots": [
+        "s060-word-live",
+        "s060-word-offline",
+        "s060-word-missing"
+      ],
+      "needs_server": true,
+      "passes": false
+    },
+    {
+      "id": "S-061",
+      "kind": "story",
+      "area": "shell",
+      "title": "Goal widget: his current goals on the home screen",
+      "steps": [
+        "He adds the Ingest Goal widget, small or medium. It shows the goal lines from his vault's goal note (GET /surface/today's `goal`, up to three), each cut with an ellipsis when it doesn't fit.",
+        "It reloads a few minutes after local midnight, so about once a day, and again within 30 minutes when a reload can't reach the server.",
+        "Offline, it keeps the last goals it fetched, with \"Saved <date>\" under them when they are from an earlier day.",
+        "With no goals in the vault, or nothing fetched yet, it shows \"--\".",
+        "UI test with -uitest-widgets: the goal widget's view at small and medium size beside the Word widget, with three synthetic goals from the fake server; the offline relaunch shows the cached goals; -uitest-scenario surface-missing shows \"--\"."
+      ],
+      "tap_budget": "0 taps once the widget is on the home screen",
+      "depends_on": [
+        "S-060"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SurfaceTodayTests/testGoalLinesShowUpToThreeOrDashes"
+      ],
+      "ui_tests": [
+        "AppUITests.GoalWidgetUITests/testGoalWidgetLiveOfflineAndMissing"
+      ],
+      "screenshots": [
+        "s061-goal-live",
+        "s061-goal-offline",
+        "s061-goal-missing"
+      ],
+      "needs_server": true,
+      "passes": false
     }
   ]
 }
