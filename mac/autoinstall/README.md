@@ -7,7 +7,7 @@ morning, with hourly retries until it works. No paid Apple Developer Program, no
 (decision D-104).
 
 Status: built and tested on Linux only, with stub `git`, `xcrun`, `xcodebuild`, `xcodegen`,
-`osascript` and `security` (and under bash 3.2.57, the version of macOS's `/bin/bash`). It has not
+`osascript`, `security` and `codesign` (and under bash 3.2.57, the version of macOS's `/bin/bash`). It has not
 run on a Mac. The devicectl JSON fields it reads come from Flutter's, Expo's and KeepAlive's
 parsers, not from a capture on Isaac's Mac.
 
@@ -35,14 +35,20 @@ parsers, not from a capture on Isaac's Mac.
    Deleting the cached profile matters: `-allowProvisioningUpdates` reuses a profile that is still
    valid, so without it a rebuild on day 5 would still expire on day 7. With it, Xcode asks Apple
    for a new 7-day profile with the Apple account signed in to Xcode.
-5. Installs with `xcrun devicectl device install app --device <udid> .../Debug-iphoneos/StezuHealth.app`
-   (the RestActivity Live Activity extension is inside it). The app's data on the phone is kept.
-6. Only after the install succeeds, writes the commit, the time and the new profile's expiry to the
+5. Checks the build: `PlugIns/RestActivity.appex` (the extension that holds the home-screen widgets
+   and the Live Activity) must be inside `StezuHealth.app`, `codesign --verify` must pass on both,
+   and each must embed a profile for its own bundle id. The run log shows one `signed ...` line per
+   target. If any of that fails, nothing is installed and you get the failure notification: an app
+   without its extension still opens, but the widgets vanish from the home screen.
+   Then installs with `xcrun devicectl device install app --device <udid> .../Debug-iphoneos/StezuHealth.app`,
+   which installs the extension with it. The app's data on the phone is kept.
+6. Only after the install succeeds, writes the commit, the time and the new profiles' expiry (the earlier of the two) to the
    state file, and posts a notification: "Ingest updated to abc1234". A failure posts "Ingest
    install failed: <reason>" and exits 1. If the phone stays out of reach while the signing has
    less than 36 hours left, one notification a day says so.
 
-Flags: `--dry-run` (decide, find the iPhone, print the commands, build nothing), `--force`,
+Flags: `--dry-run` (decide, find the iPhone, print the commands, run the step 5 check on the last
+build if there is one, build nothing; a failed check notifies like a real run), `--force`,
 `--status` (last install, days until the 7-day expiry, whether the iPhone is reachable).
 
 ## Set up (on the Mac, once)
@@ -133,10 +139,11 @@ DerivedData in the same folder takes a few GB.
     mac/autoinstall/run_tests.sh                                 # Linux or macOS
     BASH_UNDER_TEST=/bin/bash mac/autoinstall/run_tests.sh       # on the Mac: bash 3.2
 
-`Tests/stubs/` holds fake `git`, `xcrun`, `xcodebuild`, `xcodegen`, `osascript` and `security`
+`Tests/stubs/` holds fake `git`, `xcrun`, `xcodebuild`, `xcodegen`, `osascript`, `security` and `codesign`
 put first on PATH, and `Tests/fixtures/` synthetic devicectl JSON (a Wi-Fi iPhone, an unreachable
 one, two iPhones, a changed shape). They cover the skip, a new commit, the 5-day and expiring-profile
-renewals, an unreachable or locked phone, build and install failures, the pinned device, the
+renewals, an unreachable or locked phone, build and install failures, a build without the
+extension or with it mis-signed, the dry-run check of the last build, the pinned device, the
 launchd template and more. `scripts/gate-linux.sh` runs them as G8.
 
 ## Uninstall

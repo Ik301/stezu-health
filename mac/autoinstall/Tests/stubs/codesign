@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Test stub: `codesign --verify <bundle>` passes, unless the bundle path ends in FAKE_CODESIGN_BAD.
+echo "codesign $*" >>"$STUB_LOG"
+last=""
+for arg in "$@"; do last="$arg"; done
+if [ -n "${FAKE_CODESIGN_BAD:-}" ]; then
+  case "$last" in
+    *"$FAKE_CODESIGN_BAD") echo "$last: a sealed resource is missing or invalid" >&2; exit 1 ;;
+  esac
+fi
+exit 0
