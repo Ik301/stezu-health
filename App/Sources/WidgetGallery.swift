@@ -3,7 +3,7 @@ import SwiftUI
 
 /// `-uitest-widgets` only: the home-screen widgets drawn at their small and medium sizes, loaded
 /// through the same fetch and cache as the extension but from the fake server, so UI tests can
-/// check and screenshot them (S-060). The live app never shows it.
+/// check and screenshot them (S-060, S-061). The live app never shows it.
 struct WidgetGallery: View {
   /// Kept across launches, so an offline relaunch finds the last good copy. `-uitest-reset`
   /// empties it.
@@ -16,8 +16,12 @@ struct WidgetGallery: View {
   var body: some View {
     VStack(alignment: .leading, spacing: Theme.spaceLg) {
       if let entry {
-        tile(WordWidgetView(entry: entry, family: .systemSmall), width: 158)
+        HStack(spacing: Theme.spaceLg) {
+          tile(WordWidgetView(entry: entry, family: .systemSmall), width: 158)
+          tile(GoalWidgetView(entry: entry, family: .systemSmall), width: 158)
+        }
         tile(WordWidgetView(entry: entry, family: .systemMedium), width: 338)
+        tile(GoalWidgetView(entry: entry, family: .systemMedium), width: 338)
       }
       Spacer()
     }

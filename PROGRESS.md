@@ -716,3 +716,11 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Evidence harness: `-uitest-widgets` shows `WidgetGallery` (App/Sources) instead of Home: the widget's view at small and medium size, loaded with the fake transport and a cache in the app's temp folder that survives a relaunch (`-uitest-reset` empties it). The live app never shows it. Fixture: `GET /surface/today` in `UITestFixtures.vmRoutes` (a made-up word, a long definition, three made-up goals); `-uitest-scenario surface-missing` answers all nulls.
 - Tests: StezuCoreTests SurfaceTodayTests (testMissingFieldsShowDashes, testReloadAfterMidnightOrRetrySoon, testSavedNoteOnlyForAnEarlierDay); AppUITests WordWidgetUITests/testWordWidgetLiveOfflineAndMissing (screenshots s060-word-live, s060-word-offline, s060-word-missing). No existing test changed.
 - Not verified here: the widget on his phone. CI draws the view in the app, not on a home screen; the device check is adding the Word widget and seeing GET /surface/today 200 in the server log.
+
+## 2026-11-06 S-061 Goal widget (builder, daytime, D-154)
+
+- Core: `SurfaceToday.goal` (GET /surface/today's list, or null) and `goalLines`: the non-blank goals, at most three, or one "--".
+- Widget: `GoalWidget` (kind "IngestGoal", named "Goal", small and medium) joins `RestActivityBundle`. It reuses `SurfaceTimelineProvider`, so it has the Word widget's reload schedule (5 minutes after local midnight, or 30 minutes after a failed fetch; D-154), its cache and its "Saved <date>" line. `GoalWidgetView` (App/Shared/SurfaceWidgets.swift): "Goal", then one line per goal, each cut with an ellipsis at 2 lines.
+- Gallery: `WidgetGallery` now shows small Word and small Goal side by side, then medium Word and medium Goal. No new fixture: the S-060 reply already holds three made-up goals, and `surface-missing` answers `goal: null`.
+- Tests: StezuCoreTests SurfaceTodayTests/testGoalLinesShowUpToThreeOrDashes; AppUITests GoalWidgetUITests/testGoalWidgetLiveOfflineAndMissing (screenshots s061-goal-live, s061-goal-offline, s061-goal-missing). No existing test changed.
+- Not verified here: the widget on his phone (same device check as S-060).

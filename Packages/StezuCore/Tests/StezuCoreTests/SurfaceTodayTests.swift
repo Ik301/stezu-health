@@ -2,7 +2,7 @@ import Foundation
 import StezuCore
 import XCTest
 
-/// What the home-screen widgets draw from GET /surface/today (S-060). Words are synthetic.
+/// What the home-screen widgets draw from GET /surface/today (S-060, S-061). Words and goals are synthetic.
 final class SurfaceTodayTests: XCTestCase {
   private var calendar: Calendar {
     var calendar = Calendar(identifier: .gregorian)
@@ -53,5 +53,16 @@ final class SurfaceTodayTests: XCTestCase {
     XCTAssertEqual(
       today.savedNote(isCached: true, now: at(12, 9), calendar: calendar), "Saved 2026-03-11")
     XCTAssertNil(SurfaceToday().savedNote(isCached: true, now: at(12, 9), calendar: calendar))
+  }
+
+  func testGoalLinesShowUpToThreeOrDashes() throws {
+    let json =
+      #"{"date": "2026-03-11", "goal": ["Learn to juggle", " ", "Paint the gate", "Fly a kite"]}"#
+    let today = try JSONDecoder().decode(SurfaceToday.self, from: Data(json.utf8))
+    XCTAssertEqual(today.goalLines, ["Learn to juggle", "Paint the gate", "Fly a kite"])
+    XCTAssertEqual(SurfaceToday(goal: ["a", "b", "c", "d"]).goalLines, ["a", "b", "c"])
+    XCTAssertEqual(SurfaceToday().goalLines, ["--"])
+    XCTAssertEqual(SurfaceToday(goal: []).goalLines, ["--"])
+    XCTAssertEqual(SurfaceToday(goal: ["", "  "]).goalLines, ["--"])
   }
 }

@@ -16,6 +16,18 @@ struct IngestWidget: Widget {
   }
 }
 
+/// The Goal widget (S-061): the same payload and reload schedule as the Word widget.
+struct GoalWidget: Widget {
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: "IngestGoal", provider: SurfaceTimelineProvider()) { entry in
+      FamilyReader { GoalWidgetView(entry: entry, family: $0) }
+    }
+    .configurationDisplayName("Goal")
+    .description("Your current goals from your vault.")
+    .supportedFamilies([.systemSmall, .systemMedium])
+  }
+}
+
 /// Passes the widget's size to a view, which can't read it outside a widget (the app's gallery).
 struct FamilyReader<Content: View>: View {
   @Environment(\.widgetFamily) private var family

@@ -3,7 +3,7 @@ import StezuCore
 import SwiftUI
 import WidgetKit
 
-// The home-screen widgets' entry and views (S-060). Compiled into the extension, which draws them
+// The home-screen widgets' entry and views (S-060, S-061). Compiled into the extension, which draws them
 // on the home screen, and into the app, whose `-uitest-widgets` gallery draws them for UI tests.
 
 /// One reload of a surface widget. With no reply and nothing cached, `today` is empty, so every
@@ -46,6 +46,29 @@ struct WordWidgetView: View {
         .lineLimit(family == .systemSmall ? 4 : 3)
         .truncationMode(.tail)
         .accessibilityIdentifier("widget.word.definition")
+      Spacer(minLength: 0)
+      SavedNoteView(note: entry.savedNote)
+    }
+    .foregroundStyle(Theme.ink)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .containerBackground(Theme.surface, for: .widget)
+  }
+}
+
+/// The Goal widget (S-061): the current goals, up to three, each cut with an ellipsis to fit.
+struct GoalWidgetView: View {
+  let entry: SurfaceEntry
+  let family: WidgetFamily
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: Theme.spaceXs) {
+      Text("Goal").textStyle(.label).foregroundStyle(Theme.muted)
+      ForEach(Array(entry.today.goalLines.enumerated()), id: \.offset) { _, line in
+        Text(line)
+          .textStyle(family == .systemSmall ? .subtitle : .headline)
+          .lineLimit(2)
+          .accessibilityIdentifier("widget.goal.line")
+      }
       Spacer(minLength: 0)
       SavedNoteView(note: entry.savedNote)
     }
