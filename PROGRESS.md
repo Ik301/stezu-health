@@ -708,3 +708,11 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Core: `CachedPayload.swift`: `PayloadCache` (one JSON file per path) and `CachedPayloadFetcher`, which returns a 200 reply that decodes and caches it, or the last good copy, or nil ("--"). The widget's cache sits in the extension's own Application Support folder.
 - Tests: StezuCoreTests CachedPayloadTests (5 tests). No existing test changed. No app test for `ServerKeychain`: CI builds unsigned, so the simulator's Keychain answers -34018 (missing entitlement) to every write; the device check covers it.
 - Not verified here: a signed build on his phone (CI builds unsigned). That is the device check in docs/decisions/widget-auth.md, in the PR's run steps.
+
+## 2026-11-06 Fix: Empty workout can add an exercise and log it (builder, daytime, D-154)
+
+- Bug: Workout > Empty workout opened a logger with no exercise and no way to add one; the "..." menu (Swap) only shows with an exercise, and `swap` does nothing without one.
+- Core: `SetLogger.add(_:history:)` puts a library exercise at the end of the session as a one-exercise add-on (3 x 8-12, the exercise's rest), so it saves, restores, logs and syncs like an add-on (D-154). `append` no longer skips the prefill when the session had no slot.
+- App: an Add exercise button under the progress row, on every workout, opens the Exercises library; a pick adds the exercise. Swap is unchanged. The progress row is hidden while there is no exercise (it read "Exercise 1 of 0").
+- Tests: StezuCoreTests SetLoggerTests/testAddExerciseToEmptyWorkout, testAddExerciseToRunningWorkout, testAddedExerciseSurvivesSaveAndRestore; AppUITests EmptyWorkoutUITests/testEmptyWorkoutAddExerciseThenLogSet (screenshots fix-empty-workout, fix-empty-workout-logged). SetLoggerTests now uses `@testable import` to build LibraryExercise values. No existing test changed otherwise. `scripts/gate-linux.sh` passed G1 to G8.
+- Left undone: Continue on a finished session (D-090) rebuilds slots from the template only, so added exercises (like add-ons) get no slot when a session is continued; their sets are kept.

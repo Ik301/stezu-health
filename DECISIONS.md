@@ -2219,3 +2219,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). A missing note is `null`, never a placeholder; `tasks` is `[]` only when a note was read and nothing is due. Tasks accept both `📅` and `[due:: ]`. The word is `(date - 2026-01-01).days mod count` in `STEZU_TIMEZONE`.
 - Evidence: server/stezu_server/surface.py, app.py (`require_surface_reader`, `surface_today`), config.py; server/Tests/test_surface.py; rules in server/README.md.
 - Reverse if: the widget gets its own token (add its set in `require_surface_reader` only), reading the notes per call gets slow, or the vault moves off the VM.
+
+## D-154 Add exercise stores each added exercise as a one-exercise add-on in the session
+
+- Status: proposed by builder (daytime bug fix), 2026-11-06.
+- Problem: an Empty workout starts with no exercise, and the logger had no way to put one in it, so nothing could be logged. Swap only replaces the card's exercise, and there is none.
+- Given: SetLogger already keeps add-on blocks (D-084) in `appended`: they are saved with the logger, their last numbers come from any template, and the card moves into them when its own exercise is done. A library exercise has a name, key and rest, but no sets or reps.
+- Constraints:
+  - A new stored field next to `appended` would need its own ordering rule against add-ons appended later (breaks "slots stay in the order they were added").
+  - Changing the template would change the program (breaks "the template itself never changes", D-084).
+  - Loggers saved before this must still load (breaks resume after an update, S-009).
+- Options:
+  - (a) `add` wraps the library exercise in a one-exercise add-on with key `added-<slot count>-<exercise key>` and calls `append`.
+  - (b) A separate `added: [TemplateExercise]?` field after the add-ons.
+  - (c) Let Swap fill an empty slot.
+- Decision: (a), at 3 sets of 8-12 and the library exercise's rest (`replaced(by:)` on a fixed shape). Adding the same exercise twice gives two slots. `append` now checks the card's exercise before appending; on a session with no slot it skipped the prefill, so the new card read 1 rep.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift (`add`, `append`); App/Sources/Workout/WorkoutLoggerView.swift (Add exercise, `LibraryUse`); SetLoggerTests (3 new tests); App/UITests/EmptyWorkoutUITests.swift.
+- Reverse if: added exercises need their own sets or reps chosen when added, or something has to tell them apart from program add-ons (today only the `added-` key does).

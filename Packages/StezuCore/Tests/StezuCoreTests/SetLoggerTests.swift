@@ -1,6 +1,7 @@
 import Foundation
-import StezuCore
 import XCTest
+
+@testable import StezuCore
 
 // Generic exercises and numbers, not anyone's program (D-034).
 final class SetLoggerTests: XCTestCase {
@@ -209,5 +210,99 @@ final class SetLoggerTests: XCTestCase {
     XCTAssertEqual(partWay.session.sets(for: "Lift A")?.count, 1, "the logged set stays")
     XCTAssertNotNil(partWay.undo())
     XCTAssertEqual(partWay.exercise?.key, "a", "undo returns to the skipped exercise's set")
+  }
+
+  /// Generic library exercises (D-034).
+  private let fly = LibraryExercise(
+    key: "dumbbell-fly", name: "Dumbbell fly", equipment: "Dumbbell", muscle: "Chest",
+    restSeconds: 75)
+  private let curl = LibraryExercise(
+    key: "biceps-curl", name: "Biceps curl", equipment: "Dumbbell", muscle: "Arms",
+    restSeconds: 60)
+
+  /// An Empty workout starts with no slot; Add exercise gives it one that can be logged.
+  func testAddExerciseToEmptyWorkout() throws {
+    let empty = WorkoutTemplate(key: WorkoutRotation.emptyKey, name: "Empty", exercises: [])
+    var logger = SetLogger(template: empty, startedAt: start)
+    XCTAssertNil(logger.exercise)
+    XCTAssertFalse(logger.canLog)
+
+    logger.add(fly, history: [])
+    let slot = try XCTUnwrap(logger.exercise, "the card moves to the added exercise")
+    XCTAssertEqual(slot.key, "dumbbell-fly")
+    XCTAssertEqual(slot.name, "Dumbbell fly")
+    XCTAssertEqual(slot.sets, SetLogger.addedSets)
+    XCTAssertEqual(slot.repRange, "8-12")
+    XCTAssertEqual(slot.restSeconds, 75, "the rest comes from the library exercise")
+    XCTAssertNil(logger.pounds, "never done: no weight, \"--\"")
+    XCTAssertEqual(logger.reps, 8)
+    XCTAssertNil(logger.lastNumbers)
+
+    logger.stepWeight(up: true)
+    XCTAssertTrue(logger.canLog)
+    let set = try XCTUnwrap(logger.log(at: start + 60))
+    XCTAssertEqual(set.pounds, SetLogger.defaultWeightStep)
+    XCTAssertEqual(logger.loggedSets.count, 1)
+    XCTAssertEqual(logger.undo(), set, "an added exercise's set can be undone")
+    logger.log(at: start + 90)
+
+    // Logs like any other: one session under the Empty key with the library key on its sets.
+    let done = try XCTUnwrap(WorkoutFinish.close(logger.session, at: start + 300))
+    XCTAssertEqual(done.session.templateKey, WorkoutRotation.emptyKey)
+    let keys = Dictionary(uniqueKeysWithValues: logger.exercises.map { ($0.name, $0.key) })
+    let record = SyncRecord.session(done, templateName: "Empty", keys: keys, at: start)
+    let payload = try XCTUnwrap(record.sessionPayload)
+    XCTAssertEqual(payload.exercises.map(\.key), ["dumbbell-fly"])
+    XCTAssertEqual(payload.exercises.first?.sets.count, 1)
+  }
+
+  /// In a normal workout the added slot goes last; the card only jumps to it once the card's
+  /// exercise has all its sets. Its last numbers come from any template, as Swap's do.
+  func testAddExerciseToRunningWorkout() throws {
+    var past = WorkoutSession(startedAt: start - 3 * 86_400, templateKey: "other")
+    past.logSet("Biceps curl", pounds: 25, reps: 11, at: past.startedAt + 60)
+    var logger = SetLogger(template: template(sets: 1), startedAt: start, history: [past])
+
+    logger.add(curl, history: [past])
+    XCTAssertEqual(logger.exercises.map(\.key), ["a", "b", "biceps-curl"])
+    XCTAssertEqual(logger.exercise?.key, "a", "the card stays on the unfinished exercise")
+    XCTAssertEqual(logger.last["Biceps curl"]?.sets.first?.pounds, 25)
+
+    logger.log(at: start + 60)
+    logger.log(at: start + 120)
+    XCTAssertEqual(logger.exercise?.key, "biceps-curl", "the card moves on into the added slot")
+    XCTAssertEqual(logger.pounds, 25, "prefilled from its last session")
+    XCTAssertEqual(logger.reps, 11)
+
+    // Added after every set is done, the card goes straight to the new slot.
+    for minute in 3...5 { logger.log(at: start + Double(minute) * 60) }
+    XCTAssertEqual(logger.loggedSets.count, SetLogger.addedSets)
+    logger.add(fly, history: [past])
+    XCTAssertEqual(logger.exercise?.key, "dumbbell-fly")
+    XCTAssertEqual(logger.exercises.count, 4)
+
+    // The same exercise can be added twice; each add is its own slot.
+    logger.add(fly, history: [past])
+    XCTAssertEqual(logger.exercises.map(\.key).filter { $0 == "dumbbell-fly" }.count, 2)
+  }
+
+  /// The added slots and their sets survive the session store's save and load (JSON).
+  func testAddedExerciseSurvivesSaveAndRestore() throws {
+    let empty = WorkoutTemplate(key: WorkoutRotation.emptyKey, name: "Empty", exercises: [])
+    var logger = SetLogger(template: empty, startedAt: start)
+    logger.add(fly, history: [])
+    logger.toggleBodyweight()
+    logger.log(at: start + 60)
+
+    let saved = try JSONDecoder().decode(SetLogger.self, from: JSONEncoder().encode(logger))
+    XCTAssertEqual(saved, logger)
+    XCTAssertEqual(saved.exercise?.key, "dumbbell-fly")
+    XCTAssertEqual(saved.setNumber, 2)
+    XCTAssertEqual(saved.session.sets(for: "Dumbbell fly")?.count, 1)
+
+    var resumed = saved
+    resumed.add(curl, history: [])
+    XCTAssertEqual(resumed.exercises.map(\.key), ["dumbbell-fly", "biceps-curl"])
+    XCTAssertNotNil(resumed.undo(), "undo still reaches the set logged before the save")
   }
 }

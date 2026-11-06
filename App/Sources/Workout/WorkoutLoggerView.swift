@@ -10,7 +10,8 @@ struct WorkoutLoggerView: View {
   @Binding var logger: SetLogger
   /// The rest after the last logged set (S-006); nil until the first Log.
   @Binding var rest: RestActivityController?
-  @State private var showLibrary = false  // the Exercises library sheet (S-007)
+  /// The Exercises library sheet (S-007), open for Swap or for Add exercise.
+  @State private var library: LibraryUse?
   let history: [WorkoutSession]
   /// The program's add-on blocks (S-035), each offered once as "+ <name>".
   let addOns: [WorkoutTemplate]
@@ -51,7 +52,8 @@ struct WorkoutLoggerView: View {
           .disabled(!logger.canUndo)
           .opacity(logger.canUndo ? 1 : 0.4)
           .accessibilityIdentifier("workout.logger.undo")
-        progress
+        if !logger.exercises.isEmpty { progress }
+        addExercise
         // One tap appends the block to this workout; the button goes once it is added.
         ForEach(addable, id: \.key) { addOn in
           Button("+ \(addOn.name)") { logger.append(addOn, history: history) }
@@ -68,13 +70,33 @@ struct WorkoutLoggerView: View {
     .onChange(of: logger) { _, changed in
       WorkoutSessionStore(storage: environment.storage).save(changed)
     }
-    .sheet(isPresented: $showLibrary) {
+    .sheet(item: $library) { use in
       ExerciseLibraryView(history: history + [logger.session]) { picked in
-        logger.swap(to: picked, history: history)
-        showLibrary = false
+        switch use {
+        case .swap: logger.swap(to: picked, history: history)
+        case .add: logger.add(picked, history: history)
+        }
+        library = nil
       }
       .environment(\.appEnvironment, environment)
     }
+  }
+
+  private enum LibraryUse: Identifiable {
+    case swap, add
+    var id: Self { self }
+  }
+
+  /// Opens the library to put one more exercise at the end of this workout, beside the add-ons.
+  /// Always shown: on an Empty workout it is the only way to get an exercise.
+  private var addExercise: some View {
+    Button("Add exercise") { library = .add }
+      .textStyle(.subtitle, weight: .semibold)
+      .foregroundStyle(Theme.ink)
+      .frame(maxWidth: .infinity, minHeight: Theme.sizeControl)
+      .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 1))
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("workout.logger.addExercise")
   }
 
   /// The add-ons not yet appended to this workout.
@@ -92,7 +114,7 @@ struct WorkoutLoggerView: View {
         Spacer()
         if exercise != nil {
           Menu {
-            Button("Swap") { showLibrary = true }
+            Button("Swap") { library = .swap }
               .accessibilityIdentifier("workout.logger.swap")
             if logger.upNext != nil {
               Button("Skip exercise") { logger.skipExercise() }
