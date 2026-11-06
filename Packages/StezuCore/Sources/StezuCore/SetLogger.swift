@@ -84,7 +84,8 @@ public struct SetLogger: Sendable, Equatable, Codable {
     exercises.indices.contains(exerciseIndex) ? exerciseInSlot(exerciseIndex) : nil
   }
 
-  /// The add-ons appended so far, in the order they were added.
+  /// The add-ons appended so far, in the order they were added, including each single exercise
+  /// from Add exercise (key "added-...").
   public var addOns: [WorkoutTemplate] { appended ?? [] }
 
   /// The session's slots: the day's exercises, then each appended add-on's.
@@ -116,12 +117,14 @@ public struct SetLogger: Sendable, Equatable, Codable {
       return
     }
     let first = exercises.count
+    // Read before appending: on a session with no slot, the new one would count as the card's.
+    let stay = exercise.map { loggedSets.count < $0.sets } ?? false
     appended = addOns + [addOn]
     for added in addOn.exercises where last[added.name] == nil {
       last[added.name] = WorkoutHistory.lastSession(
         of: added.name, before: session.startedAt, in: history)
     }
-    if let current = exercise, loggedSets.count < current.sets { return }
+    if stay { return }
     exerciseIndex = first
     prefill(exerciseInSlot(first))
   }
@@ -135,6 +138,23 @@ public struct SetLogger: Sendable, Equatable, Codable {
     last[swapped.name] = WorkoutHistory.lastSession(
       of: swapped.name, before: session.startedAt, in: history)
     prefill(swapped)
+  }
+
+  /// Sets and reps of a slot added from the library, which has only a name and a rest.
+  public static let addedSets = 3
+  private static let addedShape = TemplateExercise(
+    key: "", name: "", sets: addedSets, repsLow: 8, repsHigh: 12, restSeconds: 0)
+
+  /// Add exercise: one more slot at the end of this session, 3 x 8-12 at the exercise's rest.
+  /// Stored as a one-exercise add-on, so `append` saves it, loads its last numbers (any
+  /// template, as for a swap) and moves the card to it when the card's exercise is done or
+  /// there is none (an Empty workout starts with no slot).
+  public mutating func add(_ exercise: LibraryExercise, history: [WorkoutSession]) {
+    let slot = Self.addedShape.replaced(by: exercise)
+    let key = "added-\(exercises.count)-\(exercise.key)"
+    append(
+      WorkoutTemplate(key: key, name: exercise.name, exercises: [slot], addOn: true),
+      history: history)
   }
 
   public var weightStep: Double { exercise?.weightStep ?? Self.defaultWeightStep }
