@@ -9,6 +9,7 @@ struct RestActivityBundle: WidgetBundle {
     RestActivityWidget()
     IngestWidget()
     GoalWidget()
+    TasksWidget()
   }
 }
 

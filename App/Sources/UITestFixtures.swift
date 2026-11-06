@@ -371,6 +371,9 @@ extension UITestFixtures {
   /// yesterday whose session record lists only the first of its three sets, and a meal (D-034).
   static func routes(scenario: String?) -> [String: VMResponse] {
     if scenario == "restore-fresh" { return vmRoutes.merging(restoreFresh()) { $1 } }
+    if let tasks = surfaceTasks(scenario) {
+      return vmRoutes.merging(["GET /surface/today": VMResponse(status: 200, body: tasks)]) { $1 }
+    }
     if scenario == "surface-missing" {  // S-060: the vault has none of the fields
       let nulls = #"{"date": "2026-03-11", "word": null, "definition": null, "goal": null}"#
       return vmRoutes.merging([
@@ -462,5 +465,36 @@ extension UITestFixtures {
         status: 200,
         body: Data(#"{"records": [\#(records.joined(separator: ","))], "next": null}"#.utf8)),
     ]
+  }
+}
+
+extension UITestFixtures {
+  /// S-062: today's reply with 14 made-up tasks, the first two overdue ("surface-tasks"), with
+  /// nothing due ("surface-tasks-empty"), or with task notes the server couldn't read
+  /// ("surface-tasks-missing"). Dated from the test's clock, so the Overdue tags hold on any day.
+  static func surfaceTasks(_ scenario: String?) -> Data? {
+    let day = { (offset: Int) in
+      SurfaceToday.day(
+        of: Calendar.current.date(byAdding: .day, value: offset, to: Date()) ?? Date(),
+        calendar: .current)
+    }
+    let chores = [
+      "Return the library atlas", "Water the fern on the landing", "Oil the squeaky hinge",
+      "Sort the button jar", "Wind the hall clock", "Fold the picnic maps",
+      "Feed the goldfish twice", "Sweep the porch steps", "Label the jam jars",
+      "Mend the kite string", "Polish the brass bell", "Tidy the seed drawer",
+      "Restring the wind chime", "Count the marbles",
+    ]
+    let tasks: [SurfaceTask]?
+    switch scenario {
+    case "surface-tasks":
+      tasks = chores.enumerated().map { index, text in
+        SurfaceTask(text: text, due: day(index < 2 ? index - 2 : 0), source: "Planner.md")
+      }
+    case "surface-tasks-empty": tasks = []
+    case "surface-tasks-missing": tasks = nil
+    default: return nil
+    }
+    return try? JSONEncoder().encode(SurfaceToday(date: day(0), tasks: tasks))
   }
 }

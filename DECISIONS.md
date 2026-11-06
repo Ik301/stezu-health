@@ -2237,3 +2237,20 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). The views live in App/Shared, so a `-uitest-widgets` gallery in the app draws the widget's own view at small and medium size, through the same fetch and cache code, from the fake server.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SurfaceToday.swift (`nextReload`, `savedNote`), App/Shared/SurfaceWidgets.swift, App/RestActivity/IngestWidget.swift, App/Sources/WidgetGallery.swift; SurfaceTodayTests, WordWidgetUITests; commit 392d2bc.
 - Reverse if: the new word shows up late on the phone (reload earlier, or add a second reload), WidgetKit throttles the retries, or the phone spends long in a time zone other than STEZU_TIMEZONE (then reload at the server's midnight).
+
+## D-155 The Tasks widget reloads every 45 minutes and counts overdue against the phone's day
+
+- Status: proposed by builder (daytime card t_624aa0e9, build approved by Isaac), 2026-11-06.
+- Problem: a task list goes stale within hours, unlike a word or a goal, but WidgetKit gives each widget a daily reload budget, and a list cached on an earlier day can make a late task look like it is due today.
+- Given: GET /surface/today sends open tasks due today or earlier, each with its `due` day (D-153); the Word and Goal widgets reload after local midnight and retry every 30 minutes (D-154); `CachedPayloadFetcher` falls back to the last good copy (D-152).
+- Constraints:
+  - Reloading every 15 or 30 minutes spends 48 to 96 reloads a day, over the low end of WidgetKit's budget (roughly 40 to 70), so reloads come late, the midnight one included (breaks "refreshes within the budget").
+  - Reloading only after midnight, like Word, misses tasks added or done during the day (breaks "refreshes more often than the other widgets").
+  - Marking overdue against the copy's own `date` leaves yesterday's "due today" task unmarked on a list saved yesterday (breaks "mark overdue tasks distinctly").
+- Options:
+  - (a) One entry per reload, the next one 45 minutes later whether or not the fetch worked, or at the midnight reload when that comes first: at most 33 a day. Overdue is a `due` day before today on the phone.
+  - (b) Hourly reloads (24 a day) and overdue from the copy's `date`.
+  - (c) A timeline of entries that flip tasks to overdue at midnight (needs the next day's list, which only the server has).
+- Decision: (a). It shares `SurfaceTimelineProvider` and the cache with the other two widgets (`frequent: true`). The `-uitest-widgets` gallery shows it at medium and large size for `surface-tasks` scenarios, whose made-up tasks are dated from the test's clock so the Overdue tags hold on any day.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SurfaceToday.swift (`taskList`, `nextTasksReload`), App/Shared/SurfaceWidgets.swift (`TasksWidgetView`), App/RestActivity/IngestWidget.swift (`TasksWidget`); SurfaceTodayTests, TasksWidgetUITests; branch wt/S-062.
+- Reverse if: tasks he finishes still show for most of an hour often enough to annoy him (then have the app reload the widget when it opens), WidgetKit throttles the reloads, or the phone spends long in a time zone other than STEZU_TIMEZONE.

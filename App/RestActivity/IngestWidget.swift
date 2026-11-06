@@ -28,6 +28,19 @@ struct GoalWidget: Widget {
   }
 }
 
+/// The Tasks widget (S-062): the same payload, reloaded every 45 minutes.
+struct TasksWidget: Widget {
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: "IngestTasks", provider: SurfaceTimelineProvider(frequent: true)) {
+      entry in
+      FamilyReader { TasksWidgetView(entry: entry, family: $0) }
+    }
+    .configurationDisplayName("Tasks")
+    .description("Your open tasks due today, and overdue ones, from your vault.")
+    .supportedFamilies([.systemMedium, .systemLarge])
+  }
+}
+
 /// Passes the widget's size to a view, which can't read it outside a widget (the app's gallery).
 struct FamilyReader<Content: View>: View {
   @Environment(\.widgetFamily) private var family
@@ -41,8 +54,11 @@ struct FamilyReader<Content: View>: View {
 }
 
 /// Every reload makes one GET /surface/today with the app's address and token from the Keychain,
-/// falls back to the last good copy, and reloads after local midnight or retries (D-154).
+/// falls back to the last good copy, and reloads after local midnight or retries (D-154), or
+/// every 45 minutes when `frequent` (Tasks).
 struct SurfaceTimelineProvider: TimelineProvider {
+  var frequent = false
+
   func placeholder(in context: Context) -> SurfaceEntry { SurfaceEntry(date: .now) }
 
   func getSnapshot(in context: Context, completion: @escaping (SurfaceEntry) -> Void) {
@@ -53,7 +69,7 @@ struct SurfaceTimelineProvider: TimelineProvider {
   func getTimeline(in context: Context, completion: @escaping (Timeline<SurfaceEntry>) -> Void) {
     nonisolated(unsafe) let reply = completion
     Task {
-      let (entry, next) = await SurfaceEntry.load(with: WidgetServer.fetcher())
+      let (entry, next) = await SurfaceEntry.load(with: WidgetServer.fetcher(), frequent: frequent)
       reply(Timeline(entries: [entry], policy: .after(next)))
     }
   }
