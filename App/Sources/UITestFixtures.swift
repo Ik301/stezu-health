@@ -371,6 +371,7 @@ extension UITestFixtures {
   /// yesterday whose session record lists only the first of its three sets, and a meal (D-034).
   static func routes(scenario: String?) -> [String: VMResponse] {
     if scenario == "restore-fresh" { return vmRoutes.merging(restoreFresh()) { $1 } }
+    if scenario == "food-server-history" { return vmRoutes.merging(serverMeals()) { $1 } }
     if let tasks = surfaceTasks(scenario) {
       return vmRoutes.merging(["GET /surface/today": VMResponse(status: 200, body: tasks)]) { $1 }
     }
@@ -496,5 +497,36 @@ extension UITestFixtures {
     default: return nil
     }
     return try? JSONEncoder().encode(SurfaceToday(date: day(0), tasks: tasks))
+  }
+}
+
+extension UITestFixtures {
+  /// S-063 "food-server-history": an empty install, and a VM holding one meal from yesterday
+  /// evening (a hall dish) and one from earlier today (a text estimate). Made up (D-034).
+  static func serverMeals(now: Date = Date()) -> [String: VMResponse] {
+    let today = Calendar.current.startOfDay(for: now)
+    let meal = { (id: String, at: Date, item: String) in
+      let t = ISO8601DateFormatter().string(from: at)
+      return #"""
+        {"kind": "meal", "id": "\#(id)", "updated_at": "\#(t)", "payload": {"id": "\#(id)",
+         "eaten_at": "\#(t)", "day": "", "status": "confirmed", "edited": false,
+         "in_health": true, "items": [\#(item)]}}
+        """#
+    }
+    let soup = #"""
+      {"item_id": "01-L-9", "name": "Lentil Soup", "source": "North Hall", "halls": ["North Hall"],
+       "rough": false, "servings": 1, "kcal": {"low": 180, "high": 240},
+       "protein_g": {"low": 9, "high": 13}}
+      """#
+    let salad = #"""
+      {"item_id": "Green Salad", "name": "Green Salad", "source": "estimate", "rough": true,
+       "servings": 1, "kcal": {"low": 90, "high": 210}, "protein_g": {"low": 2, "high": 6}}
+      """#
+    let records = [
+      meal("5A1C7E3D-0000-4000-8000-000000000063", today - 6 * 3600, soup),
+      meal("6B2D8F4E-0000-4000-8000-000000000063", max(today, now - 3600), salad),
+    ]
+    let page = #"{"records": [\#(records.joined(separator: ","))], "next": null}"#
+    return ["GET /records": VMResponse(status: 200, body: Data(page.utf8))]
   }
 }

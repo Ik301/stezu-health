@@ -109,6 +109,17 @@ extension AppEnvironment {
     }
     return HealthFood.meals(samples)
   }
+
+  /// S-063 (D-156): saves the VM's meals the phone lacks in the meal store, never to Health or
+  /// the sync queue. False when there were none or the server could not be read.
+  func pullMeals() async -> Bool {
+    guard let records = try? await Restore.fetch(vmTransport, kinds: "meal") else { return false }
+    let new = Restore.newMeals(
+      records, local: await mealCaptures.logged(),
+      deleting: await healthSync.state.mealsBeingDeleted)
+    for meal in new { try? await mealCaptures.log(meal) }
+    return !new.isEmpty
+  }
 }
 
 /// The shutter: take one photo and save it locally. It makes no network call, so matching (which

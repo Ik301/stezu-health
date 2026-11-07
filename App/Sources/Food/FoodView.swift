@@ -68,6 +68,8 @@ struct FoodView: View {
       }
       await loadToday()
       await startCamera()
+      // S-063: the VM's meals. A server too slow for this would fail the retries anyway.
+      if await environment.pullMeals() { await loadToday() }
       await retryQueue()
     }
     .task(id: mode) { await barcodeMode() }
