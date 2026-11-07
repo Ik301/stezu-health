@@ -65,4 +65,60 @@ final class SurfaceTodayTests: XCTestCase {
     XCTAssertEqual(SurfaceToday(goal: []).goalLines, ["--"])
     XCTAssertEqual(SurfaceToday(goal: ["", "  "]).goalLines, ["--"])
   }
+
+  func testTaskRowsFitWithMoreCount() throws {
+    let json = #"""
+      {"date": "2026-03-11", "tasks": [
+        {"text": "Feed the goldfish", "due": "2026-03-11", "source": "Planner.md"},
+        {"text": " ", "due": "2026-03-11", "source": "Planner.md"},
+        {"text": "Oil the hinge", "due": "2026-03-11", "source": "Planner.md"},
+        {"text": "Fold the maps", "due": "2026-03-11", "source": "Planner.md"},
+        {"text": "Wind the clock", "due": "2026-03-11", "source": "Planner.md"}]}
+      """#
+    let today = try JSONDecoder().decode(SurfaceToday.self, from: Data(json.utf8))
+    XCTAssertEqual(today.tasks?.first?.source, "Planner.md")
+    let now = at(11, 9)
+    // Five tasks in four lines: three tasks and "+2 more"; a blank task shows "--".
+    let four = try XCTUnwrap(today.taskList(fitting: 4, now: now, calendar: calendar))
+    XCTAssertEqual(four.rows.map(\.text), ["Feed the goldfish", "--", "Oil the hinge"])
+    XCTAssertEqual(four.more, 2)
+    let five = try XCTUnwrap(today.taskList(fitting: 5, now: now, calendar: calendar))
+    XCTAssertEqual(five.rows.count, 5)
+    XCTAssertEqual(five.more, 0)
+    // Nothing due is an empty list; tasks the server couldn't read are missing.
+    XCTAssertEqual(
+      SurfaceToday(tasks: []).taskList(fitting: 4, now: now, calendar: calendar),
+      TaskList(rows: [], more: 0))
+    XCTAssertNil(SurfaceToday().taskList(fitting: 4, now: now, calendar: calendar))
+  }
+
+  func testOverdueMeansBeforeTodayOnThePhone() throws {
+    let today = SurfaceToday(
+      date: "2026-03-11",
+      tasks: [
+        SurfaceTask(text: "Return the atlas", due: "2026-03-10"),
+        SurfaceTask(text: "Feed the goldfish", due: "2026-03-11"),
+      ])
+    let live = try XCTUnwrap(today.taskList(fitting: 4, now: at(11, 9), calendar: calendar))
+    XCTAssertEqual(live.rows.map(\.overdue), [true, false])
+    // The same copy, still cached the next morning: both are overdue now.
+    let saved = try XCTUnwrap(today.taskList(fitting: 4, now: at(12, 9), calendar: calendar))
+    XCTAssertEqual(saved.rows.map(\.overdue), [true, true])
+    XCTAssertEqual(SurfaceToday.day(of: at(12, 0, 1), calendar: calendar), "2026-03-12")
+  }
+
+  func testTasksReloadEvery45MinutesAndAfterMidnight() {
+    XCTAssertEqual(
+      SurfaceToday.nextTasksReload(after: at(11, 9), calendar: calendar), at(11, 9, 45))
+    XCTAssertEqual(
+      SurfaceToday.nextTasksReload(after: at(11, 23, 40), calendar: calendar), at(12, 0, 5))
+    // 45 minutes apart all day, plus the midnight reload: at most 33 in a day.
+    var reloads = 0
+    var next = at(11, 0, 5)
+    while next < at(12, 0, 5) {
+      next = SurfaceToday.nextTasksReload(after: next, calendar: calendar)
+      reloads += 1
+    }
+    XCTAssertLessThanOrEqual(reloads, 33)
+  }
 }

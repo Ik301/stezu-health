@@ -3,7 +3,8 @@ import SwiftUI
 
 /// `-uitest-widgets` only: the home-screen widgets drawn at their small and medium sizes, loaded
 /// through the same fetch and cache as the extension but from the fake server, so UI tests can
-/// check and screenshot them (S-060, S-061). The live app never shows it.
+/// check and screenshot them (S-060, S-061). A `surface-tasks` scenario shows the Tasks widget at
+/// medium and large size instead (S-062). The live app never shows it.
 struct WidgetGallery: View {
   /// Kept across launches, so an offline relaunch finds the last good copy. `-uitest-reset`
   /// empties it.
@@ -15,7 +16,10 @@ struct WidgetGallery: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: Theme.spaceLg) {
-      if let entry {
+      if let entry, environment.scenario?.hasPrefix("surface-tasks") == true {
+        tile(TasksWidgetView(entry: entry, family: .systemMedium), width: 338)
+        tile(TasksWidgetView(entry: entry, family: .systemLarge), width: 338, height: 354)
+      } else if let entry {
         HStack(spacing: Theme.spaceLg) {
           tile(WordWidgetView(entry: entry, family: .systemSmall), width: 158)
           tile(GoalWidgetView(entry: entry, family: .systemSmall), width: 158)
@@ -36,10 +40,10 @@ struct WidgetGallery: View {
   }
 
   /// A widget's frame on a 6.1-inch iPhone, with the margins the home screen adds.
-  private func tile(_ widget: some View, width: CGFloat) -> some View {
+  private func tile(_ widget: some View, width: CGFloat, height: CGFloat = 158) -> some View {
     widget
       .padding(Theme.spaceLg)
-      .frame(width: width, height: 158)
+      .frame(width: width, height: height)
       .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusCard))
   }
 }
