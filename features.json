@@ -2058,6 +2058,41 @@
       ],
       "needs_server": true,
       "passes": true
+    },
+    {
+      "id": "S-062",
+      "kind": "story",
+      "area": "shell",
+      "title": "Tasks widget: today's open tasks on the home screen, overdue ones marked",
+      "steps": [
+        "He adds the Ingest Tasks widget, medium or large. It lists his open tasks due today or earlier from the vault (GET /surface/today's `tasks`, server/README.md), oldest first, one line each, cut with an ellipsis when a task doesn't fit. It is read-only: nothing can be checked off from the widget.",
+        "A task due before today carries a red \"Overdue\" tag on its line, so it stands apart from the ones due today.",
+        "Medium shows up to 4 lines and large up to 12. When there are more tasks than lines, the last line says \"+N more\" instead of a task.",
+        "It reloads every 45 minutes and a few minutes after local midnight, more often than the Word and Goal widgets but at most 33 times a day, inside WidgetKit's budget.",
+        "Offline, it keeps the last list it fetched, with \"Saved <date>\" under it when the list is from an earlier day. Overdue is counted against today on the phone, so a task that was due on the saved day shows as overdue the next morning.",
+        "With nothing due it says \"Nothing due today\". If the task notes can't be read, or nothing was ever fetched, it shows \"--\". Nothing is made up.",
+        "UI test with -uitest-widgets and -uitest-scenario surface-tasks: the widget's view at medium and large size with 14 synthetic tasks, 2 of them overdue. Medium shows 3 tasks and \"+11 more\", large 11 tasks and \"+3 more\", each with 2 Overdue tags. Relaunched with -uitest-offline: the cached list. surface-tasks-empty: \"Nothing due today\". surface-tasks-missing: \"--\"."
+      ],
+      "tap_budget": "0 taps once the widget is on the home screen",
+      "depends_on": [
+        "S-060"
+      ],
+      "core_tests": [
+        "StezuCoreTests.SurfaceTodayTests/testTaskRowsFitWithMoreCount",
+        "StezuCoreTests.SurfaceTodayTests/testOverdueMeansBeforeTodayOnThePhone",
+        "StezuCoreTests.SurfaceTodayTests/testTasksReloadEvery45MinutesAndAfterMidnight"
+      ],
+      "ui_tests": [
+        "AppUITests.TasksWidgetUITests/testTasksWidgetLiveOfflineEmptyAndMissing"
+      ],
+      "screenshots": [
+        "s062-tasks-live",
+        "s062-tasks-offline",
+        "s062-tasks-empty",
+        "s062-tasks-missing"
+      ],
+      "needs_server": true,
+      "passes": false
     }
   ]
 }
