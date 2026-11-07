@@ -2130,7 +2130,7 @@
         "s063-search-logged"
       ],
       "needs_server": true,
-      "passes": false
+      "passes": true
     }
   ]
 }
