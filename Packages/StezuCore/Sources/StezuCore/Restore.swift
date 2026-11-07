@@ -123,19 +123,27 @@ public enum Restore {
         .session(workout, templateName: summary?.templateName, keys: keys, at: date))
     }
     outcome.finished.sort { $0.session.startedAt < $1.session.startedAt }
-    outcome.meals = records.compactMap { r in
-      guard r.kind == "meal", let m = r.payload, let id = UUID(uuidString: r.id),
-        let at = time(m.eatenAt),
-        !meals.contains(where: { $0.id == id })
+    outcome.meals = newMeals(records, local: meals)
+    outcome.text =
+      "Restored " + (outcome.library == nil ? "" : "program, ") + count(restored, "workout")
+      + ", " + count(outcome.meals.count, "meal")
+    return outcome
+  }
+
+  /// The VM's live meals the phone lacks (S-057, S-063, D-156): the phone's copy always wins, and
+  /// a meal in `deleting` (its delete still queued) stays deleted.
+  public static func newMeals(
+    _ records: [SyncRecord], local: [LoggedMeal], deleting: Set<UUID> = []
+  ) -> [LoggedMeal] {
+    var seen = Set(local.map(\.id)).union(deleting)
+    return records.compactMap { r in
+      guard r.kind == "meal", !r.deleted, let m = r.payload, let id = UUID(uuidString: r.id),
+        let at = time(m.eatenAt), seen.insert(id).inserted
       else { return nil }
       var meal = LoggedMeal(id: id, loggedAt: at, items: m.items.map(\.matched))
       meal.inHealth = m.inHealth
       return meal
     }
-    outcome.text =
-      "Restored " + (outcome.library == nil ? "" : "program, ") + count(restored, "workout")
-      + ", " + count(outcome.meals.count, "meal")
-    return outcome
   }
 
   /// A session from its sets; its record gives template and start, the end is the later one.
@@ -205,6 +213,18 @@ public enum Restore {
   }
 
   static func count(_ n: Int, _ noun: String) -> String { "\(n) \(noun)\(n == 1 ? "" : "s")" }
+}
+
+extension SyncState {
+  /// S-063: meals whose last queued record is a delete, so a server read must not bring them back.
+  public var mealsBeingDeleted: Set<UUID> {
+    var deleting = Set<UUID>()
+    for r in pending.flatMap({ $0.records ?? [] }) where r.kind == "meal" {
+      guard let id = UUID(uuidString: r.id) else { continue }
+      if r.deleted { deleting.insert(id) } else { deleting.remove(id) }
+    }
+    return deleting
+  }
 }
 
 extension MealRecord.Item {

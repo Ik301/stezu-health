@@ -2254,3 +2254,22 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a). It shares `SurfaceTimelineProvider` and the cache with the other two widgets (`frequent: true`). The `-uitest-widgets` gallery shows it at medium and large size for `surface-tasks` scenarios, whose made-up tasks are dated from the test's clock so the Overdue tags hold on any day.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SurfaceToday.swift (`taskList`, `nextTasksReload`), App/Shared/SurfaceWidgets.swift (`TasksWidgetView`), App/RestActivity/IngestWidget.swift (`TasksWidget`); SurfaceTodayTests, TasksWidgetUITests; branch wt/S-062.
 - Reverse if: tasks he finishes still show for most of an hour often enough to annoy him (then have the app reload the widget when it opens), WidgetKit throttles the reloads, or the phone spends long in a time zone other than STEZU_TIMEZONE.
+
+## D-156 Food copies the server's meals into the phone's meal store when it opens, and the phone's copy always wins
+
+- Status: proposed by builder (daytime card t_2e03b7fb, filed by Isaac as a bug), 2026-11-07.
+- Problem: after a reinstall, Food History, the camera strip, Home and Data showed only the meals this install had logged, although the VM held every earlier meal and Health still had them. Isaac wants the VM to be the meals' system of record: whatever it holds should show on the phone.
+- Given: every logged meal is saved on the phone first, then queued for the VM (S-029); GET /records returns live records only, paged (server/README.md); Restore from Hermes (S-057, D-143) already maps a meal record back to a `LoggedMeal` and saves it with `MealCaptureStore.log`, never to Health; History, the strip, Home and Data all read `MealCaptureStore.logged()`; the restore offer appears only on an install with nothing logged (S-058).
+- Constraints:
+  - Keeping the server's meals in memory only means each screen has to merge them itself, and Home or Data forget them on the next launch (breaks "the strip, Home and Data count the same meals History shows").
+  - Writing them to Health again doubles every meal in Health (breaks "no double counting").
+  - Replacing the phone's copy with the server's undoes an edit that has not been sent yet, and reading back a meal whose delete is still queued brings it back (breaks edit and delete, S-019).
+  - Reading at app launch or foreground, before Settings or the restore offer has run, fills a fresh install with meals, so the S-058 offer (and RestoreUITests) never sees it as fresh (breaks the restore offer for workouts and places).
+- Options:
+  - (a) Food and History read GET /records?kinds=meal when they open and save each meal the phone lacks in the meal store; the phone's copy wins whenever it has one; meals whose last queued record is a delete are skipped.
+  - (b) The same, also on every app foreground.
+  - (c) An in-memory cache of the server's meals that every food screen merges in.
+  - (d) Newer `updated_at` wins between the server and the phone (the phone keeps no update time for a meal, so this needs a new field).
+- Decision: (a). `Restore.newMeals` holds the merge rules (S-057's restore now uses it too), `SyncState.mealsBeingDeleted` lists the queued deletes, and `AppEnvironment.pullMeals` reads every page and saves the new meals. FoodView reads after the camera starts, before the pending-photo retries; History reads after it shows the phone's meals and redraws (and the strip) when something arrived. Offline or with no server, the read fails quietly and the phone's meals stay. Once saved, a server meal is an ordinary phone meal: it edits, deletes and syncs like any other. The phone is the only device writing meals, so its copy is never older than the server's.
+- Evidence: Packages/StezuCore/Sources/StezuCore/Restore.swift (`newMeals`, `mealsBeingDeleted`), App/Sources/Food/MealCapture.swift (`pullMeals`), App/Sources/Food/FoodView.swift, App/Sources/Food/FoodHistory.swift, App/Sources/UITestFixtures.swift (`serverMeals`); ServerMealsTests, MealCaptureTests, FoodServerHistoryUITests; branch wt/S-063.
+- Reverse if: a second device or the server starts editing meals (then compare update times, option d), Home or Data must show server meals before Food has ever been opened on an install (then also read on foreground once the restore offer is settled, option b), or the full meal list grows large enough that reading it on every Food open is slow (then read only records after a saved cursor).
