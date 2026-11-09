@@ -54,7 +54,7 @@ def test_scan_matches_every_hall_for_the_meal_and_returns_ranges(make_client):
     assert out["candidates"] == len(breakfast)  # two halls, same dishes: merged, breakfast only
     item = out["items"][0]
     assert item["item_id"] == "03-B-581044" and item["servings"] == 1.5  # snapped to 0.5 steps
-    assert item["halls"] == ["Forbes College", "Whitman College & Butler College"]
+    assert item["halls"] == ["Forbes College"]  # served at both halls; the plate came from one (2026-11-09)
     assert item["hall"] == "Forbes College" and item["rough"] is False
     assert item["alternates"] == []  # invented codes are dropped
     mid = 193 * 1.5
@@ -166,3 +166,88 @@ def test_client_reads_key_file_and_reports_missing_key(tmp_path):
     s = Settings(tokens=frozenset(), db_path=tmp_path / "d", anthropic_key_file=tmp_path / "none")
     with pytest.raises(ModelError, match="no model API key"):
         AnthropicClient(s, FakeHttp()).tool_call("sys", [], {"name": "t"})
+
+
+# A plate comes from one hall (Isaac 2026-11-09). His Forbes lunch matched BBQ chicken to Yeh's
+# Boneless Spareribs, mac & cheese to the CJL and a Caesar salad to the Gallery.
+def hall_items():
+    def dish(hall, iid, name, kcal, protein):
+        return {"id": iid, "hall": hall, "name": name, "serving": "1 each", "kcal": kcal, "protein_g": protein}
+    return [dish("Forbes College", "03-1", "French Dip Sandwich", 300, 20),
+            dish("Forbes College", "03-2", "Pasta Selection of the Day", 400, 12),
+            dish("Forbes College", "03-3", "Caesar Salad", 150, 4),
+            dish("Yeh & Huo Colleges", "08-1", "Boneless Spareribs", 250, 18),
+            dish("Center for Jewish Life", "05-1", "Broccoli Mac & Cheese", 450, 15),
+            dish("The Gallery", "09-1", "Caesar Salad", 160, 5)]
+
+
+def run(answer, req_extra=None):
+    from stezu_server import scan
+    from stezu_server.store import Store
+    import tempfile, pathlib
+    store = Store(pathlib.Path(tempfile.mkdtemp()) / "s.sqlite3")
+    model = FakeModel(answer)
+    req = {"meal_id": "m", "mode": "dining", "regions": [], "meal": "lunch", "date": DATE} | (req_extra or {})
+    return scan.run_scan(store, model, hall_items(), req, JPEG, "sha"), model
+
+
+def pick(text, name, hall):
+    m = re.search(rf"^(c\d+) \| {re.escape(name)} \|.*\| {re.escape(hall)}$", text, re.M)
+    return m.group(1) if m else "c0"  # not shown to the model
+
+
+def test_every_item_comes_from_the_one_hall_the_model_names():
+    def answer(t):
+        return {"hall": "Forbes College", "items": [
+            {"code": pick(t, "French Dip Sandwich", "Forbes College"), "name": "sandwich", "servings": 1,
+             "confidence": 0.6, "alternates": []},
+            # off-hall code with an alternate at Forbes: the alternate wins
+            {"code": pick(t, "Broccoli Mac & Cheese", "Center for Jewish Life"), "name": "mac", "servings": 1,
+             "confidence": 0.65, "alternates": [{"code": pick(t, "Pasta Selection of the Day", "Forbes College"),
+                                                 "confidence": 0.3}]},
+            # same dish name at another hall: Forbes's own Caesar
+            {"code": pick(t, "Caesar Salad", "The Gallery"), "name": "salad", "servings": 1,
+             "confidence": 0.9, "alternates": [{"code": pick(t, "Caesar Salad", "Forbes College"),
+                                                "confidence": 0.8}]},
+            # not on Forbes's menu: becomes the model's own estimate, named as what it most likely is
+            {"code": "unlisted", "name": "BBQ chicken", "servings": 1, "confidence": 0.5, "alternates": [],
+             "unlisted_kcal": {"low": 250, "high": 350}, "unlisted_protein_g": {"low": 25, "high": 35}},
+        ]}
+    out, model = run(answer)
+    assert out["hall"] == "Forbes College"
+    assert [i["name"] for i in out["items"]] == ["French Dip Sandwich", "Pasta Selection of the Day",
+                                                 "Caesar Salad", "BBQ chicken"]
+    assert {i["hall"] for i in out["items"][:3]} == {"Forbes College"}
+    assert all(i["halls"] in ([], ["Forbes College"]) for i in out["items"])
+    assert out["items"][1]["confidence"] == 0.3 and out["items"][2]["item_id"] == "03-3"
+    assert out["items"][3]["item_id"] == "unlisted" and out["items"][3]["kcal"] == {"low": 180, "high": 420}
+    system = model.calls[0]["system"]
+    assert "one hall" in system and "most likely" in system
+    assert model.calls[0]["tool"]["input_schema"]["required"] == ["hall", "items"]
+
+
+def test_off_hall_item_with_no_alternate_becomes_an_estimate():
+    def answer(t):
+        return {"hall": "Forbes College", "items": [
+            {"code": pick(t, "Boneless Spareribs", "Yeh & Huo Colleges"), "name": "BBQ chicken", "servings": 1,
+             "confidence": 0.5, "alternates": [], "unlisted_kcal": {"low": 250, "high": 350},
+             "unlisted_protein_g": {"low": 25, "high": 35}}]}
+    item = run(answer)[0]["items"][0]
+    assert item["item_id"] == "unlisted" and item["name"] == "BBQ chicken" and item["rough"] is True
+    assert item["kcal"] == {"low": 180, "high": 420}
+
+
+def test_hall_falls_back_to_a_vote_and_a_client_hall_wins():
+    def answer(t):  # no hall named: Forbes explains two items, the CJL one
+        return {"items": [
+            {"code": pick(t, "French Dip Sandwich", "Forbes College"), "name": "a", "servings": 1,
+             "confidence": 0.6, "alternates": []},
+            {"code": pick(t, "Caesar Salad", "Forbes College"), "name": "b", "servings": 1,
+             "confidence": 0.6, "alternates": []},
+            {"code": pick(t, "Broccoli Mac & Cheese", "Center for Jewish Life"), "name": "c", "servings": 1,
+             "confidence": 0.9, "alternates": []}]}
+    out, _ = run(answer)
+    assert out["hall"] == "Forbes College" and out["items"][2]["item_id"] == "unlisted"
+    out, model = run(answer, {"hall": "Center for Jewish Life"})
+    assert out["hall"] == "Center for Jewish Life"
+    assert "Broccoli Mac & Cheese" in model.calls[0]["text"] and "French Dip" not in model.calls[0]["text"]

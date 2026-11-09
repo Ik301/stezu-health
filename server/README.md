@@ -110,7 +110,8 @@ JSON body, or `multipart/form-data` with the same fields and the JPEG in a `phot
 ```json
 {"meal_id": "client UUID", "date": "2026-10-26", "meal": "lunch", "mode": "dining",
  "image_base64": "<JPEG, about 1000 px>", "photo_sha256": "optional, checked if sent",
- "regions": [{"region_id": "r1", "volume_ml": 240, "depth_confidence": 0.8}]}
+ "regions": [{"region_id": "r1", "volume_ml": 240, "depth_confidence": 0.8}],
+ "hall": "optional: Forbes College"}
 ```
 
 The candidates are the items of every hall serving that meal on that date (`lunch` and
@@ -118,12 +119,19 @@ The candidates are the items of every hall serving that meal on that date (`lunc
 serves the meal, or `mode` is `open_world`, every item is estimated open-world. The model
 answers through a forced tool call (strict JSON), at temperature 0.
 
+A plate comes from one hall. With `hall` in the request, the model sees only that hall's menu.
+Otherwise it names the hall itself (falling back to the hall its matches point to most), and
+every item is matched within that hall: a dish from another hall becomes the best alternate at
+the plate's hall, or else `unlisted`, named as what it most likely is ("BBQ chicken") with the
+model's own estimate, because the online menus are often incomplete. The reply's top-level
+`hall` says which hall was used, and each item's `halls` is just that hall.
+
 ```json
 {"estimate_id": "…", "meal_id": "…", "photo_sha256": "…", "date": "2026-10-26", "meal": "lunch",
- "mode": "dining", "model_id": "claude-sonnet-4-6", "candidates": 112, "rough": false,
+ "hall": "Forbes College", "mode": "dining", "model_id": "claude-sonnet-4-6", "candidates": 112, "rough": false,
  "complete": true, "cached": false,
  "items": [{"region_id": "r1", "item_id": "03-L-123456", "name": "…", "hall": "Forbes College",
-            "halls": ["Forbes College", "Whitman College & Butler College"], "serving": "4 oz",
+            "halls": ["Forbes College"], "serving": "4 oz",
             "servings": 1.5, "confidence": 0.85, "rough": false,
             "alternates": [{"item_id": "…", "name": "…", "hall": "…", "confidence": 0.1}],
             "kcal": {"low": 213, "high": 366}, "protein_g": {"low": 11.6, "high": 19.9}}],
