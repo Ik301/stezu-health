@@ -153,6 +153,13 @@ and `results`:
 4. `estimate`: `available` until asked; with `estimate=true` the model gives a rough kcal and
    protein range for the text (`rough: true`, at least ±40%). Use it for restaurant dishes.
 
+Every remote result with a kcal has a `per_serving` the phone can log. When the source gives no
+serving, it is the first USDA household measure (`basis: "measure"`, e.g. "1 tender", 25 g) or
+100 g / 100 mL (`basis: "per_100"`); Open Food Facts' search index only carries per-100 g values,
+so packaged results usually take the second. Results without a kcal sort last. Queries shorter
+than 3 characters skip both remote sources (`status: skipped`, `error: "query too short"`), so
+typing does not spend the USDA quota (`DEMO_KEY` allows 30 calls an hour).
+
 One failing source never sinks the others. Remote results are cached for a day.
 
 ### `GET /barcode/{gtin}`

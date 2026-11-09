@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from conftest import fixture, foodpro_http
+from conftest import FakeHttp, fixture, foodpro_http
 from test_scan import FakeModel
 
 from stezu_server import search
@@ -78,3 +78,44 @@ def test_query_is_required(make_client):
     client = make_client(http_with_sources())
     assert client.get("/search?q=").status_code == 400
     assert client.get("/search").status_code == 422
+
+
+def test_packaged_result_without_a_serving_falls_back_to_100g(make_client):
+    # Open Food Facts' search index carries only per-100 g nutrients, so every packaged result
+    # used to reach the phone with no per-serving kcal and showed "-- kcal" (2026-11-09).
+    g = groups(make_client(http_with_sources(), usda_key="DEMO_KEY").get(f"/search?q=yogurt&date={DATE}"))
+    off = g["open_food_facts"]["results"][0]
+    assert off["per_serving"] == {"label": "100 g", "quantity": 100, "unit": "g", "kcal": 52.9,
+                                  "protein_g": 9.4, "basis": "per_100"}
+
+
+def test_results_without_numbers_sort_last():
+    http = FakeHttp().add("search.openfoodfacts.org", json.dumps({"hits": [
+        {"code": "1", "product_name": "Creatine", "nutriments": {}},
+        {"code": "2", "product_name": "Creatine monohydrate", "nutriments": {"energy-kcal_100g": 0}},
+    ]}))
+    names = [r["name"] for r in search.off_search(http, "creatine")]
+    assert names == ["Creatine monohydrate", "Creatine"]  # 0 kcal is a number, not missing
+
+
+def test_generic_usda_food_uses_its_first_household_measure():
+    http = FakeHttp().add("api.nal.usda.gov", json.dumps({"foods": [
+        {"fdcId": 1, "description": "Chicken tenders", "dataType": "Survey (FNDDS)",
+         "foodNutrients": [{"nutrientNumber": "208", "value": 280}, {"nutrientNumber": "203", "value": 18}],
+         "foodMeasures": [{"disseminationText": "Quantity not specified", "gramWeight": 200},
+                          {"disseminationText": "1 tender", "gramWeight": 25}]},
+        {"fdcId": 2, "description": "Rice", "dataType": "SR Legacy",
+         "foodNutrients": [{"nutrientNumber": "208", "value": 130}, {"nutrientNumber": "203", "value": 2.7}]},
+    ]}))
+    tender, rice = search.usda_search(http, "chicken tenders", "KEY")
+    assert tender["per_serving"] == {"label": "1 tender", "quantity": 25, "unit": "g", "kcal": 70.0,
+                                     "protein_g": 4.5, "basis": "measure"}
+    assert rice["per_serving"]["label"] == "100 g" and rice["per_serving"]["kcal"] == 130
+
+
+def test_short_queries_skip_the_remote_sources(make_client):
+    # Typing "c", "cr", ... used to spend the USDA quota (DEMO_KEY: 30 calls an hour) on every keystroke.
+    http = http_with_sources()
+    g = groups(make_client(http, usda_key="DEMO_KEY").get(f"/search?q=ba&date={DATE}"))
+    assert g["open_food_facts"]["status"] == "skipped" and g["usda_fdc"]["status"] == "skipped"
+    assert not [u for u in http.calls if "openfoodfacts" in u or "nal.usda.gov" in u]
