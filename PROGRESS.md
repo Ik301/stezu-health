@@ -742,3 +742,11 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Fixture: `-uitest-scenario food-server-history`: an empty install, the fake VM holding a made-up hall dish from yesterday evening and a text estimate from earlier today.
 - Tests: StezuCoreTests ServerMealsTests (3), AppTests MealCaptureTests (2 new), AppUITests FoodServerHistoryUITests/testServerMealsShowInHistoryThenSearchLogJoins (screenshots s063-server-history, s063-search-logged). No existing test changed.
 - Left undone: no read on app launch or foreground (D-156 says why), so Home shows a reinstall's server meals only after Food has been opened once. Not verified here: his phone; after the next install, opening Food should log a `GET /records` on the VM.
+
+## 2026-11-06 Fix: Empty workout can add an exercise and log it (builder, daytime, D-157)
+
+- Bug: Workout > Empty workout opened a logger with no exercise and no way to add one; the "..." menu (Swap) only shows with an exercise, and `swap` does nothing without one.
+- Core: `SetLogger.add(_:history:)` puts a library exercise at the end of the session as a one-exercise add-on (3 x 8-12, the exercise's rest), so it saves, restores, logs and syncs like an add-on (D-157). `append` no longer skips the prefill when the session had no slot.
+- App: an Add exercise button under the progress row, on every workout, opens the Exercises library; a pick adds the exercise. Swap is unchanged. The progress row is hidden while there is no exercise (it read "Exercise 1 of 0").
+- Tests: StezuCoreTests SetLoggerTests/testAddExerciseToEmptyWorkout, testAddExerciseToRunningWorkout, testAddedExerciseSurvivesSaveAndRestore; AppUITests EmptyWorkoutUITests/testEmptyWorkoutAddExerciseThenLogSet (screenshots fix-empty-workout, fix-empty-workout-logged). SetLoggerTests now uses `@testable import` to build LibraryExercise values. No existing test changed otherwise. `scripts/gate-linux.sh` passed G1 to G8.
+- Left undone: Continue on a finished session (D-090) rebuilds slots from the template only, so added exercises (like add-ons) get no slot when a session is continued; their sets are kept.
