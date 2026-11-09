@@ -43,7 +43,13 @@ struct FoodHistory: View {
     .scrollIndicators(.hidden)
     .foregroundStyle(Theme.ink).background(Theme.ground)
     .presentationDragIndicator(.visible)
-    .task { await load() }
+    .task {
+      await load()
+      if await environment.pullMeals() {  // S-063: the camera's strip follows too
+        await load()
+        changed()
+      }
+    }
     .sheet(item: $editing) { meal in
       MealEditor(match: PhotoMatch(mealId: "\(meal.id)", items: meal.items), action: "Save") {
         let edited = LoggedMeal(id: meal.id, loggedAt: meal.loggedAt, items: $0)
