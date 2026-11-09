@@ -2093,6 +2093,44 @@
       ],
       "needs_server": true,
       "passes": true
+    },
+    {
+      "id": "S-063",
+      "kind": "story",
+      "area": "food",
+      "title": "Food History shows every meal the server holds, on any install",
+      "steps": [
+        "Opening Food reads the VM's meals (GET /records?kinds=meal, every page, server/README.md) after the camera starts. Each live meal the phone lacks is saved in the phone's meal store with its items, ranges, time and Health state, exactly as Restore from Hermes (S-057) saves one. Nothing is written to Health again and nothing is queued for sync.",
+        "The phone's own copy of a meal always wins: a meal the phone already has is never replaced. A meal whose delete or Undo still waits in the sync queue is not brought back.",
+        "The camera strip counts today's server meals once they arrive. History lists them under their days with their items, ranges and source, and a meal with no photo on this phone shows \"No photo\" (as S-057 does).",
+        "Opening History reads the server again, so a meal that reached the server while Food was open appears without leaving the screen. Home, Data and the strip read the same meal store, so they count the same meals History shows.",
+        "Offline or with no server set, nothing changes: History shows the phone's meals and the server's appear on the next read that succeeds.",
+        "A meal logged by search, barcode, recipe or photo appears in History at once (the phone's copy) and comes back after a reinstall (the server's copy). A server meal on the phone edits and deletes like any other meal (S-019, S-029).",
+        "UI test with -uitest-scenario food-server-history: an empty install, the fake server holding one made-up meal from yesterday and one from today. Open Food: the strip says 1 meal. History lists both with \"No photo\". Then search, pick an item and Log: History lists it first in today, above the server meal."
+      ],
+      "tap_budget": "2 taps from Home to see the server's meals (the Food card, History)",
+      "depends_on": [
+        "S-014",
+        "S-019",
+        "S-029",
+        "S-057"
+      ],
+      "core_tests": [
+        "StezuCoreTests.ServerMealsTests/testServerOnlyMealComesBackWithItemsAndRanges",
+        "StezuCoreTests.ServerMealsTests/testLocalCopyWinsAndLocalOnlyStays",
+        "StezuCoreTests.ServerMealsTests/testPendingDeleteKeepsMealDeleted",
+        "AppTests.MealCaptureTests/testSearchEstimateRoundTripsThroughLog",
+        "AppTests.MealCaptureTests/testPullSavesServerMealsOnceAndNotToHealth"
+      ],
+      "ui_tests": [
+        "AppUITests.FoodServerHistoryUITests/testServerMealsShowInHistoryThenSearchLogJoins"
+      ],
+      "screenshots": [
+        "s063-server-history",
+        "s063-search-logged"
+      ],
+      "needs_server": true,
+      "passes": false
     }
   ]
 }
