@@ -113,21 +113,28 @@ def test_late_meal_serves_lunch_and_dinner_but_not_breakfast(make_client):
 def test_estimated_items_get_a_wider_range_and_plates_are_never_candidates(make_client):
     forbes_lunch = foodpro.parse_menu(fixture("foodpro_forbes.html"), "03")[1]["items"][0]
 
+    # A plate comes from one hall (2026-11-09), so the Late Meal tenders and the Forbes dish are
+    # two plates: one scan each, same client.
+    plate = {"name": "Chicken Tenders", "hall": "Frist Late Meal"}
+
     def answer(text):
-        return {"items": [
-            {"code": code_for(text, "Chicken Tenders"), "name": "tenders", "servings": 1,
-             "confidence": 0.8, "alternates": []},
-            {"code": code_for(text, forbes_lunch["name"]), "name": "dish", "servings": 1,
-             "confidence": 0.8, "alternates": []}]}
+        return {"hall": plate["hall"], "items": [{"code": code_for(text, plate["name"]), "name": "dish",
+                                                  "servings": 1, "confidence": 0.8, "alternates": []}]}
 
     model = FakeModel(answer)
-    body = {"meal_id": "lm-1", "date": MONDAY, "meal": "lunch",
-            "image_base64": base64.b64encode(JPEG).decode()}
-    out = make_client(foodpro_http(), model).post("/scan", json=body).json()
+    client = make_client(foodpro_http(), model)
+
+    def scan_plate(meal_id):
+        body = {"meal_id": meal_id, "date": MONDAY, "meal": "lunch",
+                "image_base64": base64.b64encode(JPEG).decode()}
+        return client.post("/scan", json=body).json()
+
+    out = scan_plate("lm-1")
     prompt = model.calls[0]["text"]
     assert "with fries |" not in prompt and "| French Fries |" in prompt
     assert "Frist Late Meal (estimated values)" in prompt
-    lm, fp = out["items"]
+    plate.update(name=forbes_lunch["name"], hall="Forbes College")
+    lm, fp = out["items"][0], scan_plate("fp-1")["items"][0]
     assert lm["item_id"] == "LM-LL-chicken-tenders" and lm["estimated"] is True and lm["rough"] is False
     assert fp["hall"] == "Forbes College" and fp["estimated"] is False and out["estimated"] is True
     assert lm["kcal"] == scan.span(515, 1, scan.spread(0.8, False, True), 0)
