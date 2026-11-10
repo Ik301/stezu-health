@@ -56,9 +56,43 @@ def dining(items: list[dict[str, Any]], query: str, limit: int = 15) -> list[dic
     return sorted(groups.values(), key=lambda g: -g["score"])[:limit]
 
 
+MIN_REMOTE_QUERY = 3  # shorter queries are keystrokes in progress; they would spend the USDA quota
+
+
+def with_portion(result: dict[str, Any]) -> dict[str, Any]:
+    """A result with no per-serving kcal gets 100 g (or mL) as its serving, marked `basis: per_100`.
+
+    Open Food Facts' search index carries only per-100 g nutrients and USDA generic foods have no
+    serving size, so without this the phone shows "-- kcal" for numbers the source does have.
+    """
+    serving, per100 = result.get("per_serving") or {}, result.get("per_100") or {}
+    if serving.get("kcal") is not None or per100.get("kcal") is None:
+        return result
+    unit = "mL" if (per100.get("unit") or "g").lower() in ("ml", "mlt") else "g"
+    protein = per100.get("protein_g")
+    return result | {"per_serving": {"label": f"100 {unit}", "quantity": 100, "unit": unit.lower(),
+                                     "kcal": round(per100["kcal"], 1),
+                                     "protein_g": round(protein, 1) if protein is not None else None,
+                                     "basis": "per_100"}}
+
+
+def numbers_first(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Results the phone can log (a kcal) before ones it can't, otherwise in the source's order."""
+    return sorted(results, key=lambda r: (r.get("per_serving") or {}).get("kcal") is None)
+
+
 def off_search(http: Any, query: str) -> list[dict[str, Any]]:
     data = http.get_json(OFF_SEARCH.format(q=quote(query)), timeout=10)
-    return [product_view(p) for p in data.get("hits", []) if p.get("product_name")]
+    return numbers_first([with_portion(product_view(p)) for p in data.get("hits", []) if p.get("product_name")])
+
+
+def _measure(food: dict[str, Any]) -> tuple[str, float] | None:
+    """The first household measure with a weight ("1 tender", 25 g), skipping "Quantity not specified"."""
+    for m in food.get("foodMeasures") or []:
+        text, grams = (m.get("disseminationText") or "").strip(), m.get("gramWeight")
+        if text and grams and "not specified" not in text.lower():
+            return text, float(grams)
+    return None
 
 
 def usda_search(http: Any, query: str, key: str) -> list[dict[str, Any]]:
@@ -69,6 +103,20 @@ def usda_search(http: Any, query: str, key: str) -> list[dict[str, Any]]:
         kcal, protein = nutrients.get("208"), nutrients.get("203")
         size, unit = food.get("servingSize"), (food.get("servingSizeUnit") or "").lower()
         per = (size / 100) if size and unit in ("g", "grm", "ml", "mlt") else None
+        measure = None if per else _measure(food)
+        if measure and kcal is not None:
+            label, grams = measure
+            out.append({
+                "fdc_id": food.get("fdcId"), "name": food.get("description"), "brand": food.get("brandOwner"),
+                "data_type": food.get("dataType"),
+                "per_100": {"unit": "g", "kcal": kcal, "protein_g": protein},
+                "per_serving": {
+                    "label": label, "quantity": grams, "unit": "g", "kcal": round(kcal * grams / 100, 1),
+                    "protein_g": round(protein * grams / 100, 1) if protein is not None else None,
+                    "basis": "measure",
+                },
+            })
+            continue
         out.append({
             "fdc_id": food.get("fdcId"), "name": food.get("description"), "brand": food.get("brandOwner"),
             "data_type": food.get("dataType"),
@@ -79,7 +127,7 @@ def usda_search(http: Any, query: str, key: str) -> list[dict[str, Any]]:
                 "protein_g": round(protein * per, 1) if per and protein is not None else None,
             },
         })
-    return out
+    return numbers_first([with_portion(r) for r in out])
 
 
 def estimate(model: Any, query: str) -> dict[str, Any]:
@@ -92,7 +140,7 @@ def estimate(model: Any, query: str) -> dict[str, Any]:
 def run_search(store: Any, http: Any, model: Any, usda_key: str | None, query: str,
                items: list[dict[str, Any]], want_estimate: bool) -> list[dict[str, Any]]:
     def remote(source: str, fn: Any) -> dict[str, Any]:
-        key = f"search:{source}:{query.lower()}"
+        key = f"search2:{source}:{query.lower()}"  # search2: results carry a fallback serving
         cached = store.get(key, TTL)
         if cached is not None:
             return {"source": source, "status": "ok", "results": cached}
@@ -103,13 +151,17 @@ def run_search(store: Any, http: Any, model: Any, usda_key: str | None, query: s
         store.put(key, results)
         return {"source": source, "status": "ok", "results": results}
 
-    jobs = [("open_food_facts", lambda: off_search(http, query))]
-    if usda_key:
-        jobs.append(("usda_fdc", lambda: usda_search(http, query, usda_key)))
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        groups = list(pool.map(lambda job: remote(*job), jobs))
-    if not usda_key:
-        groups.append({"source": "usda_fdc", "status": "skipped", "error": "no USDA key", "results": []})
+    if len(query.strip()) < MIN_REMOTE_QUERY:
+        short = {"status": "skipped", "error": "query too short", "results": []}
+        groups = [{"source": "open_food_facts"} | short, {"source": "usda_fdc"} | short]
+    else:
+        jobs = [("open_food_facts", lambda: off_search(http, query))]
+        if usda_key:
+            jobs.append(("usda_fdc", lambda: usda_search(http, query, usda_key)))
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            groups = list(pool.map(lambda job: remote(*job), jobs))
+        if not usda_key:
+            groups.append({"source": "usda_fdc", "status": "skipped", "error": "no USDA key", "results": []})
     groups.insert(0, {"source": "dining", "status": "ok", "results": dining(items, query)})
     est: dict[str, Any] = {"source": "estimate", "status": "available", "results": []}
     if want_estimate:
