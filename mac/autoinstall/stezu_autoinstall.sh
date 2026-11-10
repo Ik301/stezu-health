@@ -29,11 +29,14 @@ LOG_DIR="$HOME/Library/Logs/Stezu/autoinstall"
 SUMMARY_LOG="$LOG_DIR/autoinstall.log"
 CONFIG="$HOME/.config/stezu/autoinstall.env"
 
-# From project.yml: the app scheme and target, its product, the embedded Live Activity extension.
+# From project.yml: the app scheme and target, its product, and the embedded extension that holds
+# the Live Activity and the home-screen widgets (D-152). Both are signed, each with its own profile.
 SCHEME=StezuHealth
 PRODUCT=StezuHealth.app
 EXTENSION=RestActivity.appex
-BUNDLE_IDS="com.ik301.stezuhealth com.ik301.stezuhealth.RestActivity"
+APP_ID=com.ik301.stezuhealth
+EXT_ID=com.ik301.stezuhealth.RestActivity
+BUNDLE_IDS="$APP_ID $EXT_ID"
 RENEW_AFTER_DAYS=5 # a free team's profile lasts 7 days
 KEEP_RUN_LOGS=10
 DAY=86400
@@ -268,7 +271,8 @@ print("\t".join([phone["udid"], phone["name"], phone["transport"], phone["os"]])
 PY
 
 IFS= read -r -d '' PY_PROFILES <<'PY'
-# expiry <app>: the ExpirationDate (epoch) of the profile embedded in a built .app, or nothing.
+# show <bundle>: "bundle id<TAB>expiry epoch<TAB>profile name" from the profile embedded in a built
+# .app or .appex. Exit 3: no embedded.mobileprovision; 4: it cannot be decoded.
 # clear <bundle id>...: deletes Xcode's cached profiles for exactly these bundle ids, so the next
 # -allowProvisioningUpdates build gets a fresh 7-day profile instead of reusing a half-used one
 # (the approach KeepAlive, github.com/oli-zr/keepalive, takes). Wildcards and other apps stay.
@@ -284,11 +288,20 @@ def decode(path):
         return None
 
 
-if sys.argv[1] == "expiry":
-    profile = decode(os.path.join(sys.argv[2], "embedded.mobileprovision"))
-    expires = profile.get("ExpirationDate") if isinstance(profile, dict) else None
-    if expires is not None:
-        print(calendar.timegm(expires.utctimetuple()))
+if sys.argv[1] == "show":
+    path = os.path.join(sys.argv[2], "embedded.mobileprovision")
+    if not os.path.isfile(path):
+        sys.exit(3)
+    profile = decode(path)
+    if not isinstance(profile, dict):
+        sys.exit(4)
+    entitlements = profile.get("Entitlements")
+    app_id = entitlements.get("application-identifier") if isinstance(entitlements, dict) else None
+    bundle_id = app_id.split(".", 1)[1] if isinstance(app_id, str) and "." in app_id else ""
+    expires = profile.get("ExpirationDate")
+    epoch = calendar.timegm(expires.utctimetuple()) if hasattr(expires, "utctimetuple") else ""
+    name = str(profile.get("Name") or "").replace("\t", " ")
+    print("%s\t%s\t%s" % (bundle_id, epoch, name))
 elif sys.argv[1] == "clear":
     ids, removed = set(sys.argv[2:]), []
     library = os.path.expanduser("~/Library")
@@ -330,6 +343,53 @@ find_device() {
   DEV_NAME="$(printf '%s\n' "$out" | cut -f 2)"
   DEV_TRANSPORT="$(printf '%s\n' "$out" | cut -f 3)"
   DEV_OS="$(printf '%s\n' "$out" | cut -f 4)"
+  return 0
+}
+
+# Checks that a built app carries PlugIns/$EXTENSION and that the app and the extension are each
+# signed (codesign) with a profile for their own bundle id. Logs one "signed" line per target and
+# sets EXPIRES to the earlier of the two profiles' expiry (empty if neither can be read). On the
+# first problem sets CHECK_ERROR and returns 1. Without the extension the widgets vanish from the
+# phone and the Live Activity stops, while the app itself still opens, so nothing else would notice.
+check_signed() {
+  local app="$1" bundle id label out rc got exp name
+  EXPIRES=""
+  CHECK_ERROR=""
+  if [ ! -d "$app/PlugIns/$EXTENSION" ]; then
+    CHECK_ERROR="the built app has no PlugIns/$EXTENSION (the widget and Live Activity extension)"
+    return 1
+  fi
+  for bundle in "$app" "$app/PlugIns/$EXTENSION"; do
+    id="$APP_ID"
+    if [ "$bundle" != "$app" ]; then id="$EXT_ID"; fi
+    label="$(basename "$bundle")"
+    if ! codesign --verify "$bundle" >"$TMP/codesign.out" 2>&1; then
+      CHECK_ERROR="$label is not validly signed: $(grep -v '^[[:space:]]*$' "$TMP/codesign.out" | tail -n 1 | cut -c 1-160)"
+      return 1
+    fi
+    out="$(python3 -c "$PY_PROFILES" show "$bundle" 2>>"${RUN_LOG:-/dev/null}")"
+    rc=$?
+    if [ "$rc" = 3 ]; then
+      CHECK_ERROR="$label has no embedded provisioning profile"
+      return 1
+    elif [ "$rc" != 0 ]; then
+      say "signed $id ($label); warning: could not read its provisioning profile"
+      continue
+    fi
+    got="$(printf '%s\n' "$out" | cut -f 1)"
+    exp="$(printf '%s\n' "$out" | cut -f 2)"
+    name="$(printf '%s\n' "$out" | cut -f 3)"
+    if [ "$got" != "$id" ]; then
+      CHECK_ERROR="$label is signed with a profile for ${got:-no app id}, not $id"
+      return 1
+    fi
+    if is_number "$exp"; then
+      say "signed $id ($label): profile \"$name\", valid until $(fmt_time "$exp")"
+      if [ -z "$EXPIRES" ] || [ "$exp" -lt "$EXPIRES" ]; then EXPIRES="$exp"; fi
+    else
+      say "signed $id ($label): profile \"$name\", no expiry in it"
+    fi
+  done
   return 0
 }
 
@@ -463,6 +523,18 @@ if [ -z "$REASON" ] && [ "$MODE" = run ]; then
   exit 0
 fi
 
+APP="$DERIVED/Build/Products/Debug-iphoneos/$PRODUCT"
+# A dry run builds nothing, but runs the same check on the last build, phone or no phone. A failure
+# notifies like a real run, so a dry run also tests the alert.
+if [ "$MODE" = dry ]; then
+  if [ -d "$APP" ]; then
+    check_signed "$APP" || fail "dry run: the last build fails the check: $CHECK_ERROR"
+    say "dry run: the last build has $PRODUCT and PlugIns/$EXTENSION, both signed"
+  else
+    say "dry run: no earlier build at $APP to check"
+  fi
+fi
+
 find_device
 rc=$?
 if [ "$rc" = 3 ]; then
@@ -477,7 +549,6 @@ elif [ "$rc" != 0 ]; then
   fail "$DEV_ERROR"
 fi
 
-APP="$DERIVED/Build/Products/Debug-iphoneos/$PRODUCT"
 if [ "$MODE" = dry ]; then
   if [ -n "$REASON" ]; then
     summary "dry run: would install ${TARGET:0:7} ($REASON) on $DEV_NAME over $DEV_TRANSPORT"
@@ -491,6 +562,7 @@ It would run, in $CLONE:
   xcodegen generate
   (delete Xcode's cached provisioning profiles for $BUNDLE_IDS)
   xcodebuild -project StezuHealth.xcodeproj -scheme $SCHEME -configuration Debug -destination id=$DEV_UDID -derivedDataPath "$DERIVED" -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
+  (check that $PRODUCT and PlugIns/$EXTENSION are both signed, for $APP_ID and $EXT_ID)
   xcrun devicectl device install app --device $DEV_UDID "$APP"
 EOF
   exit 0
@@ -531,16 +603,14 @@ fi
 if [ ! -d "$APP" ]; then
   fail "xcodebuild succeeded but $APP is missing"
 fi
-if [ ! -d "$APP/PlugIns/$EXTENSION" ]; then
-  fail "the built app has no PlugIns/$EXTENSION (the Live Activity extension)"
+if ! check_signed "$APP"; then
+  echo "$TARGET $(date +%Y-%m-%d)" >"$FAILED_BUILD"
+  fail "$CHECK_ERROR ($LOG_NAME)"
 fi
-
-EXPIRES="$(python3 -c "$PY_PROFILES" expiry "$APP" 2>>"$RUN_LOG")"
-if is_number "$EXPIRES"; then
-  say "signing valid until $(fmt_time "$EXPIRES")"
+if [ -n "$EXPIRES" ]; then
+  say "signing valid until $(fmt_time "$EXPIRES") (the earlier of the two profiles)"
 else
-  EXPIRES=""
-  say "warning: could not read the embedded provisioning profile; assuming 7 days"
+  say "warning: could not read the embedded provisioning profiles; assuming 7 days"
 fi
 
 say "xcrun devicectl device install app --device $DEV_UDID $PRODUCT"

@@ -44,6 +44,7 @@ setup() {
   : >"$NOTIFY_LOG"
   export FAKE_SHA="$SHA_B" FAKE_DEVICES="$FIXTURES/devices-wifi.json"
   unset FAKE_BUILD_RC FAKE_INSTALL_RC FAKE_INSTALL_MSG FAKE_FETCH_RC STEZU_DEVICE_ID
+  unset FAKE_NO_APPEX FAKE_EXT_DAYS FAKE_EXT_APP_ID FAKE_CODESIGN_BAD
 }
 
 teardown() {
@@ -184,10 +185,17 @@ test_new_sha_builds_installs_and_writes_state() {
   profiles="$(ls "$HOME/Library/MobileDevice/Provisioning Profiles" | tr '\n' ' ')"
   expect_eq "$profiles" "other.mobileprovision wildcard.mobileprovision " "cached profiles left"
   expect_out "removed 2 cached provisioning profile(s)"
+  expect_called "codesign --verify $SUPPORT/DerivedData/Build/Products/Debug-iphoneos/StezuHealth.app"
+  expect_called "codesign --verify $SUPPORT/DerivedData/Build/Products/Debug-iphoneos/StezuHealth.app/PlugIns/RestActivity.appex"
+  run_log="$LOGS/$(ls "$LOGS" | grep '^run-' | head -n 1)"
+  grep -qF 'signed com.ik301.stezuhealth (StezuHealth.app): profile "iOS Team Provisioning Profile: com.ik301.stezuhealth", valid until' "$run_log" ||
+    fail_check "the run log does not show the app signed"
+  grep -qF 'signed com.ik301.stezuhealth.RestActivity (RestActivity.appex): profile "iOS Team Provisioning Profile: com.ik301.stezuhealth.RestActivity", valid until' "$run_log" ||
+    fail_check "the run log does not show the extension signed"
   expect_eq "$(ls "$LOGS" | grep -c '^run-')" 1 "run logs"
   # Order: fetch, reset, xcodegen, xcodebuild, install.
   order="$(call_order | tr '\n' ',')"
-  expect_eq "$order" "fetch,rev-parse,reset,list,xcodegen,xcodebuild,install," "call order"
+  expect_eq "$order" "fetch,rev-parse,reset,list,xcodegen,xcodebuild,codesign,codesign,install," "call order"
 }
 
 # The stub calls, one word each. (A function: bash 3.2 misparses case inside $(...).)
@@ -202,6 +210,7 @@ call_order() {
       "xcrun devicectl device install app"*) echo install ;;
       xcodegen*) echo xcodegen ;;
       xcodebuild*) echo xcodebuild ;;
+      codesign*) echo codesign ;;
       *) echo "other: $line" ;;
     esac
   done <"$STUB_LOG"
@@ -279,6 +288,79 @@ test_build_failure_notifies_and_keeps_state() {
   expect_rc 0
   expect_called "xcodebuild"
   expect_eq "$(state_get LAST_SHA)" "$SHA_B" "LAST_SHA after --force"
+}
+
+test_missing_extension_fails_loudly_and_installs_nothing() {
+  write_state "$SHA_A" "$DAY"
+  export FAKE_NO_APPEX=1
+  run
+  expect_rc 1
+  expect_out "FAILED: the built app has no PlugIns/RestActivity.appex"
+  expect_notified "Ingest install failed: the built app has no PlugIns/RestActivity.appex"
+  expect_not_called "device install"
+  expect_state_unchanged
+  # Like a failed build: not rebuilt every hour the same day.
+  : >"$STUB_LOG"
+  run
+  expect_out "already failed to build today"
+  expect_not_called "xcodebuild"
+}
+
+test_extension_signed_badly_or_for_another_id_fails() {
+  write_state "$SHA_A" "$DAY"
+  export FAKE_CODESIGN_BAD=RestActivity.appex
+  run
+  expect_rc 1
+  expect_notified "Ingest install failed: RestActivity.appex is not validly signed: "
+  expect_not_called "device install"
+  expect_state_unchanged
+  unset FAKE_CODESIGN_BAD
+  export FAKE_EXT_APP_ID=ABCDE12345.com.ik301.stezuhealth
+  run --force
+  expect_rc 1
+  expect_notified "RestActivity.appex is signed with a profile for com.ik301.stezuhealth, not com.ik301.stezuhealth.RestActivity"
+  expect_state_unchanged
+}
+
+test_extension_profile_expiring_first_sets_the_expiry() {
+  write_state "$SHA_A" "$DAY"
+  export FAKE_EXT_DAYS=3
+  before="$(date +%s)"
+  run
+  expect_rc 0
+  left=$(($(state_get PROFILE_EXPIRES_EPOCH) - before))
+  [ "$left" -gt $((3 * DAY - 120)) ] && [ "$left" -le $((3 * DAY + 120)) ] ||
+    fail_check "PROFILE_EXPIRES_EPOCH is $left s away, expected the extension's 3 days"
+  expect_notified "but its signing still expires"
+}
+
+test_dry_run_checks_the_last_build_and_alerts() {
+  # A good build first, then the extension taken out of it.
+  write_state "$SHA_A" "$DAY"
+  run
+  expect_rc 0
+  app="$SUPPORT/DerivedData/Build/Products/Debug-iphoneos/StezuHealth.app"
+  : >"$STUB_LOG"
+  : >"$NOTIFY_LOG"
+  run --dry-run
+  expect_rc 0
+  expect_out "signed com.ik301.stezuhealth.RestActivity (RestActivity.appex)"
+  expect_out "dry run: the last build has StezuHealth.app and PlugIns/RestActivity.appex, both signed"
+  expect_no_notification
+  mv "$app/PlugIns/RestActivity.appex" "$T/RestActivity.appex"
+  cp "$STATE" "$T/state.before"
+  run --dry-run
+  expect_rc 1
+  expect_out "FAILED: dry run: the last build fails the check: the built app has no PlugIns/RestActivity.appex"
+  expect_notified "Ingest install failed: dry run: the last build fails the check: the built app has no PlugIns/RestActivity.appex"
+  expect_not_called "xcodebuild"
+  expect_not_called "device install"
+  expect_state_unchanged
+  # The check does not need the phone.
+  export FAKE_DEVICES="$FIXTURES/devices-unreachable.json"
+  run --dry-run
+  expect_rc 1
+  expect_out "no PlugIns/RestActivity.appex"
 }
 
 test_install_failure_keeps_state() {
@@ -361,6 +443,7 @@ test_dry_run_builds_nothing() {
   expect_not_called "xcodegen"
   expect_not_called "xcodebuild"
   expect_not_called "device install"
+  expect_out "dry run: no earlier build at"
   [ -f "$STATE" ] && fail_check "dry run wrote state"
   expect_no_notification
 }
