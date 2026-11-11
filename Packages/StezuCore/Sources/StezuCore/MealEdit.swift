@@ -11,7 +11,30 @@ extension MatchedItem {
     return MatchedItem(
       itemId: itemId, name: name, hall: hall, halls: halls, brand: brand, serving: serving,
       servings: count, confidence: confidence, rough: rough, kcal: scaled(kcal),
-      proteinG: scaled(proteinG))
+      proteinG: scaled(proteinG), estimated: estimated)
+  }
+
+  /// Half-width of a menu item's range once its servings are set by hand (D-158): the menu value
+  /// times servings, plus or minus 10%, and 15 points more when the menu values are estimates.
+  public static let confirmedSpread = 0.10
+
+  /// A menu item whose servings the user set: its ranges close to the menu value times servings
+  /// (the midpoint the server built them around) within `confirmedSpread`, never wider than they
+  /// were. Rough items and items on no menu keep their ranges.
+  public func servingsConfirmed() -> MatchedItem {
+    guard !isRough, hall != nil || halls?.isEmpty == false else { return self }
+    let spread = Self.confirmedSpread + (estimated == true ? 0.15 : 0)
+    func narrowed(_ range: FoodRange?) -> FoodRange? {
+      range.map { range in
+        let mid = (range.low + range.high) / 2
+        let half = min((range.high - range.low) / 2, mid * spread)
+        return FoodRange(low: mid - half, high: mid + half)
+      }
+    }
+    return MatchedItem(
+      itemId: itemId, name: name, hall: hall, halls: halls, brand: brand, serving: serving,
+      servings: servings, confidence: confidence, rough: rough, kcal: narrowed(kcal),
+      proteinG: narrowed(proteinG), estimated: estimated)
   }
 }
 
@@ -28,11 +51,12 @@ public struct MealEdit: Sendable, Equatable {
   public var totalKcal: FoodRange? { FoodRange.total(items.map(\.kcal)) }
   public var totalProteinG: FoodRange? { FoodRange.total(items.map(\.proteinG)) }
 
-  /// One half serving up or down, never below one half; the ranges follow.
+  /// One half serving up or down, never below one half; the ranges follow. A step is the user
+  /// setting the portion, so a menu item's ranges narrow to its menu value (D-158).
   public mutating func step(_ index: Int, up: Bool) {
     guard items.indices.contains(index) else { return }
     let count = (items[index].servings ?? 1) + (up ? Self.step : -Self.step)
-    items[index] = items[index].withServings(max(Self.step, count))
+    items[index] = items[index].withServings(max(Self.step, count)).servingsConfirmed()
   }
 
   /// The pick takes the place of the item and keeps the servings counted for it.

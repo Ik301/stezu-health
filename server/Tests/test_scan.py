@@ -227,12 +227,16 @@ def test_every_item_comes_from_the_one_hall_the_model_names():
 
 
 def test_off_hall_item_with_no_alternate_becomes_an_estimate():
-    def answer(t):
+    def answer(t):  # Forbes explains the plate's other item, so the plate is from Forbes (2026-11-10)
         return {"hall": "Forbes College", "items": [
             {"code": pick(t, "Boneless Spareribs", "Yeh & Huo Colleges"), "name": "BBQ chicken", "servings": 1,
              "confidence": 0.5, "alternates": [], "unlisted_kcal": {"low": 250, "high": 350},
-             "unlisted_protein_g": {"low": 25, "high": 35}}]}
-    item = run(answer)[0]["items"][0]
+             "unlisted_protein_g": {"low": 25, "high": 35}},
+            {"code": pick(t, "French Dip Sandwich", "Forbes College"), "name": "sandwich", "servings": 1,
+             "confidence": 0.6, "alternates": []}]}
+    out = run(answer)[0]
+    item = out["items"][0]
+    assert out["hall"] == "Forbes College"
     assert item["item_id"] == "unlisted" and item["name"] == "BBQ chicken" and item["rough"] is True
     assert item["kcal"] == {"low": 180, "high": 420}
 
@@ -251,3 +255,72 @@ def test_hall_falls_back_to_a_vote_and_a_client_hall_wins():
     out, model = run(answer, {"hall": "Center for Jewish Life"})
     assert out["hall"] == "Center for Jewish Life"
     assert "Broccoli Mac & Cheese" in model.calls[0]["text"] and "French Dip" not in model.calls[0]["text"]
+
+
+# The hall is the one whose menu explains the most items, not the hall the model names
+# (2026-11-10). Made-up dishes: an entree only Hall A lists, and a side both halls list, at
+# slightly different values (so two codes) or the same values (one shared code).
+def two_hall_items(shared_values=False):
+    def dish(hall, iid, name, serving, kcal, protein):
+        return {"id": iid, "hall": hall, "name": name, "serving": serving, "kcal": kcal,
+                "protein_g": protein}
+    return [dish("Hall A", "A-1", "Glazed Trout", "5 oz", 300, 22),
+            dish("Hall A", "A-2", "Jasmine Rice", "4 oz", 120, 2),
+            dish("Hall B", "B-1", "Jasmine Rice", "4 oz", 120 if shared_values else 130, 2),
+            dish("Hall B", "B-2", "Tofu Stir Fry", "1 cup", 220, 12)]
+
+
+def run_two(answer, shared_values=False):
+    from stezu_server import scan
+    from stezu_server.store import Store
+    import tempfile, pathlib
+    store = Store(pathlib.Path(tempfile.mkdtemp()) / "s.sqlite3")
+    req = {"meal_id": "m", "mode": "dining", "regions": [], "meal": "dinner", "date": DATE}
+    return scan.run_scan(store, FakeModel(answer), two_hall_items(shared_values), req, JPEG, "sha")
+
+
+def listed(text, name, hall):
+    m = re.search(rf"^(c\d+) \| {re.escape(name)} \|.*\|[^|]*\b{re.escape(hall)}\b[^|]*$", text, re.M)
+    return m.group(1)
+
+
+def trout(t, code=True):
+    return {"code": listed(t, "Glazed Trout", "Hall A") if code else "unlisted", "name": "Glazed Trout",
+            "servings": 1, "confidence": 0.72, "alternates": [],
+            "unlisted_kcal": {"low": 250, "high": 400}, "unlisted_protein_g": {"low": 18, "high": 28}}
+
+
+def rice(t, hall="Hall B"):
+    return {"code": listed(t, "Jasmine Rice", hall), "name": "rice", "servings": 2,
+            "confidence": 0.85, "alternates": []}
+
+
+@pytest.mark.parametrize("shared_values,trout_code", [(False, True), (False, False), (True, True)])
+def test_hall_that_lists_the_entree_wins_over_the_hall_the_model_names(shared_values, trout_code):
+    def answer(t):  # the model names Hall B; the side is at both halls, the entree only at A
+        return {"hall": "Hall B", "items": [trout(t, trout_code), rice(t)]}
+    out = run_two(answer, shared_values)
+    assert out["hall"] == "Hall A"
+    fish, side = out["items"]
+    assert fish["item_id"] == "A-1" and fish["rough"] is False and fish["halls"] == ["Hall A"]
+    # the menu value, not the widened model estimate: 300 kcal x 1 at 25% + 15% x 0.28
+    assert fish["kcal"] == {"low": 212.0, "high": 388.0}
+    assert side["item_id"] == "A-2" and side["hall"] == "Hall A" and side["confidence"] == 0.85
+    assert out["rough"] is False
+
+
+def test_hall_ties_go_to_confidence_then_to_the_named_hall():
+    def one_side(hall, named):
+        return lambda t: {"hall": named, "items": [rice(t, hall)]}
+    # one item, listed by name at both halls: equal count and confidence, the named hall wins
+    assert run_two(one_side("Hall B", "Hall B"))["hall"] == "Hall B"
+    assert run_two(one_side("Hall B", "Hall A"))["hall"] == "Hall A"
+
+    def split(t):  # one item per hall: the more confident match decides, not the named hall
+        return {"hall": "Hall A", "items": [
+            trout(t) | {"confidence": 0.5},
+            {"code": listed(t, "Tofu Stir Fry", "Hall B"), "name": "tofu", "servings": 1,
+             "confidence": 0.9, "alternates": []}]}
+    out = run_two(split)
+    assert out["hall"] == "Hall B" and out["items"][0]["item_id"] == "unlisted"
+    assert out["items"][1]["item_id"] == "B-2"

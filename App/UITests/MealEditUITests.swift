@@ -33,22 +33,23 @@ final class MealEditUITests: XCTestCase {
     XCTAssertEqual(app.element("food.match.total.kcal").label, "455–785 kcal")
     XCTAssertEqual(app.element("food.match.total.protein").label, "17–30 g protein")
 
-    // Step 2: + and - step servings by halves, never below 0.5; the ranges recompute.
+    // Step 2: + and - step servings by halves, never below 0.5; the ranges recompute. A stepped
+    // menu item narrows to its menu value +-10% (D-158); the unlisted brownie keeps its width.
     app.element("food.match.item.0.plus").tap()
     XCTAssertEqual(app.element("food.match.item.0.servings").label, "2 x 4 oz")
-    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "307–413 kcal")
-    XCTAssertEqual(app.element("food.match.item.0.protein").label, "5–8 g protein")
+    XCTAssertEqual(app.element("food.match.item.0.kcal").label, "324–396 kcal")
+    XCTAssertEqual(app.element("food.match.item.0.protein").label, "6–7 g protein")
     app.element("food.match.item.2.minus").tap()
     app.element("food.match.item.2.minus").tap()
     XCTAssertEqual(app.element("food.match.item.2.servings").label, "0.5 x serving")
     XCTAssertEqual(app.element("food.match.item.2.kcal").label, "75–175 kcal")
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "457–713 kcal")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "474–696 kcal")
 
     // Step 3: remove an item with a swipe left (S-050); it leaves the list and the totals.
     app.element("food.match.item.2").swipeLeft()
     XCTAssertFalse(app.element("food.match.item.2.name").waitForExistence(timeout: 2))
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "382–538 kcal")
-    XCTAssertEqual(app.element("food.match.total.protein").label, "17–28 g protein")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "399–521 kcal")
+    XCTAssertEqual(app.element("food.match.total.protein").label, "18–27 g protein")
 
     // Step 4: + Add item, search and pick; it joins the list at 1 serving.
     app.element("food.edit.add").tap()
@@ -58,8 +59,8 @@ final class MealEditUITests: XCTestCase {
     XCTAssertEqual(added.label, "Herb Rice")
     XCTAssertEqual(app.element("food.match.item.2.servings").label, "1 x 4 oz")
     XCTAssertEqual(app.element("food.match.item.2.kcal").label, "120–200 kcal")
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "502–738 kcal")
-    XCTAssertEqual(app.element("food.match.total.protein").label, "20–33 g protein")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "519–721 kcal")
+    XCTAssertEqual(app.element("food.match.total.protein").label, "21–32 g protein")
     saveScreenshot("s015-edited", of: app)
 
     // Step 5: the single Log tap saves the meal, closes the sheet and shows an undo toast.

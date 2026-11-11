@@ -62,4 +62,61 @@ final class MealServingTests: XCTestCase {
       MealQueue.todayText(loggedKcal: FoodRange(low: 1080, high: 1440), pending: 1),
       "1,080\u{2013}1,440 kcal, +1 pending")
   }
+  /// D-158: once the user steps a menu item's servings, its range is the menu value times
+  /// servings plus or minus 10% (15 points more for estimated menu values), never wider than it
+  /// was. Unlisted and rough items keep their ranges. Made-up halls and dishes.
+  private func menuMatch() throws -> PhotoMatch {
+    try PhotoMatchClient.decode(
+      Data(
+        #"""
+        {"meal_id": "m", "items": [
+         {"item_id": "A-1", "name": "Glazed Trout", "hall": "Hall A", "halls": ["Hall A"],
+          "serving": "5 oz", "servings": 1, "confidence": 0.72, "rough": false, "estimated": false,
+          "kcal": {"low": 212, "high": 388}, "protein_g": {"low": 15.6, "high": 28.4}},
+         {"item_id": "unlisted", "name": "Cucumber", "hall": null, "halls": [], "servings": 1,
+          "rough": true, "kcal": {"low": 12, "high": 28}, "protein_g": {"low": 0.5, "high": 1.5}},
+         {"item_id": "L-1", "name": "Grill Burger", "hall": "Hall C", "halls": ["Hall C"],
+          "servings": 1, "rough": false, "estimated": true,
+          "kcal": {"low": 300, "high": 700}, "protein_g": {"low": 15, "high": 35}},
+         {"item_id": "A-2", "name": "Jasmine Rice", "hall": "Hall A", "servings": 2,
+          "kcal": {"low": 228, "high": 252}, "protein_g": {"low": 3.8, "high": 4.2}}]}
+        """#.utf8))
+  }
+
+  private func assertRange(
+    _ range: FoodRange?, _ low: Double, _ high: Double, _ message: String = "",
+    line: UInt = #line
+  ) {
+    XCTAssertEqual(range?.low ?? .nan, low, accuracy: 0.001, message, line: line)
+    XCTAssertEqual(range?.high ?? .nan, high, accuracy: 0.001, message, line: line)
+  }
+
+  func testSteppedMenuItemNarrowsToMenuValueTimesServings() throws {
+    var edit = MealEdit(try menuMatch())
+    XCTAssertEqual(edit.items[2].estimated, true)
+    edit.step(0, up: true)
+    XCTAssertEqual(edit.items[0].servings, 1.5)
+    assertRange(edit.items[0].kcal, 405, 495, "300 kcal x 1.5, plus or minus 10%")
+    assertRange(edit.items[0].proteinG, 29.7, 36.3)
+    edit.step(0, up: false)
+    assertRange(edit.items[0].kcal, 270, 330, "back at 1 serving it stays narrow")
+    edit.step(1, up: true)
+    assertRange(edit.items[1].kcal, 18, 42, "an unlisted estimate keeps its width")
+    edit.step(2, up: false)
+    edit.step(2, up: true)
+    assertRange(edit.items[2].kcal, 375, 625, "an estimated menu value: plus or minus 25%")
+    edit.step(3, up: true)
+    assertRange(edit.items[3].kcal, 285, 315, "already narrower than 10%: never widened")
+    assertRange(edit.totalKcal, 948, 1312)
+  }
+
+  func testUnsteppedAndReplacedItemsKeepTheServerRange() throws {
+    var edit = MealEdit(try menuMatch())
+    XCTAssertEqual(edit.items[0].kcal, FoodRange(low: 212, high: 388))
+    edit.replace(0, with: try menuMatch().items[3])
+    XCTAssertEqual(edit.items[0].kcal, FoodRange(low: 114, high: 126), "a pick is not a portion")
+    let logged = LoggedMeal(id: UUID(), loggedAt: Date(timeIntervalSince1970: 0), items: edit.items)
+    let data = try JSONEncoder().encode(logged)
+    XCTAssertEqual(try JSONDecoder().decode(LoggedMeal.self, from: data), logged)
+  }
 }

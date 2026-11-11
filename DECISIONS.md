@@ -2291,3 +2291,39 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a), at 3 sets of 8-12 and the library exercise's rest (`replaced(by:)` on a fixed shape). Adding the same exercise twice gives two slots. `append` now checks the card's exercise before appending; on a session with no slot it skipped the prefill, so the new card read 1 rep.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift (`add`, `append`); App/Sources/Workout/WorkoutLoggerView.swift (Add exercise, `LibraryUse`); SetLoggerTests (3 new tests); App/UITests/EmptyWorkoutUITests.swift.
 - Reverse if: added exercises need their own sets or reps chosen when added, or something has to tell them apart from program add-ons (today only the `added-` key does).
+
+## D-158 A menu item whose servings the user stepped narrows to the menu value times servings, plus or minus 10%
+
+- Status: proposed by builder (daytime, Isaac asked for it), 2026-11-10.
+- Problem: a day's total spans close to a factor of two, although the dining menu publishes the actual kcal and protein per serving. The width comes from how unsure the photo is about the portion, and stays after Isaac has set the portion himself.
+- Given: D-037 builds every scanned menu item's range around FoodPro value x servings, half-width 15% (good depth) or 25% plus 15% x (1 - confidence), and estimated menu values (D-131) 15 points more; unlisted items are at least plus or minus 40%. A search pick is plus or minus 25% (`FoodSearchClient.pickSpread`). The meal editor's only portion control is - and + (`MealEdit.step`, S-015, S-043); Log takes the list as it stands. No item records whether its servings were confirmed, and the app keeps no per-serving value: only the ranges, whose midpoint is value x servings.
+- Constraints:
+  - Narrowing on Log narrows portions nobody looked at (breaks "a photo estimate is never one number" for the unchecked items, D-035).
+  - A collapse to one number hides the error that remains: plates are served by eye, and the listed serving is not weighed (breaks D-035 and the RangeValue format, S-050).
+  - Narrowing rough or unlisted items claims a menu value they do not have (breaks D-037's open-world width).
+  - A stored "confirmed" flag needs a new field in the meal store and in the sync record (breaks no schema, but grows MealRecord and the server for no gain: the narrowed range itself is what is stored and synced).
+- Options:
+  - (a) A step on a menu item (not rough, with a hall) sets its ranges to midpoint plus or minus 10%, never wider than they were; an estimated menu value gets 25%. Later steps scale the narrowed range, so it stays narrow. Replacing an item keeps the pick's width.
+  - (b) The same, plus a tap on the servings count that confirms the portion as it is.
+  - (c) Narrow every menu item on Log.
+  - (d) Show the midpoint large and the range small.
+- Decision: (a). `MatchedItem.servingsConfirmed()` and `confirmedSpread` (0.10) in Packages/StezuCore; `MealEdit.step` calls it. `MatchedItem` now decodes the server's `estimated`. (b) needs a new control and design work; until then, + then - confirms a portion unchanged. (d) contradicts S-050 ("never a midpoint") and is left alone.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MealEdit.swift, PhotoMatch.swift; StezuCoreTests MealServingTests/testSteppedMenuItemNarrowsToMenuValueTimesServings, testUnsteppedAndReplacedItemsKeepTheServerRange; AppUITests FoodUITests and MealEditUITests expectations follow the narrower ranges; branch infra/scan-hall-portions.
+- Reverse if: weighed portions fall outside a confirmed range more than about 1 time in 5 (then widen to 15%), or the - and + taps turn out to be adjustments rather than confirmations (then add the explicit confirm control, option b).
+
+## D-159 The plate's hall is the hall whose menu explains the most items, not the hall the model names
+
+- Status: proposed by builder (daytime bug fix), 2026-11-10.
+- Problem: a plate with an entree only one hall lists and a side two halls list was assigned to the other hall, so the entree became an unlisted estimate at plus or minus 40% instead of its menu value.
+- Given: POST /scan shows the model every open hall's menu and, since the one-hall rule, took the model's named hall as final, falling back to a confidence vote. `candidates` merges a dish across halls only when name, serving, kcal and protein all agree, so the same side at two halls with slightly different values is two codes. The prompt told the model to code foods only at its chosen hall and call the rest unlisted.
+- Constraints:
+  - Trusting the model's hall lets one shared side outvote the entree (breaks matching the dish that is listed).
+  - A confidence vote alone lets one confident shared item beat two matched items (same).
+  - Matching every item at its own hall puts dishes from several halls on one plate (breaks the one-hall rule, which fixed matches to another hall's look-alike dish).
+- Options:
+  - (a) For each hall, count the items it explains (its code, the same dish name, or an alternate listed there); most items wins, then summed confidence, then the model's hall. The prompt asks for each food's best code at any hall.
+  - (b) Keep the model's hall and add the name match only.
+  - (c) Ask the model again with only the chosen hall's menu.
+- Decision: (a). The cache key moves to scan3 so old answers are not replayed. A plate whose only item is another hall's dish now goes to that hall.
+- Evidence: server/stezu_server/scan.py (`choose_hall`, `at_hall`, `by_name`), server/README.md; server/Tests/test_scan.py (test_hall_that_lists_the_entree_wins_over_the_hall_the_model_names, test_hall_ties_go_to_confidence_then_to_the_named_hall; test_off_hall_item_with_no_alternate_becomes_an_estimate gained a second item at the plate's hall); branch infra/scan-hall-portions.
+- Reverse if: plates at one hall are often assigned to another because the model codes the wrong look-alike dish there (then trust the model's hall when it explains at least as many items, or use the phone's location for `hall`).
