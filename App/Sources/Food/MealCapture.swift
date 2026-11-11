@@ -41,7 +41,7 @@ actor MealCaptureStore {
 
   /// Every captured meal, oldest first.
   func all() -> [CapturedMeal] {
-    let files = (try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? []
+    let files = names
     return files.filter { $0.hasSuffix(".json") }
       .compactMap { try? JSONDecoder().decode(CapturedMeal.self, from: file(named: $0) ?? Data()) }
       .sorted { $0.capturedAt < $1.capturedAt }
@@ -74,7 +74,7 @@ actor MealCaptureStore {
   }
 
   func logged() -> [LoggedMeal] {
-    let files = (try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? []
+    let files = names
     return files.filter { $0.hasSuffix(".log") }
       .compactMap { try? JSONDecoder().decode(LoggedMeal.self, from: file(named: $0) ?? Data()) }
       .sorted { $0.loggedAt < $1.loggedAt }
@@ -91,6 +91,12 @@ actor MealCaptureStore {
   func seedPhotos(_ photo: Data) {
     for id in unphotographed { try? photo.write(to: folder.appending(path: "\(id).jpg")) }
     unphotographed = []
+  }
+
+  /// The folder's file names. `path()` percent-encodes, so on the phone, whose folder is under
+  /// "Application Support", it named a folder that does not exist and every list came back empty.
+  private var names: [String] {
+    (try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? []
   }
 
   private func file(named name: String) -> Data? {

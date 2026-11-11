@@ -37,6 +37,24 @@ final class MealCaptureTests: XCTestCase {
     XCTAssertEqual(photo, Data([0xFF, 0xD8, 0x01]))
   }
 
+  /// The phone's folder is under "Application Support": a space in the path must not hide the
+  /// logged meals and photos (History, Home and Data read nothing on the device before this).
+  func testFolderWithASpaceListsLoggedMealsAndCaptures() async throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("Application Support \(UUID())", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = MealCaptureStore(storage: .temporary(root))
+    let captured = try await store.save(photo: Data([0xFF, 0xD8, 0x01]), at: Date())
+    let meal = LoggedMeal(id: UUID(), loggedAt: Date(), items: [])
+    try await store.log(meal)
+
+    let reopened = MealCaptureStore(storage: .temporary(root))
+    let logged = await reopened.logged()
+    let all = await reopened.all()
+    XCTAssertEqual(logged.map(\.id), [meal.id], "a logged meal was hidden by the space")
+    XCTAssertEqual(all, [captured], "a captured photo was hidden by the space")
+  }
+
   /// S-063: a text estimate (rough, no hall or brand) logged by search is read back.
   func testSearchEstimateRoundTripsThroughLog() async throws {
     let folder = FileManager.default.temporaryDirectory
