@@ -35,9 +35,13 @@ struct FoodSearchPanel: View {
             }
           }
         }
+        // Full width from the first frame, so "Searching..." doesn't sit in a narrow box that
+        // jumps wider when the first result row (name, Spacer, kcal) arrives.
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
       .scrollIndicators(.hidden)
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
     .textStyle(.label).foregroundStyle(Theme.muted)
     .padding(Theme.spaceMd)
     .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.ground))

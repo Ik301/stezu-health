@@ -654,6 +654,14 @@ Newest entry first. One entry per card: the date, the card, what changed, the ga
 - Tests: StezuCoreTests SetEditTests (3); AppTests PastSetEditTests/testEditSavesOnPhoneThenQueuesRecords; AppUITests SetEditUITests/testEditAndDeleteAPastSet (screenshots s055-set-editor, s055-history-edited, s055-day-sets). Changed because the story changes what they check: WorkoutLoggerUITests/testAddOnAppendsToCurrentWorkout and WorkoutRotationUITests/testNextAdvancesAndOffScheduleAndContinue now read a finished session's sets from the chips instead of the joined sets line.
 - Left undone: the Day view's session Delete still only removes the session from the phone (no tombstone to the server, no Health delete), as before this story.
 
+## 2026-11-10 infra/meal-store-path: Food History, Home and Data read the phone's meals; search keeps its width (daytime, Isaac)
+
+- Bug: on the phone, Food History said "No meals logged yet", Home's Food card read "--" and Restore from Hermes said it restored 8 meals every time, though the VM held them and every GET /records?kinds=meal returned 200. `MealCaptureStore.logged()` and `all()` listed the folder with `folder.path()`, which percent-encodes; the device folder is under "Application Support", so the listed path had "%20" in it, did not exist, and both lists came back empty. Writes went through the URL and worked, so meals were saved but never read back. Tests ran in temporary folders with no space, so CI never saw it. The server's meals and the app's merge were checked on the VM with his real records: 8 of 8 decode, and today comes out as 3 meals.
+- Fix: one `names` listing with `path(percentEncoded: false)` for both.
+- Search: `FoodSearchPanel` fills the width from the first frame; while "Searching..." showed alone, the panel shrank to the text and then jumped wider when the first result row arrived.
+- Tests: AppTests MealCaptureTests/testFolderWithASpaceListsLoggedMealsAndCaptures. No existing test changed.
+- Not verified here: his phone. After the install, Food History should list the server's meals without a Restore.
+
 ## 2026-11-02 Server: GET /records, GET /records/summary and the program kind (server card, D-143, D-144)
 
 - `GET /records/summary`: live counts and newest `updated_at` for the phone's kinds (location, meal, my_place, program, set, visit, weigh_in, workout_session; every kind listed, 0 and null when empty; app_usage left out), plus `sessions_from_sets` (distinct session_ids among live sets).
