@@ -2308,7 +2308,7 @@ The research notes cited here are kept private, because they contain personal he
   - (c) Narrow every menu item on Log.
   - (d) Show the midpoint large and the range small.
 - Decision: (a). `MatchedItem.servingsConfirmed()` and `confirmedSpread` (0.10) in Packages/StezuCore; `MealEdit.step` calls it. `MatchedItem` now decodes the server's `estimated`. (b) needs a new control and design work; until then, + then - confirms a portion unchanged. (d) contradicts S-050 ("never a midpoint") and is left alone.
-- Evidence: Packages/StezuCore/Sources/StezuCore/MealEdit.swift, PhotoMatch.swift; StezuCoreTests MealServingTests/testSteppedMenuItemNarrowsToMenuValueTimesServings, testUnsteppedAndReplacedItemsKeepTheServerRange; AppUITests FoodUITests and MealEditUITests expectations follow the narrower ranges; branch infra/scan-hall-portions.
+- Evidence: Packages/StezuCore/Sources/StezuCore/MealEdit.swift, PhotoMatch.swift; StezuCoreTests MealServingTests/testSteppedMenuItemNarrowsToMenuValueTimesServings, testUnsteppedAndReplacedItemsKeepTheServerRange; AppUITests FoodUITests, MealEditUITests and MealHistoryUITests expectations follow the narrower ranges; branch infra/scan-hall-portions.
 - Reverse if: weighed portions fall outside a confirmed range more than about 1 time in 5 (then widen to 15%), or the - and + taps turn out to be adjustments rather than confirmations (then add the explicit confirm control, option b).
 
 ## D-159 The plate's hall is the hall whose menu explains the most items, not the hall the model names

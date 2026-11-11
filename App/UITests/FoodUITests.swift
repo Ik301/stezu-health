@@ -119,9 +119,9 @@ final class FoodUITests: XCTestCase {
     XCTAssertFalse(app.element("\(item).remove").exists, "Remove is a swipe now")
 
     // Every range on the sheet uses an en dash, never a hyphen.
-    XCTAssertEqual(app.element("\(item).kcal").label, "120\u{2013}180 kcal")
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "500\u{2013}840 kcal")
-    XCTAssertEqual(app.element("food.match.total.protein").label, "8\u{2013}15 g protein")
+    XCTAssertEqual(app.element("\(item).kcal").label, "135\u{2013}165 kcal")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "515\u{2013}825 kcal")
+    XCTAssertEqual(app.element("food.match.total.protein").label, "8\u{2013}14 g protein")
     for id in ["food.match.total.kcal", "food.match.total.protein", "\(item).protein"] {
       XCTAssertFalse(app.element(id).label.contains("-"), "\(id) has a hyphen")
     }
@@ -134,7 +134,7 @@ final class FoodUITests: XCTestCase {
     XCTAssertTrue(toast.waitForExistence(timeout: 10), "no toast")
     XCTAssertEqual(toast.label, "Lunch logged, in Health")
     XCTAssertTrue(app.element("food.logged.undo").exists, "no Undo on the toast")
-    waitForLabel(app.element("food.strip.kcal"), "500\u{2013}840 kcal", timeout: 3)
+    waitForLabel(app.element("food.strip.kcal"), "515\u{2013}825 kcal", timeout: 3)
     saveScreenshot("s050-toast", of: app)
     expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: toast)
     waitForExpectations(timeout: 7)
