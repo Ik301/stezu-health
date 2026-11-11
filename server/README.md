@@ -120,9 +120,11 @@ serves the meal, or `mode` is `open_world`, every item is estimated open-world. 
 answers through a forced tool call (strict JSON), at temperature 0.
 
 A plate comes from one hall. With `hall` in the request, the model sees only that hall's menu.
-Otherwise it names the hall itself (falling back to the hall its matches point to most), and
-every item is matched within that hall: a dish from another hall becomes the best alternate at
-the plate's hall, or else `unlisted`, named as what it most likely is ("BBQ chicken") with the
+Otherwise the model codes each food at whichever hall lists it, and the server picks the hall
+whose menu explains the most items (an item counts at a hall when its code, the same dish name,
+or one of its alternates is listed there), then the most summed confidence, then the hall the
+model named. Every item is then matched within that hall: its own code, the same dish name at
+that hall, the best alternate there, or else `unlisted`, named as what it most likely is ("BBQ chicken") with the
 model's own estimate, because the online menus are often incomplete. The reply's top-level
 `hall` says which hall was used, and each item's `halls` is just that hall.
 

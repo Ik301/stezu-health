@@ -59,17 +59,18 @@ final class MealHistoryUITests: XCTestCase {
     saveScreenshot("s019-history", of: app)
 
     // Step 3: a tap opens the same item editor; half a serving more of Herb Rice, then Save.
+    // The stepped menu item narrows to its menu value +-10% (D-158).
     app.element("\(lunch).items").tap()
     let editor = app.element("food.match.title")
     XCTAssertTrue(editor.waitForExistence(timeout: 10), "no item editor")
     app.element("food.match.item.0.plus").tap()
-    XCTAssertEqual(app.element("food.match.total.kcal").label, "320–450 kcal")
+    XCTAssertEqual(app.element("food.match.total.kcal").label, "337–434 kcal")
     app.element("food.edit.save").tap()
     expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: editor)
     waitForExpectations(timeout: 10)
-    waitForLabel(app.element("\(lunch).ranges"), "320–450 kcal, 8–12 g protein")
-    XCTAssertEqual(app.element("\(today).kcal").label, "410–560 kcal")
-    XCTAssertEqual(app.element("\(today).protein").label, "22–30 g protein")
+    waitForLabel(app.element("\(lunch).ranges"), "337–434 kcal, 9–11 g protein")
+    XCTAssertEqual(app.element("\(today).kcal").label, "427–544 kcal")
+    XCTAssertEqual(app.element("\(today).protein").label, "23–29 g protein")
     XCTAssertTrue(
       app.element("\(lunch).source").label.hasSuffix("In Health"), "the edit is not in Health")
     saveScreenshot("s019-edited", of: app)

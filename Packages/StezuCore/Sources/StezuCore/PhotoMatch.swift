@@ -30,6 +30,8 @@ public struct MatchedItem: Sendable, Equatable, Codable {
   public let rough: Bool?
   public let kcal: FoodRange?
   public let proteinG: FoodRange?
+  /// The menu's own values are estimates (the server's `estimated`, D-131); nil when not sent.
+  public var estimated: Bool? = nil
 
   public static let unlistedID = "unlisted"
 

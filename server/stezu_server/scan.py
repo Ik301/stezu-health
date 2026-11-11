@@ -12,12 +12,13 @@ SYSTEM = """You identify the foods on a plate photographed at Princeton Universi
 The candidates are the menu items of every hall open for this meal, one per line:
 code | name | serving | kcal per serving | protein g per serving | halls
 Rules:
-- The whole plate comes from one hall. First choose that hall: the one whose menu explains the
-  most of the plate. Report it as hall, exactly as written in the candidates.
+- The whole plate comes from one hall: the one whose menu explains the most of the plate. Report
+  your best guess as hall, exactly as written in the candidates; the hall is checked against the
+  codes you choose.
 - Report each distinct food you can see once.
-- Choose codes only from candidates served at that hall. When a food is not on that hall's menu
-  (the menu online is often incomplete), use "unlisted" and name what it most likely is, for
-  example "BBQ chicken"; never borrow a dish from another hall.
+- Give each food the candidate code that matches it, whichever hall lists it, and put the same
+  dish at other halls among its alternates. When no candidate matches (the menu online is often
+  incomplete), use "unlisted" and name what it most likely is, for example "BBQ chicken".
 - For every item, also give unlisted_kcal and unlisted_protein_g: your own estimate for the
   portion shown. It is used when the item cannot be matched to the hall's menu.
 - servings: how many listed servings are on the plate, in steps of 0.5, at least 0.5.
@@ -136,23 +137,49 @@ def prompt(req: dict[str, Any], cands: list[dict[str, Any]], image: bytes) -> li
             {"type": "text", "text": text}]
 
 
-def choose_hall(answer: dict[str, Any], by_code: dict[str, dict[str, Any]], halls: list[str]) -> str | None:
-    """The model's hall when it is a real one; otherwise the hall its matches point to most."""
-    if answer.get("hall") in halls:
+def confidence(raw: dict[str, Any]) -> float:
+    return min(1.0, max(0.0, float(raw.get("confidence") or 0)))
+
+
+def by_name(cands: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+    """(dish name, hall) to its candidate: a dish shared by halls with different values gets one
+    code per hall, so the name is what says the hall lists it too."""
+    named: dict[tuple[str, str], dict[str, Any]] = {}
+    for c in cands:
+        for hall in c["halls"]:
+            named.setdefault((c["name"].strip().lower(), hall), c)
+    return named
+
+
+def choose_hall(answer: dict[str, Any], by_code: dict[str, dict[str, Any]], halls: list[str],
+                named: dict[tuple[str, str], dict[str, Any]]) -> str | None:
+    """The hall whose menu explains the most items, then the most summed confidence, then the
+    model's hall. The model's own hall is only a tie-break: one shared side must not outvote an
+    entree only another hall lists (2026-11-10)."""
+    best, best_key = None, (0, 0.0, False)
+    for hall in halls:
+        found = [at_hall(raw, by_code, hall, confidence(raw), named) for raw in answer.get("items", [])]
+        key = (sum(c is not None for c, _ in found), sum(conf for c, conf in found if c is not None),
+               answer.get("hall") == hall)
+        if key[0] and key > best_key:
+            best, best_key = hall, key
+    if best is None and answer.get("hall") in halls:
         return answer["hall"]
-    votes: dict[str, float] = {}
-    for raw in answer.get("items", []):
-        for hall in (by_code.get(raw.get("code")) or {}).get("halls", []):
-            votes[hall] = votes.get(hall, 0.0) + float(raw.get("confidence") or 0)
-    return max(votes, key=lambda h: votes[h]) if votes else None
+    return best
 
 
 def at_hall(raw: dict[str, Any], by_code: dict[str, dict[str, Any]], hall: str | None,
-            conf: float) -> tuple[dict[str, Any] | None, float]:
-    """The item's candidate if the hall serves it, else its best alternate there, else None."""
+            conf: float, named: dict[tuple[str, str], dict[str, Any]] | None = None
+            ) -> tuple[dict[str, Any] | None, float]:
+    """The item's candidate if the hall serves it, else the same dish by name at the hall, else
+    its best alternate there, else None."""
     c = by_code.get(raw.get("code"))
     if hall is None or (c and hall in c["halls"]):
         return c, conf
+    name = ((c or {}).get("name") or raw.get("name") or "").strip().lower()
+    same = (named or {}).get((name, hall))
+    if same is not None:
+        return same, conf
     there = [(by_code[a["code"]], float(a.get("confidence") or 0)) for a in raw.get("alternates", [])
              if a.get("code") in by_code and hall in by_code[a["code"]]["halls"]]
     if not there:
@@ -163,7 +190,7 @@ def at_hall(raw: dict[str, Any], by_code: dict[str, dict[str, Any]], hall: str |
 
 def run_scan(store: Any, model: Any, menu_items: list[dict[str, Any]], req: dict[str, Any],
              image: bytes, sha: str) -> dict[str, Any]:
-    key = f"scan2:{req['meal_id']}:{sha}"  # scan2: one hall per plate (2026-11-09)
+    key = f"scan3:{req['meal_id']}:{sha}"  # scan3: the hall that explains most items (2026-11-10)
     cached = store.get(key)
     if cached is not None:
         return cached | {"cached": True}
@@ -172,13 +199,14 @@ def run_scan(store: Any, model: Any, menu_items: list[dict[str, Any]], req: dict
     if req.get("hall") in all_halls:  # the phone knows the hall: show the model only its menu
         cands = [c for c in cands if req["hall"] in c["halls"]]
     by_code = {c["code"]: c for c in cands}
+    named = by_name(cands)
     depth = {r.get("region_id"): (r.get("depth_confidence") or 0) >= 0.6 for r in req["regions"]}
     answer = model.tool_call(SYSTEM, prompt(req, cands, image), TOOL)
-    hall = req["hall"] if req.get("hall") in all_halls else choose_hall(answer, by_code, all_halls)
+    hall = req["hall"] if req.get("hall") in all_halls else choose_hall(answer, by_code, all_halls, named)
     items = []
     for raw in answer.get("items", []):
         servings = max(0.5, round(float(raw.get("servings") or 1) * 2) / 2)
-        c, conf = at_hall(raw, by_code, hall, min(1.0, max(0.0, float(raw.get("confidence") or 0))))
+        c, conf = at_hall(raw, by_code, hall, confidence(raw), named)
         alternates = [{"item_id": by_code[a["code"]]["id"], "name": by_code[a["code"]]["name"],
                        "hall": hall or by_code[a["code"]]["hall"], "confidence": a.get("confidence")}
                       for a in raw.get("alternates", [])
