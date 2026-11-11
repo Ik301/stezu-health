@@ -2291,3 +2291,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a), at 3 sets of 8-12 and the library exercise's rest (`replaced(by:)` on a fixed shape). Adding the same exercise twice gives two slots. `append` now checks the card's exercise before appending; on a session with no slot it skipped the prefill, so the new card read 1 rep.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift (`add`, `append`); App/Sources/Workout/WorkoutLoggerView.swift (Add exercise, `LibraryUse`); SetLoggerTests (3 new tests); App/UITests/EmptyWorkoutUITests.swift.
 - Reverse if: added exercises need their own sets or reps chosen when added, or something has to tell them apart from program add-ons (today only the `added-` key does).
+
+## D-158 Add exercise asks for sets and reps after the pick, and the card's menu can change them later
+
+- Status: proposed by builder (daytime bug fix), 2026-11-10.
+- Problem: an exercise from Add exercise always got 3 x 8-12 (D-157), and nothing could change it, so an Empty workout could not have the sets or reps Isaac meant to do.
+- Given: the added slot is a one-exercise add-on in `appended` (D-157), saved with the logger. No sets-or-reps edit exists for any slot: program slots come from the template or the program file, and the template never changes in a session (D-084). The card's numbers and set count read the slot's `sets`, `repsLow` and `repsHigh`.
+- Constraints:
+  - Every added exercise must still be 3 x 8-12 unless changed (breaks the D-157 default and its tests).
+  - Steppers only, no keyboard, in the logger (breaks the Workout no-keyboard rule, S-007).
+  - Program slots keep the program's sets and reps (breaks D-084 and the progression read from them).
+  - Fewer sets than already logged would leave "Set 4 of 3" (breaks the set count on the card).
+- Options:
+  - (a) After the pick, a Sets and reps sheet prefilled at 3 x 8-12 with Add: one tap more per add; plus Sets and reps in the card's menu for an added slot.
+  - (b) Add at 3 x 8-12 as now, and change it only from the card's menu: no extra tap, but hidden, and a slot added mid-workout can only be changed once the card reaches it.
+  - (c) A session-only sets and reps override for every slot, program slots too.
+- Decision: (a). `SlotShape` holds sets (1 to 10) and reps from and to (1 to 100, the high end never below the low end; equal ends are one fixed number, "3 x 10"). `SetLogger.add(_:shape:history:)` takes it (default `.added`, 3 x 8-12). `reshape(_:)` changes only the card's slot and only if it came from Add exercise (`canReshape`, the `added-` key), keeps at least the sets logged, sets the card's reps to the new low end when nothing is logged and there is no last session, and moves the card on when the slot is then done. Adding costs Add exercise, the pick, Add (3 taps, was 2) plus one tap per stepper step.
+- Evidence: Packages/StezuCore/Sources/StezuCore/SlotShape.swift, SetLogger.swift (`add`, `canReshape`, `reshape`); App/Sources/Workout/SetsRepsEditor.swift, WorkoutLoggerView.swift; SetLoggerTests (3 new tests); App/UITests/AddedExerciseSetsUITests.swift, EmptyWorkoutUITests.swift (one more tap, Add).
+- Reverse if: the extra tap on every add costs more than choosing is worth (then option b), or Isaac wants to change a program slot's sets or reps for one session (then option c).

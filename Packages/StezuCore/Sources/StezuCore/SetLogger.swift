@@ -140,21 +140,61 @@ public struct SetLogger: Sendable, Equatable, Codable {
     prefill(swapped)
   }
 
-  /// Sets and reps of a slot added from the library, which has only a name and a rest.
-  public static let addedSets = 3
-  private static let addedShape = TemplateExercise(
-    key: "", name: "", sets: addedSets, repsLow: 8, repsHigh: 12, restSeconds: 0)
+  /// Sets of a slot added from the library when none are chosen (SlotShape.added).
+  public static let addedSets = SlotShape.added.sets
+  /// The key prefix of an Add exercise slot's one-exercise add-on.
+  private static let addedPrefix = "added-"
 
-  /// Add exercise: one more slot at the end of this session, 3 x 8-12 at the exercise's rest.
-  /// Stored as a one-exercise add-on, so `append` saves it, loads its last numbers (any
-  /// template, as for a swap) and moves the card to it when the card's exercise is done or
-  /// there is none (an Empty workout starts with no slot).
-  public mutating func add(_ exercise: LibraryExercise, history: [WorkoutSession]) {
-    let slot = Self.addedShape.replaced(by: exercise)
-    let key = "added-\(exercises.count)-\(exercise.key)"
+  /// Add exercise: one more slot at the end of this session, at the chosen sets and reps
+  /// (3 x 8-12 unless chosen, D-158) and the exercise's rest. Stored as a one-exercise add-on,
+  /// so `append` saves it, loads its last numbers (any template, as for a swap) and moves the
+  /// card to it when the card's exercise is done or there is none (an Empty workout starts
+  /// with no slot).
+  public mutating func add(
+    _ exercise: LibraryExercise, shape: SlotShape = .added, history: [WorkoutSession]
+  ) {
+    let slot = TemplateExercise(
+      key: exercise.key, name: exercise.name, sets: shape.sets, repsLow: shape.repsLow,
+      repsHigh: shape.repsHigh, restSeconds: exercise.restSeconds)
+    let key = "\(Self.addedPrefix)\(exercises.count)-\(exercise.key)"
     append(
       WorkoutTemplate(key: key, name: exercise.name, exercises: [slot], addOn: true),
       history: history)
+  }
+
+  /// True when the card's slot came from Add exercise, so Sets and reps can change it. The
+  /// program's slots and add-on blocks keep their own (D-084).
+  public var canReshape: Bool { addedBlock(at: exerciseIndex) != nil }
+
+  /// The index in `addOns` of the Add exercise block holding a slot, else nil.
+  private func addedBlock(at slot: Int) -> Int? {
+    var first = template.exercises.count
+    for (index, addOn) in addOns.enumerated() {
+      if slot < first + addOn.exercises.count {
+        return slot >= first && addOn.key.hasPrefix(Self.addedPrefix) ? index : nil
+      }
+      first += addOn.exercises.count
+    }
+    return nil
+  }
+
+  /// Sets and reps (D-158): the card's added slot takes the shape for this session, with never
+  /// fewer sets than it has logged (a swap in the slot too). With no set logged and no last
+  /// session, the card's reps go to the new low end. When the slot then has all its sets, the
+  /// card moves on as after a Log. Does nothing on a program slot.
+  public mutating func reshape(_ shape: SlotShape) {
+    guard let block = addedBlock(at: exerciseIndex), let current = exercise else { return }
+    let logged = loggedSets.count
+    let shaped = SlotShape(
+      sets: max(shape.sets, logged), repsLow: shape.repsLow, repsHigh: shape.repsHigh)
+    let reshaped = shaped.applied(to: addOns[block].exercises[0])
+    appended?[block].exercises[0] = reshaped
+    if let swap = swaps[exerciseIndex] { swaps[exerciseIndex] = shaped.applied(to: swap) }
+    if logged == 0, last[current.name] == nil { reps = shaped.repsLow }
+    if logged > 0, logged >= shaped.sets, exerciseIndex + 1 < exercises.count {
+      exerciseIndex += 1
+      prefill(exerciseInSlot(exerciseIndex))
+    }
   }
 
   public var weightStep: Double { exercise?.weightStep ?? Self.defaultWeightStep }

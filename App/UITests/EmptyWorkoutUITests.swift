@@ -31,7 +31,7 @@ final class EmptyWorkoutUITests: XCTestCase {
     XCTAssertTrue(app.element("workout.logger.addExercise").exists, "no Add exercise")
     saveScreenshot("fix-empty-workout", of: app)
 
-    // Add exercise opens the library; a pick puts the exercise on the card.
+    // Add exercise opens the library; a pick, then Add, puts the exercise on the card.
     tap("workout.logger.addExercise", in: app)
     let search = app.element("workout.library.search")
     XCTAssertTrue(search.waitForExistence(timeout: 10), "the Exercises library did not open")
@@ -40,6 +40,11 @@ final class EmptyWorkoutUITests: XCTestCase {
     let fly = app.element("workout.library.row.dumbbell-fly")
     XCTAssertTrue(fly.waitForExistence(timeout: 5), "no Dumbbell fly row")
     fly.tap()
+    // Sets and reps opens at 3 x 8-12 (D-158); Add keeps it.
+    let shape = app.element("workout.shape.summary")
+    XCTAssertTrue(shape.waitForExistence(timeout: 5), "Sets and reps did not open")
+    XCTAssertEqual(shape.label, "3 x 8-12")
+    app.element("workout.shape.save").tap()
     XCTAssertTrue(
       exercise.waitForExistence(timeout: 10) && exercise.label == "Dumbbell fly",
       "the pick is not on the card: \(exercise.label)")

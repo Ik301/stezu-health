@@ -305,4 +305,83 @@ final class SetLoggerTests: XCTestCase {
     XCTAssertEqual(resumed.exercises.map(\.key), ["dumbbell-fly", "biceps-curl"])
     XCTAssertNotNil(resumed.undo(), "undo still reaches the set logged before the save")
   }
+
+  /// Sets and reps stay in range: 1 to 10 sets, reps from 1, the high end never below the low
+  /// end; stepping one end past the other carries it along, and equal ends read as one number.
+  func testSlotShapeStepsStayInRange() {
+    var shape = SlotShape.added
+    XCTAssertEqual(shape.summary, "3 x 8-12")
+    for _ in 0..<12 { shape.stepSets(up: true) }
+    XCTAssertEqual(shape.sets, SlotShape.maxSets)
+    for _ in 0..<12 { shape.stepSets(up: false) }
+    XCTAssertEqual(shape.sets, 1)
+
+    for _ in 0..<6 { shape.stepRepsLow(up: true) }
+    XCTAssertEqual(shape.repRange, "14", "the low end pushes the high end along")
+    for _ in 0..<4 { shape.stepRepsHigh(up: false) }
+    XCTAssertEqual(shape.repRange, "10", "the high end pulls the low end along")
+    shape.stepRepsHigh(up: true)
+    shape.stepRepsHigh(up: true)
+    XCTAssertEqual(shape.summary, "1 x 10-12")
+    for _ in 0..<20 { shape.stepRepsLow(up: false) }
+    XCTAssertEqual(shape.repsLow, 1)
+
+    XCTAssertEqual(SlotShape(sets: 0, repsLow: 12, repsHigh: 8).summary, "1 x 12")
+    XCTAssertEqual(SlotShape(sets: 40, repsLow: 0, repsHigh: 500).summary, "10 x 1-100")
+  }
+
+  /// Add exercise with chosen sets and reps: the slot has them, the card starts at the low end
+  /// and moves on after the chosen number of sets.
+  func testAddExerciseWithChosenSetsAndReps() throws {
+    let empty = WorkoutTemplate(key: WorkoutRotation.emptyKey, name: "Empty", exercises: [])
+    var logger = SetLogger(template: empty, startedAt: start)
+    logger.add(fly, shape: SlotShape(sets: 2, repsLow: 15, repsHigh: 15), history: [])
+    logger.add(curl, history: [])
+    let slot = try XCTUnwrap(logger.exercise)
+    XCTAssertEqual(slot.sets, 2)
+    XCTAssertEqual(slot.repRange, "15")
+    XCTAssertEqual(slot.restSeconds, 75)
+    XCTAssertEqual(logger.reps, 15)
+    XCTAssertEqual(logger.exercises.last?.repRange, "8-12", "no shape chosen: 3 x 8-12")
+
+    logger.toggleBodyweight()
+    logger.log(at: start + 60)
+    logger.log(at: start + 120)
+    XCTAssertEqual(logger.exercise?.key, "biceps-curl", "two sets chosen, two sets done")
+  }
+
+  /// Sets and reps on an added slot already in the session: it changes that slot only, keeps
+  /// at least the sets already logged, survives a save, and moves the card on once the slot
+  /// has all its sets. Program slots cannot be changed.
+  func testReshapeAddedSlotInSession() throws {
+    var logger = SetLogger(template: template(sets: 1), startedAt: start)
+    XCTAssertFalse(logger.canReshape, "a program slot keeps its sets and reps")
+    logger.reshape(SlotShape(sets: 5, repsLow: 1, repsHigh: 1))
+    XCTAssertEqual(logger.exercise?.sets, 1)
+
+    logger.log(at: start + 60)
+    logger.log(at: start + 120)
+    logger.add(fly, history: [])
+    logger.add(curl, history: [])
+    XCTAssertEqual(logger.exercise?.key, "dumbbell-fly")
+    XCTAssertTrue(logger.canReshape)
+    logger.reshape(SlotShape(sets: 4, repsLow: 10, repsHigh: 10))
+    XCTAssertEqual(logger.exercise?.sets, 4)
+    XCTAssertEqual(logger.exercise?.repRange, "10")
+    XCTAssertEqual(logger.reps, 10, "nothing logged and never done: the card starts at 10")
+    XCTAssertEqual(logger.exercises.last?.sets, SetLogger.addedSets, "the other added slot")
+
+    logger.toggleBodyweight()
+    logger.log(at: start + 180)
+    logger.log(at: start + 240)
+    logger.stepReps(up: true)
+    logger.reshape(SlotShape(sets: 1, repsLow: 6, repsHigh: 8))
+    XCTAssertEqual(
+      logger.exercises[2].sets, 2, "never fewer sets than logged; the slot is now done")
+    XCTAssertEqual(logger.exercise?.key, "biceps-curl", "the card moves on as after a Log")
+
+    let saved = try JSONDecoder().decode(SetLogger.self, from: JSONEncoder().encode(logger))
+    XCTAssertEqual(saved.exercises[2].sets, 2)
+    XCTAssertEqual(saved.exercises[2].repRange, "6-8")
+  }
 }

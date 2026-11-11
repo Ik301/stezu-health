@@ -71,24 +71,42 @@ struct WorkoutLoggerView: View {
       WorkoutSessionStore(storage: environment.storage).save(changed)
     }
     .sheet(item: $library) { use in
-      ExerciseLibraryView(history: history + [logger.session]) { picked in
+      Group {
         switch use {
-        case .swap: logger.swap(to: picked, history: history)
-        case .add: logger.add(picked, history: history)
+        case .swap:
+          ExerciseLibraryView(history: history + [logger.session]) { picked in
+            logger.swap(to: picked, history: history)
+            library = nil
+          }
+        case .add:
+          AddExerciseFlow(history: history + [logger.session]) { picked, shape in
+            logger.add(picked, shape: shape, history: history)
+            library = nil
+          }
+        case .shape:
+          SetsRepsEditor(
+            title: logger.exercise?.name ?? "--",
+            shape: logger.exercise.map { SlotShape($0) } ?? .added, save: "Save"
+          ) { shape in
+            if let shape { logger.reshape(shape) }
+            library = nil
+          }
         }
-        library = nil
       }
       .environment(\.appEnvironment, environment)
     }
   }
 
+  /// The sheet: the library for Swap or Add exercise (then Sets and reps), or Sets and reps
+  /// for the card's added exercise (D-158).
   private enum LibraryUse: Identifiable {
-    case swap, add
+    case swap, add, shape
     var id: Self { self }
   }
 
-  /// Opens the library to put one more exercise at the end of this workout, beside the add-ons.
-  /// Always shown: on an Empty workout it is the only way to get an exercise.
+  /// Opens the library to put one more exercise at the end of this workout, beside the add-ons;
+  /// the pick then gets its sets and reps (3 x 8-12 unless changed, D-158). Always shown: on
+  /// an Empty workout it is the only way to get an exercise.
   private var addExercise: some View {
     Button("Add exercise") { library = .add }
       .textStyle(.subtitle, weight: .semibold)
@@ -116,6 +134,10 @@ struct WorkoutLoggerView: View {
           Menu {
             Button("Swap") { library = .swap }
               .accessibilityIdentifier("workout.logger.swap")
+            if logger.canReshape {
+              Button("Sets and reps") { library = .shape }
+                .accessibilityIdentifier("workout.logger.setsReps")
+            }
             if logger.upNext != nil {
               Button("Skip exercise") { logger.skipExercise() }
                 .accessibilityIdentifier("workout.logger.skipExercise")
