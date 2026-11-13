@@ -164,7 +164,16 @@ and `results`:
 Every remote result with a kcal has a `per_serving` the phone can log. When the source gives no
 serving, it is the first USDA household measure (`basis: "measure"`, e.g. "1 tender", 25 g) or
 100 g / 100 mL (`basis: "per_100"`); Open Food Facts' search index only carries per-100 g values,
-so packaged results usually take the second. Results without a kcal sort last. Queries shorter
+so packaged results usually take the second.
+
+Remote results are ranked by relevance to the query: each query word found at the start of a
+word of the name scores 1, a brand word scores ½ wherever it is found (in `brand` or written
+into the name), over the number of query words. At equal relevance results with a kcal come
+first, then the source's own order. Open Food Facts is asked for 100 hits and the best 8 are
+kept, after dropping hits with no name or whose name is just one of their brands ("Optimum
+Nutrition" by Optimum Nutrition). Each `open_food_facts` and `usda_fdc` result carries
+`package_size`: the package as labelled (`"600 g"`, `"1.32 lb (600 g)"`; OFF `quantity`, else
+`product_quantity` and its unit; USDA `packageWeight`), or `null`. Queries shorter
 than 3 characters skip both remote sources (`status: skipped`, `error: "query too short"`), so
 typing does not spend the USDA quota (`DEMO_KEY` allows 30 calls an hour).
 

@@ -8,10 +8,12 @@ from difflib import SequenceMatcher
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from .barcode import OFF_FIELDS, product_view
+from .barcode import OFF_FIELDS, _num, product_view
 from .scan import ROUGH_SPREAD, widen
 
-OFF_SEARCH = "https://search.openfoodfacts.org/search?q={q}&page_size=8&fields=" + OFF_FIELDS
+OFF_PAGE = 100  # OFF puts brand-only entries first and the real product near hit 50; fetch past it
+OFF_KEEP = 8
+OFF_SEARCH = f"https://search.openfoodfacts.org/search?q={{q}}&page_size={OFF_PAGE}&fields=" + OFF_FIELDS
 USDA_SEARCH = "https://api.nal.usda.gov/fdc/v1/foods/search?"
 TTL = 86400
 ESTIMATE_SYSTEM = (
@@ -76,14 +78,62 @@ def with_portion(result: dict[str, Any]) -> dict[str, Any]:
                                      "basis": "per_100"}}
 
 
-def numbers_first(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Results the phone can log (a kcal) before ones it can't, otherwise in the source's order."""
-    return sorted(results, key=lambda r: (r.get("per_serving") or {}).get("kcal") is None)
+def _words(text: str | None) -> list[str]:
+    return re.findall(r"\w+", (text or "").lower())
+
+
+def relevance(query: str, name: str | None, brand: str | None, brand_words: frozenset[str] = frozenset()) -> float:
+    """Points per query word that starts a word of the name or brand, over the number of query words.
+
+    A word found in the name scores 1; a brand word scores ½ wherever it is found, so the product
+    itself outranks the brand: for "creatine optimum nutrition", "Micronized Creatine Powder" by
+    Optimum Nutrition scores 2/3 and an Optimum Nutrition protein bar 1/3. `brand_words` are the
+    brand words of every result in the list, so "Optimum Nutrition Whey" with no brand set still
+    counts its brand words at ½.
+    """
+    q_words = list(dict.fromkeys(_words(query)))
+    if not q_words:
+        return 0.0
+    name_words, own_brand = _words(name), _words(brand)
+    points = 0.0
+    for t in q_words:
+        branded = t in own_brand or t in brand_words  # whole words: "bar" is not the brand Barebells
+        if any(w.startswith(t) for w in name_words):
+            points += 0.5 if branded else 1.0
+        elif any(w.startswith(t) for w in own_brand):
+            points += 0.5
+    return round(points / len(q_words), 4)
+
+
+def rank(results: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
+    """Most relevant first; at equal relevance, results the phone can log (a kcal) first; then the source's order."""
+    brands = frozenset(w for r in results for w in _words(r.get("brand")))
+    return sorted(results, key=lambda r: (-relevance(query, r.get("name"), r.get("brand"), brands),
+                                          (r.get("per_serving") or {}).get("kcal") is None))
+
+
+def _brand_only(p: dict[str, Any]) -> bool:
+    """An OFF hit with no name, or whose name is just one of its brands ("Optimum Nutrition")."""
+    name = (p.get("product_name") or "").strip().lower()
+    brands = p.get("brands") or ""
+    parts = ",".join(brands) if isinstance(brands, list) else str(brands)
+    return not name or name in {b.strip().lower() for b in parts.split(",")}
+
+
+def package_size(p: dict[str, Any]) -> str | None:
+    """The package as labelled ("600 g"): OFF's `quantity`, else `product_quantity` and its unit."""
+    label = str(p.get("quantity") or "").strip()
+    if label:
+        return label
+    amount = _num(p.get("product_quantity"))
+    return f"{amount:g} {p.get('product_quantity_unit') or 'g'}" if amount else None
 
 
 def off_search(http: Any, query: str) -> list[dict[str, Any]]:
     data = http.get_json(OFF_SEARCH.format(q=quote(query)), timeout=10)
-    return numbers_first([with_portion(product_view(p)) for p in data.get("hits", []) if p.get("product_name")])
+    hits = [p for p in data.get("hits", []) if not _brand_only(p)]
+    results = [with_portion(product_view(p)) | {"package_size": package_size(p)} for p in hits]
+    return rank(results, query)[:OFF_KEEP]
 
 
 def _measure(food: dict[str, Any]) -> tuple[str, float] | None:
@@ -108,7 +158,7 @@ def usda_search(http: Any, query: str, key: str) -> list[dict[str, Any]]:
             label, grams = measure
             out.append({
                 "fdc_id": food.get("fdcId"), "name": food.get("description"), "brand": food.get("brandOwner"),
-                "data_type": food.get("dataType"),
+                "data_type": food.get("dataType"), "package_size": food.get("packageWeight") or None,
                 "per_100": {"unit": "g", "kcal": kcal, "protein_g": protein},
                 "per_serving": {
                     "label": label, "quantity": grams, "unit": "g", "kcal": round(kcal * grams / 100, 1),
@@ -119,7 +169,7 @@ def usda_search(http: Any, query: str, key: str) -> list[dict[str, Any]]:
             continue
         out.append({
             "fdc_id": food.get("fdcId"), "name": food.get("description"), "brand": food.get("brandOwner"),
-            "data_type": food.get("dataType"),
+            "data_type": food.get("dataType"), "package_size": food.get("packageWeight") or None,
             "per_100": {"unit": "g", "kcal": kcal, "protein_g": protein},
             "per_serving": {
                 "label": food.get("householdServingFullText"), "quantity": size, "unit": unit or None,
@@ -127,7 +177,7 @@ def usda_search(http: Any, query: str, key: str) -> list[dict[str, Any]]:
                 "protein_g": round(protein * per, 1) if per and protein is not None else None,
             },
         })
-    return numbers_first([with_portion(r) for r in out])
+    return rank([with_portion(r) for r in out], query)
 
 
 def estimate(model: Any, query: str) -> dict[str, Any]:
@@ -140,7 +190,7 @@ def estimate(model: Any, query: str) -> dict[str, Any]:
 def run_search(store: Any, http: Any, model: Any, usda_key: str | None, query: str,
                items: list[dict[str, Any]], want_estimate: bool) -> list[dict[str, Any]]:
     def remote(source: str, fn: Any) -> dict[str, Any]:
-        key = f"search2:{source}:{query.lower()}"  # search2: results carry a fallback serving
+        key = f"search3:{source}:{query.lower()}"  # search3: relevance order, brand-only rows dropped, package_size
         cached = store.get(key, TTL)
         if cached is not None:
             return {"source": source, "status": "ok", "results": cached}

@@ -119,3 +119,69 @@ def test_short_queries_skip_the_remote_sources(make_client):
     g = groups(make_client(http, usda_key="DEMO_KEY").get(f"/search?q=ba&date={DATE}"))
     assert g["open_food_facts"]["status"] == "skipped" and g["usda_fdc"]["status"] == "skipped"
     assert not [u for u in http.calls if "openfoodfacts" in u or "nal.usda.gov" in u]
+
+
+def creatine_hits():
+    return FakeHttp().add("search.openfoodfacts.org", fixture("off_search_creatine.json"))
+
+
+def test_brand_only_and_nameless_off_hits_are_dropped():
+    # "creatine optimum nutrition": OFF's top hits were entries named just "Optimum Nutrition" (2026-11-12).
+    codes = [r["gtin"] for r in search.off_search(creatine_hits(), "creatine optimum nutrition")]
+    assert "0000000000017" not in codes  # name == brand
+    assert "0000000000024" not in codes  # same, other case and a trailing space
+    assert "0000000000031" not in codes and "0000000000086" not in codes  # blank or empty name
+    assert "0000000000048" not in codes  # name is one brand of a comma-separated list
+    assert codes == ["0000000000062", "0000000000079", "0000000000093", "0000000000055"]
+
+
+def test_relevance_beats_having_a_kcal():
+    results = search.off_search(creatine_hits(), "creatine optimum nutrition")
+    names = [r["name"] for r in results]
+    assert names[:2] == ["Micronized Creatine Powder", "Micronized Creatine Powder"]
+    assert results[3]["name"] == "Gold Standard Bar" and results[3]["per_serving"]["kcal"] == 419
+    assert results[0]["per_serving"]["kcal"] is None  # ranked first without a number
+    # A brand written into the name (no brand set) earns no more than the brand field would.
+    assert results[2]["name"] == "Optimum Nutrition Whey" and results[2]["per_serving"]["kcal"] is not None
+
+
+def test_kcal_breaks_only_ties_in_relevance():
+    http = FakeHttp().add("search.openfoodfacts.org", json.dumps({"hits": [
+        {"code": "1", "product_name": "Creatine Capsules", "brands": "Acme", "nutriments": {}},
+        {"code": "2", "product_name": "Creatine Gummies", "brands": "Acme", "nutriments": {"energy-kcal_100g": 300}},
+        {"code": "3", "product_name": "Creatine Powder", "brands": "Acme", "nutriments": {}},
+        {"code": "4", "product_name": "Electrolyte Mix", "brands": "Acme", "nutriments": {"energy-kcal_100g": 50}},
+    ]}))
+    codes = [r["gtin"] for r in search.off_search(http, "acme creatine")]
+    assert codes == ["2", "1", "3", "4"]  # equal relevance: kcal first, then OFF's order; less relevant last
+    assert search.relevance("acme creatine", "Creatine Capsules", "Acme") == 0.75
+    assert search.relevance("acme creatine", "Electrolyte Mix", "Acme") == 0.25
+
+
+def test_off_results_carry_package_size():
+    by_code = {r["gtin"]: r for r in search.off_search(creatine_hits(), "creatine optimum nutrition")}
+    assert by_code["0000000000062"]["package_size"] == "600 g"  # OFF's quantity label
+    assert by_code["0000000000079"]["package_size"] == "300 g"  # from product_quantity and its unit
+    assert by_code["0000000000055"]["package_size"] is None
+
+
+def test_off_fetches_more_than_it_keeps():
+    http = FakeHttp().add("search.openfoodfacts.org", json.dumps({"hits": [
+        {"code": str(i), "product_name": f"Creatine {i}", "brands": "Acme", "nutriments": {}} for i in range(30)
+    ]}))
+    results = search.off_search(http, "creatine")
+    assert f"page_size={search.OFF_PAGE}" in http.calls[0] and search.OFF_PAGE > search.OFF_KEEP and len(results) == search.OFF_KEEP
+
+
+def test_usda_results_carry_package_size_and_search_returns_it(make_client):
+    http = FakeHttp().add("api.nal.usda.gov", json.dumps({"foods": [
+        {"fdcId": 1, "description": "Creatine Monohydrate", "brandOwner": "Acme", "dataType": "Branded",
+         "packageWeight": "10.6 oz/300 g", "servingSize": 5, "servingSizeUnit": "g",
+         "foodNutrients": [{"nutrientNumber": "208", "value": 0}]},
+        {"fdcId": 2, "description": "Creatine Chews", "brandOwner": "Acme", "dataType": "Branded",
+         "foodNutrients": [{"nutrientNumber": "208", "value": 350}]},
+    ]}))
+    assert [r["package_size"] for r in search.usda_search(http, "creatine", "KEY")] == ["10.6 oz/300 g", None]
+    http = foodpro_http().add("search.openfoodfacts.org", fixture("off_search_creatine.json"))
+    off = groups(make_client(http).get(f"/search?q=creatine+optimum+nutrition&date={DATE}"))["open_food_facts"]
+    assert [r["package_size"] for r in off["results"][:2]] == ["600 g", "300 g"]
