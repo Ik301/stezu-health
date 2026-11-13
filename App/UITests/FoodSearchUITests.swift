@@ -32,7 +32,8 @@ final class FoodSearchUITests: XCTestCase {
       app.element("food.search.result.usda_fdc.0.name").label, "Bean burrito, restaurant")
     XCTAssertEqual(app.element("food.search.result.open_food_facts.0.name").label, "Plain Yogurt")
     XCTAssertEqual(
-      app.element("food.search.result.open_food_facts.0.detail").label, "Example Dairy · 1 cup")
+      app.element("food.search.result.open_food_facts.0.detail").label,
+      "Example Dairy · 500 g · 1 cup")
     saveScreenshot("s014-results", of: app)
 
     // Step 2: one tap picks; the item list opens with it at 1 serving and its ranges.
