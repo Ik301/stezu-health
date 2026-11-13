@@ -1,0 +1,83 @@
+{
+ "hits": [
+  {
+   "code": "0000000000017",
+   "product_name": "Optimum Nutrition",
+   "brands": "Optimum Nutrition",
+   "nutriments": {
+    "energy-kcal_100g": 380,
+    "proteins_100g": 75
+   }
+  },
+  {
+   "code": "0000000000024",
+   "product_name": "optimum nutrition ",
+   "brands": [
+    "Optimum Nutrition"
+   ],
+   "nutriments": {
+    "energy-kcal_100g": 400
+   }
+  },
+  {
+   "code": "0000000000031",
+   "product_name": "  ",
+   "brands": "Optimum Nutrition",
+   "nutriments": {}
+  },
+  {
+   "code": "0000000000086",
+   "product_name": "",
+   "brands": "Optimum Nutrition",
+   "nutriments": {
+    "energy-kcal_100g": 350
+   }
+  },
+  {
+   "code": "0000000000048",
+   "product_name": "Gold Standard",
+   "brands": "Gold Standard, Optimum Nutrition",
+   "nutriments": {
+    "energy-kcal_100g": 370
+   }
+  },
+  {
+   "code": "0000000000093",
+   "product_name": "Optimum Nutrition Whey",
+   "brands": null,
+   "nutriments": {
+    "energy-kcal_100g": 396.9,
+    "proteins_100g": 78
+   }
+  },
+  {
+   "code": "0000000000055",
+   "product_name": "Gold Standard Bar",
+   "brands": "Optimum Nutrition",
+   "quantity": "",
+   "nutriments": {
+    "energy-kcal_100g": 419,
+    "proteins_100g": 30
+   }
+  },
+  {
+   "code": "0000000000062",
+   "product_name": "Micronized Creatine Powder",
+   "brands": "Optimum Nutrition",
+   "quantity": "600 g",
+   "product_quantity": "600",
+   "product_quantity_unit": "g",
+   "nutriments": {}
+  },
+  {
+   "code": "0000000000079",
+   "product_name": "Micronized Creatine Powder",
+   "brands": "Optimum Nutrition",
+   "product_quantity": 300,
+   "product_quantity_unit": "g",
+   "nutriments": {}
+  }
+ ],
+ "count": 8100,
+ "page_size": 40
+}
