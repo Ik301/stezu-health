@@ -352,7 +352,7 @@ enum UITestFixtures {
        "serving": "4 oz", "kcal": 160, "protein_g": 4, "halls": ["North Hall", "South Hall"]}]},
      {"source": "open_food_facts", "status": "ok", "results": [
       {"gtin": "0000000000017", "name": "Plain Yogurt", "brand": "Example Dairy",
-       "per_serving": {"label": "1 cup", "kcal": 100, "protein_g": 16}}]},
+       "package_size": "500 g", "per_serving": {"label": "1 cup", "kcal": 100, "protein_g": 16}}]},
      {"source": "usda_fdc", "status": "ok", "results": [
       {"fdc_id": 1, "name": "Bean burrito, restaurant", "brand": null,
        "per_serving": {"label": "1 burrito", "kcal": 400, "protein_g": 12}}]},

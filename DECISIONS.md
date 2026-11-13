@@ -2291,3 +2291,21 @@ The research notes cited here are kept private, because they contain personal he
 - Decision: (a), at 3 sets of 8-12 and the library exercise's rest (`replaced(by:)` on a fixed shape). Adding the same exercise twice gives two slots. `append` now checks the card's exercise before appending; on a session with no slot it skipped the prefill, so the new card read 1 rep.
 - Evidence: Packages/StezuCore/Sources/StezuCore/SetLogger.swift (`add`, `append`); App/Sources/Workout/WorkoutLoggerView.swift (Add exercise, `LibraryUse`); SetLoggerTests (3 new tests); App/UITests/EmptyWorkoutUITests.swift.
 - Reverse if: added exercises need their own sets or reps chosen when added, or something has to tell them apart from program add-ons (today only the `added-` key does).
+
+## D-160 The search list keeps the server's group and result order, and package size joins the detail line
+
+- Status: proposed by builder (daytime, food search client), 2026-11-12.
+- Problem: look-alike packaged foods (one product in a 300 g and a 600 g tub) read the same in the search list, his own foods (D-158) had no place in it, and the panel put its groups in a fixed order of its own.
+- Given: GET /search now sends a `history` group first (D-158), ranks each remote group by relevance, and adds `package_size` (a label such as "600 g", or null) to Open Food Facts and USDA results. A result with no per-serving kcal gets a 100 g stand-in serving marked `basis: per_100`. MatchedItem is stored and synced with logged meals.
+- Constraints:
+  - A fixed client order (dining, USDA, packaged) undoes the server's ranking across groups (breaks "his own foods first").
+  - Putting the package size on MatchedItem changes what the meal store and POST /sync carry (breaks "a search change touches search only").
+  - Showing the 100 g stand-in next to a package size reads as a second package (breaks "tell the tubs apart at a glance").
+  - Older servers send neither field nor the history group (breaks decoding if either is required).
+- Options:
+  - (a) Groups listed in the order sent; each result is a `FoodSearchResult` (the item plus `packageSize` and `servingIsPer100`); the detail line is place or brand, then package size, then the serving unless it is the 100 g stand-in or the package size again.
+  - (b) The same, with `packageSize` on MatchedItem.
+  - (c) Keep the fixed order and add history at the top.
+- Decision: (a). The list shows history ("Your foods", hidden when empty), dining, packaged, then USDA, as the server sends them; nothing on the phone sorts. With no package size the line is unchanged ("Example Brand · 100 g"). Both new fields decode as absent when missing.
+- Evidence: Packages/StezuCore/Sources/StezuCore/FoodSearch.swift, App/Sources/Food/FoodSearchPanel.swift; FoodSearchClientTests (5 new), FoodSearchPanelTests (1 new); branch infra/search-client-rows.
+- Reverse if: the history group should show the package size of what he logged (then the logged item has to carry it, option b, and D-158 has to pass it through), or the per-100 stand-in turns out to confuse him without a package size too.

@@ -10,11 +10,19 @@ struct FoodSearchPanel: View {
   @State private var groups: [FoodSearchGroup]?
   @State private var status = "Searching..."
 
-  /// The groups shown, in order; USDA FoodData Central holds the restaurant and generic dishes.
-  static let sections: [(source: FoodSearchSource, title: String)] = [
-    (.dining, "Dining halls"), (.usdaFdc, "Restaurants and generic (USDA)"),
-    (.openFoodFacts, "Packaged food"),
+  /// Each listed group's heading; USDA FoodData Central holds the restaurant and generic dishes.
+  /// The groups themselves come in the server's order, his own foods first (D-158).
+  static let titles: [FoodSearchSource: String] = [
+    .history: "Your foods", .dining: "Dining halls", .usdaFdc: "Restaurants and generic (USDA)",
+    .openFoodFacts: "Packaged food",
   ]
+
+  /// The groups the list shows, in the order the server ranked them; never re-sorted here.
+  static func listed(_ groups: [FoodSearchGroup]) -> [(group: FoodSearchGroup, title: String)] {
+    groups.filter(\.isListed).compactMap { group in
+      (titles[group.source] ?? group.title).map { (group, $0) }
+    }
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: Theme.spaceSm) {
@@ -27,12 +35,8 @@ struct FoodSearchPanel: View {
       ScrollView {
         VStack(alignment: .leading, spacing: Theme.spaceSm) {
           Text(status).accessibilityIdentifier("food.search.status")
-          ForEach(Self.sections.indices, id: \.self) { index in
-            if let group = groups?.first(where: { $0.source == Self.sections[index].source }),
-              group.status != "skipped"
-            {
-              groupView(group, title: Self.sections[index].title)
-            }
+          ForEach(Self.listed(groups ?? []), id: \.group.source) { section in
+            groupView(section.group, title: section.title)
           }
         }
       }
@@ -51,7 +55,8 @@ struct FoodSearchPanel: View {
     if group.status == "error" || group.items.isEmpty {
       Text(group.status == "error" ? "Could not load" : "No matches")
     }
-    ForEach(Array(group.items.enumerated()), id: \.offset) { index, item in
+    ForEach(Array(group.results.enumerated()), id: \.offset) { index, result in
+      let item = result.item
       let id = "food.search.result.\(group.source.rawValue).\(index)"
       VStack(alignment: .leading, spacing: Theme.space2xs) {
         HStack {
@@ -61,20 +66,13 @@ struct FoodSearchPanel: View {
           Text(FoodRange.text(item.kcal, unit: "kcal")).foregroundStyle(Theme.ink)
             .accessibilityIdentifier("\(id).kcal")
         }
-        Text(Self.detail(item)).accessibilityIdentifier("\(id).detail")
+        Text(result.detail).accessibilityIdentifier("\(id).detail")
       }
       .padding(Theme.spaceSm)
       .background(RoundedRectangle(cornerRadius: Theme.radiusCard).fill(Theme.surface))
       .contentShape(Rectangle()).onTapGesture { pick(item) }
       .accessibilityElement(children: .contain).accessibilityAddTraits(.isButton)
     }
-  }
-
-  /// "North Hall, South Hall · 4 oz" or "Example Brand · 1 cup"; "--" with neither.
-  static func detail(_ item: MatchedItem) -> String {
-    let place = item.halls.flatMap { $0.isEmpty ? nil : $0.joined(separator: ", ") } ?? item.brand
-    let parts = [place, item.serving].compactMap { $0 }
-    return parts.isEmpty ? "--" : parts.joined(separator: " · ")
   }
 
   private var today: String {
